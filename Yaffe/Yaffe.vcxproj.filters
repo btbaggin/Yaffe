@@ -1,0 +1,59 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Yaffe.cpp" />
+    <ClCompile Include="Render.cpp" />
+    <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="Assets.cpp" />
+    <ClCompile Include="Input.cpp" />
+    <ClCompile Include="Emulators.cpp" />
+    <ClCompile Include="Interface.cpp" />
+    <ClCompile Include="RomMenu.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="EmulatorList.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="InfoPane.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Root.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Database.cpp" />
+    <ClCompile Include="YaffeOverlay.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Modal.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="SelectorModal.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="FilterBar.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="typedefs.h" />
+    <ClInclude Include="Yaffe.h" />
+    <ClInclude Include="shaders.h" />
+    <ClInclude Include="Memory.h" />
+    <ClInclude Include="Assets.h" />
+    <ClInclude Include="Input.h" />
+    <ClInclude Include="Interface.h" />
+    <ClInclude Include="Emulators.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{d267c52b-2e00-45ce-9007-d8fb130f79ab}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Yaffe.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="yaffe.ico" />
+  </ItemGroup>
+</Project>
