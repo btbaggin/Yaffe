@@ -97,6 +97,8 @@ static void _BindParameters(SqlStatement* pStatement, SqliteParameter* pParamete
 #include <urlmon.h>
 static void DownloadImage(const char* pUrl, std::string pSlot)
 {
+	if (FileExists(pSlot.c_str())) return;
+
 	IStream* stream;
 	//Also works with https URL's - unsure about the extent of SSL support though.
 	HRESULT result = URLOpenBlockingStreamA(0, pUrl, &stream, 0, 0);
@@ -214,6 +216,8 @@ MODAL_CLOSE(WriteGameAliasToDB)
 			if (!ExecuteUpdate(&stmt))
 			{
 				DisplayErrorMessage("Unable to update platform alias", ERROR_TYPE_Warning);
+				delete gi;
+				return;
 			}
 		}
 

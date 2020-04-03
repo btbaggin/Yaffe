@@ -90,6 +90,13 @@ WORK_QUEUE_CALLBACK(DownloadRomAssets)
 	delete work;
 }
 
+static bool IsValidRomFile(char* pFile)
+{
+	char* extension = PathFindExtensionA(pFile);
+	if (strcmp(extension, ".srm") == 0) return false;
+	return true;
+}
+
 static u32 CountFilesInDirectory(char* pDirectory)
 {
 	WIN32_FIND_DATAA file;
@@ -102,7 +109,7 @@ static u32 CountFilesInDirectory(char* pDirectory)
 			if (strcmp(file.cFileName, ".") != 0 &&
 				strcmp(file.cFileName, "..") != 0)
 			{
-				if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) count++;
+				if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 && IsValidRomFile(file.cFileName)) count++;
 			}
 		} while (FindNextFileA(h, &file));
 	}
@@ -164,7 +171,7 @@ static void GetRoms(YaffeState* pState, Emulator* pEmulator, bool pForce)
 		if (strcmp(file.cFileName, ".") != 0 && 
 			strcmp(file.cFileName, "..") != 0)
 		{
-			if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+			if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 && IsValidRomFile(file.cFileName))
 			{
 				Rom* rom = pEmulator->roms.items + pEmulator->roms.count++;
 				sprintf(rom->path, "%s\\%s", pEmulator->rom_path, file.cFileName);
