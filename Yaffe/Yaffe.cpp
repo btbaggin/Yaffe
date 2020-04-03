@@ -353,14 +353,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	DestroyGlWindow(&g_state.form);
 	CloseHandle(queue.Semaphore);
 
-	//Update database when we close the application.
-	//Don't do it on start up to prevent locking it
-	STARTUPINFOA si = {};
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	si.wShowWindow = SW_MINIMIZE;
-	PROCESS_INFORMATION pi = {};
-	CreateProcessA("YaffeScraper.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
-
 	return 0;
 }
 

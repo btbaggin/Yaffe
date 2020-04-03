@@ -70,13 +70,10 @@ private:
 			ShowWindow(handle, SW_RESTORE);
 		}
 
-		if(!showing_overlay)
+		//Check if the program closed without going through the overlay
+		if (WaitForSingleObject(g_state.running_rom.hProcess, 100) == 0)
 		{
-			//Check if the program closed without going through the overlay
-			if (WaitForSingleObject(g_state.running_rom.hProcess, 100) == 0)
-			{
-				FocusElement(UI_Roms);
-			}
+			RevertFocus();
 		}
 	}
 

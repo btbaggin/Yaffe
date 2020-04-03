@@ -218,6 +218,14 @@ class RomMenu : public UiElement
 					return;
 				}
 
+				//Since we aren't on the application, it's a good time to update the database
+				//We don't want to do it while the application is running because we could block it
+				si = {};
+				si.dwFlags = STARTF_USESHOWWINDOW;
+				si.wShowWindow = SW_MINIMIZE;
+				PROCESS_INFORMATION pi = {};
+				CreateProcessA("YaffeScraper.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+
 				FocusElement(UI_Overlay);
 			}
 		}
