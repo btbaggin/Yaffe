@@ -1,6 +1,11 @@
 #include "Modal.cpp"
 #include "SelectorModal.cpp"
 
+static bool IsApplicationFocused()
+{
+	return GetForegroundWindow() == g_state.form.handle;
+}
+
 static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 {
 	v2 size = MeasureString(pFont, pText);
@@ -158,7 +163,7 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 		DisplayModalWindow(pState, message, BITMAP_Error, ErrorModalClose);
 		pState->error_count = 0;
 	}
-	else if (GetForegroundWindow() == g_state.form.handle && (IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
+	else if (IsApplicationFocused() && (IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
 	{
 		//Only allow quitting when current window is focused
 		std::vector<std::string> options;

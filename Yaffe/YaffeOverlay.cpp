@@ -30,7 +30,7 @@ private:
 
 	static MODAL_CLOSE(OverlayModalClose)
 	{ 
-		if (pResult == MODAL_RESULT_Ok)
+		if (pResult == MODAL_RESULT_Ok && IsApplicationFocused())
 		{
 			TerminateProcess(g_state.running_rom.hProcess, 0);
 			WaitForSingleObject(g_state.running_rom.hProcess, INFINITE);
