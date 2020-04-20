@@ -228,7 +228,7 @@ MODAL_CLOSE(WriteGameAliasToDB)
 			if (strcmp(r->name, gi->name.c_str()) == 0)
 			{
 				char rom_asset_path[MAX_PATH];
-				sprintf(rom_asset_path, "%s\\%s", e->asset_path, r->name);
+				PathCombineA(rom_asset_path, e->asset_path, r->name);
 
 				QueueAssetDownloads(r, rom_asset_path, gi->platform);
 				break;

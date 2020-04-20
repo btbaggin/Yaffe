@@ -69,6 +69,7 @@ struct Emulator;
 struct YaffeState
 {
 	Form form;
+	Form overlay;
 
 	List<Emulator> emulators;
 	s32 selected_emulator;

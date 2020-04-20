@@ -54,13 +54,12 @@ static void GetConfiguredEmulators(YaffeState* pState)
 		Emulator* current = pState->emulators.GetItem(pState->emulators.count++);
 		strcpy(current->display_name, line.c_str());
 
-		char assets_path[MAX_PATH];
-		sprintf(assets_path, ".\\Assets\\%s", current->display_name);
-		GetFullPathNameA(assets_path, MAX_PATH, current->asset_path, 0);
-		if (!PathIsDirectoryA(assets_path))
+		GetFullPathNameA(".\\Assets", MAX_PATH, current->asset_path, 0);
+		PathAppendA(current->asset_path, current->display_name);
+		if (!PathIsDirectoryA(current->asset_path))
 		{
 			SECURITY_ATTRIBUTES sa = {};
-			CreateDirectoryA(assets_path, &sa);
+			CreateDirectoryA(current->asset_path, &sa);
 		}
 
 		//Get path to executable
@@ -174,21 +173,21 @@ static void GetRoms(YaffeState* pState, Emulator* pEmulator, bool pForce)
 			if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 && IsValidRomFile(file.cFileName))
 			{
 				Rom* rom = pEmulator->roms.items + pEmulator->roms.count++;
-				sprintf(rom->path, "%s\\%s", pEmulator->rom_path, file.cFileName);
+				PathCombineA(rom->path, pEmulator->rom_path, file.cFileName);
 
 				PathRemoveExtensionA(file.cFileName);
 				strcpy(rom->name, file.cFileName);
 
 				char rom_asset_path[MAX_PATH];
-				sprintf(rom_asset_path, "%s\\%s", pEmulator->asset_path, rom->name);
+				PathCombineA(rom_asset_path, pEmulator->asset_path, rom->name);
 
 				char boxart_path[MAX_PATH];
-				sprintf(boxart_path, "%s\\boxart.jpg", rom_asset_path);
+				PathCombineA(boxart_path, rom_asset_path, "boxart.jpg");
 				strcpy(rom->boxart.load_path, boxart_path);
 				rom->boxart.type = ASSET_TYPE_Bitmap;
 
 				char banner_path[MAX_PATH];
-				sprintf(banner_path, "%s\\banner.jpg", rom_asset_path);
+				PathCombineA(banner_path, rom_asset_path, "banner.jpg");
 				strcpy(rom->banner.load_path, banner_path);
 				rom->banner.type = ASSET_TYPE_Bitmap;
 

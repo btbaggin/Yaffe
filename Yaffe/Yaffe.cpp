@@ -103,7 +103,6 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint3
 	}
 
 	pForm->handle = CreateWindowA("Core", pTitle, style, x, y, pForm->width, pForm->height, NULL, NULL, hInstance, NULL);
-	DWORD error = GetLastError();
 	pForm->dc = GetDC(pForm->handle);
 
 	if (pFullscreen)
