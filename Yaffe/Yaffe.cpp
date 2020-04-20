@@ -46,14 +46,15 @@ const float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint32_t pHeight, const char* pTitle, bool pFullscreen)
 {
-	WNDCLASSEX wcex = {};
-	wcex.cbSize = sizeof(wcex);
+	LPCSTR class_name = "Core";
+	WNDCLASSA wcex = {};
+	//wcex.cbSize = sizeof(wcex);
 	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
 	wcex.lpfnWndProc = WndProc;
 	wcex.hInstance = hInstance;
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.lpszClassName = L"Core";
-	RegisterClassEx(&wcex);
+	wcex.lpszClassName = class_name;
+	RegisterClassA(&wcex);
 
 	const long style = WS_OVERLAPPEDWINDOW;
 	HWND fakeHwnd = CreateWindowA("Core", "Fake Window", style, 0, 0, 1, 1, NULL, NULL, hInstance, NULL);
@@ -113,8 +114,11 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint3
 		// not resize.
 		MONITORINFO mi = { sizeof(mi) };
 		GetMonitorInfo(MonitorFromWindow(pForm->handle, MONITOR_DEFAULTTONEAREST), &mi);
+		pForm->width = mi.rcMonitor.right - mi.rcMonitor.left;
+		pForm->height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+
 		SetWindowPos(pForm->handle, NULL, mi.rcMonitor.left, mi.rcMonitor.top,
-			mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top,
+			pForm->width, pForm->height,
 			SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	}
 

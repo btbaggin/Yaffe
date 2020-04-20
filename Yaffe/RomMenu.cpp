@@ -252,5 +252,6 @@ public:
 		state = pState;
 		emus = pEmus;
 		selected_size = tile_size;
+		first_visible = 0;
 	}
 };

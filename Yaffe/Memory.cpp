@@ -27,7 +27,7 @@ void* PushSize(MemoryStack* pStack, u64 pSize)
 void* PushAndZeroSize(MemoryStack* pStack, u64 pSize)
 {
 	void* size = PushSize(pStack, pSize);
-	memset(size, 0, pSize);
+	memset(size, 0, (size_t)pSize);
 	return size;
 }
 #define PushStruct(pStack, pType) (pType*)PushSize(pStack, sizeof(pType))
