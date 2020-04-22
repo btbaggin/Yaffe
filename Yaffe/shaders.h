@@ -16,13 +16,12 @@ void main()
 	vec4 t = texture(mainTex, uvCoords);
 	if(font)
 	{	
-		color = vec4(1, 1, 1, t.r) * fragColor; //vec4(t.r, t.r, t.r, t.r)
+		color = vec4(1, 1, 1, t.r) * fragColor;
 	}
 	else
 	{
 		color = t * fragColor;
 	}
-	//color = fragColor;
 }
 )";
 

@@ -13,6 +13,7 @@ Don't hardcode emulator allocation count
 #include "gl/wglext.h"
 #include "sqlite/sqlite3.h"
 #include <Shlwapi.h>
+#include <dwmapi.h>
 #include <mmreg.h>
 #include "intrin.h"
 #include <assert.h>
@@ -25,6 +26,7 @@ Don't hardcode emulator allocation count
 #include "Input.h"
 #include "Interface.h"
 #include "Emulators.h"
+#include "Render.h"
 
 YaffeState g_state = {};
 YaffeInput g_input = {};
@@ -39,25 +41,27 @@ Interface g_ui = {};
 #include "Database.cpp"
 #include "Emulators.cpp"
 #include "Interface.cpp"
+#include "YaffeOverlay.cpp"
 
+#define WINDOW_CLASS L"Yaffe"
+#define OVERLAY_CLASS L"Overlay"
 const u32 UPDATE_FREQUENCY = 30;
 const float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
 
+LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint32_t pHeight, const char* pTitle, bool pFullscreen)
+bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeight, LPCWSTR pTitle, bool pFullscreen)
 {
-	LPCSTR class_name = "Core";
-	WNDCLASSA wcex = {};
-	//wcex.cbSize = sizeof(wcex);
+	WNDCLASSW wcex = {};
 	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
 	wcex.lpfnWndProc = WndProc;
 	wcex.hInstance = hInstance;
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.lpszClassName = class_name;
-	RegisterClassA(&wcex);
+	wcex.lpszClassName = WINDOW_CLASS;
+	RegisterClassW(&wcex);
 
 	const long style = WS_OVERLAPPEDWINDOW;
-	HWND fakeHwnd = CreateWindowA("Core", "Fake Window", style, 0, 0, 1, 1, NULL, NULL, hInstance, NULL);
+	HWND fakeHwnd = CreateWindowW(WINDOW_CLASS, L"Fake Window", style, 0, 0, 1, 1, NULL, NULL, hInstance, NULL);
 
 	HDC fakeDc = GetDC(fakeHwnd);
 
@@ -103,7 +107,7 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint3
 		y = (u32)(primaryDisplaySize.bottom - pForm->height) / 2;
 	}
 
-	pForm->handle = CreateWindowA("Core", pTitle, style, x, y, pForm->width, pForm->height, NULL, NULL, hInstance, NULL);
+	pForm->handle = CreateWindowW(WINDOW_CLASS, pTitle, style, x, y, pForm->width, pForm->height, NULL, NULL, hInstance, NULL);
 	pForm->dc = GetDC(pForm->handle);
 
 	if (pFullscreen)
@@ -154,7 +158,6 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint3
 				0
 	};
 
-
 	pForm->rc = wglCreateContextAttribsARB(pForm->dc, 0, contextAttribs);
 	if (!pForm->rc) return false;
 
@@ -169,7 +172,63 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, uint32_t pWidth, uint3
 	return true;
 }
 
-void DestroyGlWindow(Form* pForm)
+static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
+{
+	WNDCLASSW wcex = {};
+	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+	wcex.lpfnWndProc = OverlayWndProc;
+	wcex.hInstance = hInstance;
+	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wcex.lpszClassName = OVERLAY_CLASS;
+	RegisterClassW(&wcex);
+
+	// | WS_EX_LAYERED
+	pOverlay->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, pOverlay->width, pOverlay->height, NULL, NULL, hInstance, NULL);
+	pOverlay->dc = GetDC(pOverlay->handle);
+
+	DWM_BLURBEHIND bb = { 0 };
+	bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+	bb.fEnable = true;
+	bb.hRgnBlur = CreateRectRgn(0, 0, 1, 1);
+	if (!SUCCEEDED(DwmEnableBlurBehindWindow(pOverlay->handle, &bb))) return false;
+
+	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = nullptr;
+	wglChoosePixelFormatARB = reinterpret_cast<PFNWGLCHOOSEPIXELFORMATARBPROC>(wglGetProcAddress("wglChoosePixelFormatARB"));
+	if (!wglChoosePixelFormatARB) return false;
+
+	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
+	wglCreateContextAttribsARB = reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(wglGetProcAddress("wglCreateContextAttribsARB"));
+	if (!wglCreateContextAttribsARB) return false;
+
+	const int pixelAttribs[] = {
+		WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+		WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+		WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+		WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+		WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+		WGL_COLOR_BITS_ARB, 32,
+		WGL_ALPHA_BITS_ARB, 8,
+		WGL_DEPTH_BITS_ARB, 24,
+		WGL_STENCIL_BITS_ARB, 8,
+		WGL_SAMPLE_BUFFERS_ARB, GL_TRUE,
+		WGL_SAMPLES_ARB, 4,
+		0
+	};
+
+	int pixelFormatID; UINT numFormats;
+	const bool status = wglChoosePixelFormatARB(pOverlay->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
+	if (!status || !numFormats) return false;
+
+	PIXELFORMATDESCRIPTOR PFD;
+	DescribePixelFormat(pOverlay->dc, pixelFormatID, sizeof(PFD), &PFD);
+	SetPixelFormat(pOverlay->dc, pixelFormatID, &PFD);
+
+	pOverlay->showing = false;
+
+	return true;
+}
+
+static void DestroyGlWindow(Form* pForm)
 {
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(pForm->rc);
@@ -177,7 +236,7 @@ void DestroyGlWindow(Form* pForm)
 	DestroyWindow(pForm->handle);
 }
 
-void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
+static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 {
 	assert(g_state.error_count < MAX_ERROR_COUNT);
 
@@ -263,13 +322,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					  _In_ LPWSTR    lpCmdLine,
 					  _In_ int       nCmdShow)
 {
-	if (!CreateOpenGLWindow(&g_state.form, hInstance, 720, 480, "Yaffe", true))
+	if (!CreateOpenGLWindow(&g_state.form, hInstance, 720, 480, L"Yaffe", true))
 	{
 		MessageBoxA(nullptr, "Unable to initialize window", "Error", MB_OK);
 		return 1;
 	}
 	ShowWindow(g_state.form.handle, nCmdShow);
 	UpdateWindow(g_state.form.handle);
+
+	if (!CreateOverlayWindow(&g_state.overlay, hInstance))
+	{
+		MessageBoxA(nullptr, "Unable to initialize overlay", "Error", MB_OK);
+		return 1;
+	}
 
 	//Set up work queue
 	const u32 THREAD_COUNT = 8;
@@ -307,6 +372,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	GetConfiguredEmulators(&g_state);
 	GetRoms(&g_state, GetSelectedEmulator());
 
+
+	HINSTANCE xinput_dll;
+	char system_path[MAX_PATH];
+	GetSystemDirectoryA(system_path, sizeof(system_path));
+
+	char xinput_path[MAX_PATH];
+	PathCombineA(xinput_path, system_path, "xinput1_3.dll");
+	if (FileExists(xinput_path))
+	{
+		xinput_dll = LoadLibraryA(xinput_path);
+	}
+	else
+	{
+		PathCombineA(xinput_path, system_path, "xinput1_4.dll");
+		xinput_dll = LoadLibraryA(xinput_path);
+	}
+	assert(xinput_dll);
+
+	//Get the address of ordinal 100.
+	FARPROC lpfnGetProcessID = GetProcAddress(xinput_dll, (LPCSTR)100); // load ordinal 100
+
+	//Assign it to getControllerData for easier use
+	g_input.XInputGetState = (get_gamepad_ex)lpfnGetProcessID;
+
+
 	//Game loop
 	MSG msg;
 	g_state.is_running = true;
@@ -328,15 +418,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		UpdateUI(&g_state, g_state.time.delta_time);
 
+		v2 size = V2((float)g_state.form.width, (float)g_state.form.height);
 		ProcessTaskCallbacks(&g_state.callbacks);
-		BeginRenderPass(&g_state.form, &render_state);
+		BeginRenderPass(size, &render_state);
 		glClearColor(1, 1, 1, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		RenderUI(&g_state, &render_state, g_assets);
 
-		EndRenderPass(&g_state.form, &render_state);
+		EndRenderPass(size, &render_state);
 		SwapBuffers(g_state.form.dc);
+
+		UpdateOverlay(&g_state.overlay);
+		RenderOverlay(&g_state, &render_state);
 
 		{//Sleep until FPS is hit
 			LARGE_INTEGER query_counter;
@@ -355,8 +449,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	DisposeRenderState(&render_state);
 	DestroyGlWindow(&g_state.form);
 	CloseHandle(queue.Semaphore);
+	UnregisterClassW(WINDOW_CLASS, hInstance);
+	UnregisterClassW(OVERLAY_CLASS, hInstance);
 
 	return 0;
+}
+LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

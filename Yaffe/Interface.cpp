@@ -175,6 +175,8 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 
 static void UpdateUI(YaffeState* pState, float pDeltaTime)
 {
+	if (pState->overlay.running_rom.dwProcessId != 0) return;
+
 	if (pState->current_modal >= 0)
 	{
 		ModalWindow* modal = pState->modals[pState->current_modal];
@@ -197,7 +199,6 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 #include "RomMenu.cpp"
 #include "FilterBar.cpp"
 #include "InfoPane.cpp"
-#include "YaffeOverlay.cpp"
 static void InitializeUI(YaffeState* pState)
 {
 	UiRoot* background = new UiRoot();
@@ -205,11 +206,9 @@ static void InitializeUI(YaffeState* pState)
 	RomMenu* rom = new RomMenu(pState, emu);
 	FilterBar* toast = new FilterBar();
 	InfoPane* pane = new InfoPane(emu, rom);
-	YaffeOverlay* overlay = new YaffeOverlay();
 
 	background->AddChild(emu);
 	background->AddChild(rom);
-	background->AddChild(overlay);
 
 	rom->AddChild(toast);
 	rom->AddChild(pane);

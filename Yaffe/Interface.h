@@ -11,7 +11,6 @@ enum UI_ELEMENT_NAME
 	UI_Emulators,
 	UI_Roms,
 	UI_Info,
-	UI_Overlay,
 	UI_Search,
 };
 

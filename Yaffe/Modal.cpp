@@ -5,11 +5,11 @@ public:
 	v2 size;
 	virtual MODAL_RESULTS Update(float pDeltaTime)
 	{
-		if (IsKeyPressed(KEY_Enter) || IsControllerPressed(CONTROLLER_A))
+		if (IsEnterPressed())
 		{
 			return MODAL_RESULT_Ok;
 		}
-		else if (IsKeyPressed(KEY_Escape) || IsControllerPressed(CONTROLLER_B))
+		else if (IsEscPressed())
 		{
 			return MODAL_RESULT_Cancel;
 		}

@@ -1,77 +1,3 @@
-#include "shaders.h"
-enum RENDER_GROUP_ENTRY_TYPE : u8
-{
-	RENDER_GROUP_ENTRY_TYPE_Line,
-	RENDER_GROUP_ENTRY_TYPE_Text,
-	RENDER_GROUP_ENTRY_TYPE_Quad,
-};
-
-struct Renderable_Text
-{
-	u32 first_index;
-	u32 first_vertex;
-	u32 index_count;
-	u32 texture;
-};
-
-struct Renderable_Quad
-{
-	u32 first_index;
-	u32 first_vertex;
-	u32 texture;
-};
-
-struct Renderable_Line
-{
-	u32 first_vertex;
-	float size;
-};
-
-struct RenderEntry
-{
-	RENDER_GROUP_ENTRY_TYPE type;
-	u8 size;
-};
-
-struct Vertex
-{
-	v2 position;
-	v4 color;
-	v2 uv;
-};
-
-struct GlyphQuad
-{
-	Vertex vertices[4];
-};
-
-struct GLProgram
-{
-	u32 id;
-	u32 texture;
-	u32 mvp;
-	u32 font;
-};
-
-struct RenderState
-{
-	MemoryStack* arena;
-	TemporaryMemoryHandle memory;
-	u32 VAO;
-	u32 VBO;
-	u32 EBO;
-
-	GLProgram program;
-
-	MemoryStack* vertices;
-	u32 vertex_count;
-
-	MemoryStack* indices;
-	u32 index_count;
-
-	u32 entry_count;
-};
-
 static GLuint LoadShader(const char* pShader, GLenum pType)
 {
 	GLuint shader_id = glCreateShader(pType);
@@ -163,7 +89,7 @@ static void InitializeRenderer(RenderState* pState)
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-static void BeginRenderPass(Form* pForm, RenderState* pState)
+static void BeginRenderPass(v2 pFormSize, RenderState* pState)
 {
 	pState->vertex_count = 0;
 	pState->index_count = 0;
@@ -172,13 +98,13 @@ static void BeginRenderPass(Form* pForm, RenderState* pState)
 	pState->vertices->count = 0;
 	pState->indices->count = 0;
 
-	mat4 m = HMM_Orthographic(0.0F, (float)pForm->width, 0.0F, (float)pForm->height, -1.0F, 1.0F);
+	mat4 m = HMM_Orthographic(0.0F, pFormSize.Width, 0.0F, pFormSize.Height, -1.0F, 1.0F);
 	glUniformMatrix4fv(pState->program.mvp, 1, GL_FALSE, &m.Elements[0][0]);
 	pState->memory = BeginTemporaryMemory(pState->arena);
 }
 
 
-static void EndRenderPass(Form* pForm, RenderState* pState)
+static void EndRenderPass(v2 pFormSize, RenderState* pState)
 {
 	glBindVertexArray(pState->VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, pState->VBO);
@@ -186,7 +112,7 @@ static void EndRenderPass(Form* pForm, RenderState* pState)
 	glBufferData(GL_ARRAY_BUFFER, pState->vertex_count * sizeof(Vertex), MemoryAddress(pState->vertices), GL_STATIC_DRAW);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, pState->index_count * sizeof(u16), MemoryAddress(pState->indices), GL_STATIC_DRAW);
 
-	glViewport(0, 0, pForm->width, pForm->height);
+	glViewport(0, 0, pFormSize.Width, pFormSize.Height);
 
 	char* address = (char*)MemoryAddress(pState->arena, pState->memory.count);
 	for (u32 i = 0; i < pState->entry_count; i++)

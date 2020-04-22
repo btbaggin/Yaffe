@@ -58,6 +58,18 @@ struct Form
 	HDC dc;
 };
 
+struct Overlay
+{
+	u32 width;
+	u32 height;
+	bool showing;
+
+	HWND handle;
+	HDC dc;
+
+	PROCESS_INFORMATION running_rom;
+};
+
 struct YaffeTime
 {
 	float delta_time;
@@ -69,7 +81,7 @@ struct Emulator;
 struct YaffeState
 {
 	Form form;
-	Form overlay;
+	Overlay overlay;
 
 	List<Emulator> emulators;
 	s32 selected_emulator;
@@ -81,8 +93,6 @@ struct YaffeState
 
 	ModalWindow* modals[MAX_MODAL_COUNT];
 	volatile LONG current_modal;
-
-	PROCESS_INFORMATION running_rom;
 
 	WorkQueue* queue;
 	TaskCallbackQueue callbacks;

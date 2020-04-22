@@ -129,13 +129,13 @@ void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 
 	pInput->mouse_position = { (float)point.x, (float)point.y };
 
-	XINPUT_STATE state = {};
-	DWORD result = XInputGetState(0, &state);// pInput->get_state(0, &state);
+	XINPUT_GAMEPAD_EX state = {};
+	DWORD result = g_input.XInputGetState(0, &state);// pInput->get_state(0, &state);
 	if (result == ERROR_SUCCESS)
 	{
-		pInput->current_controller_buttons = state.Gamepad.wButtons;
-		pInput->left_stick = { (float)state.Gamepad.sThumbLX, (float)state.Gamepad.sThumbLY };
-		pInput->right_stick = { (float)state.Gamepad.sThumbRX, (float)state.Gamepad.sThumbRY };
+		pInput->current_controller_buttons = state.wButtons;
+		pInput->left_stick = { (float)state.sThumbLX, (float)state.sThumbLY };
+		pInput->right_stick = { (float)state.sThumbRX, (float)state.sThumbRY };
 
 
 		float length = HMM_LengthSquaredVec2(pInput->left_stick);

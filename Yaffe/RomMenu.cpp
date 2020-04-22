@@ -1,3 +1,4 @@
+static void StartRunning(YaffeState* pState, Emulator* pEmulator, Rom* pRom);
 class RomMenu : public UiElement
 {
 	const float SELECTED_ROM_SIZE = 0.2F;
@@ -198,35 +199,7 @@ class RomMenu : public UiElement
 			Rom* r = e->roms.GetItem(state->selected_rom);
 			if (r)
 			{
-				char* path = r->path;
-				char safe_path[1000];
-				//We allow passing command line args in with the path, if the path is wrapped in quotes
-				if (e->start_path[0] == '"') sprintf(safe_path, "%s \"%s\"", e->start_path, path);
-				else sprintf(safe_path, "\"%s\" \"%s\"", e->start_path, path);
-
-				STARTUPINFOA si = {};
-				if (!CreateProcessA(NULL, safe_path, NULL, NULL, FALSE, 0, NULL, NULL, &si, &g_state.running_rom))
-				{
-					DWORD error = GetLastError();
-					switch (error)
-					{
-					case 740:
-						DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
-					default:
-						DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
-					}
-					return;
-				}
-
-				//Since we aren't on the application, it's a good time to update the database
-				//We don't want to do it while the application is running because we could block it
-				si = {};
-				si.dwFlags = STARTF_USESHOWWINDOW;
-				si.wShowWindow = SW_MINIMIZE;
-				PROCESS_INFORMATION pi = {};
-				CreateProcessA("YaffeScraper.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
-
-				FocusElement(UI_Overlay);
+				StartRunning(&g_state, e, r);
 			}
 		}
 		else if (IsInfoPressed())

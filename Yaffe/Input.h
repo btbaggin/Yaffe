@@ -3,14 +3,30 @@ const s32 GLOBAL_INPUT_DELAY = 100;
 #define CHECK_KEY_DELAY if(g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
 #define CHECK_KEY_INPUT(expression) if(expression) { g_input.last_input = clock(); return true; } else { return false; }
 
-#define IsUpPressed() IsKeyPressed(KEY_Up) || IsLeftStickPushed(DIRECTION_Up) || IsControllerPressed(CONTROLLER_DPAD_UP)
-#define IsDownPressed() IsKeyPressed(KEY_Down) || IsLeftStickPushed(DIRECTION_Down) || IsControllerPressed(CONTROLLER_DPAD_DOWN)
-#define IsLeftPressed() IsKeyPressed(KEY_Left) || IsLeftStickPushed(DIRECTION_Left) || IsControllerPressed(CONTROLLER_DPAD_LEFT)
-#define IsRightPressed() IsKeyPressed(KEY_Right) || IsLeftStickPushed(DIRECTION_Right) || IsControllerPressed(CONTROLLER_DPAD_RIGHT)
-#define IsEnterPressed() IsKeyPressed(KEY_Enter) || IsControllerPressed(CONTROLLER_A)
-#define IsEscPressed() IsKeyPressed(KEY_Escape) || IsControllerPressed(CONTROLLER_B)
-#define IsFilterPressed() IsKeyPressed(KEY_F1) || IsControllerPressed(CONTROLLER_Y)
-#define IsInfoPressed() IsKeyPressed(KEY_I) || IsControllerPressed(CONTROLLER_X)
+#define IsUpPressed() (IsKeyPressed(KEY_Up) || IsLeftStickPushed(DIRECTION_Up) || IsControllerPressed(CONTROLLER_DPAD_UP))
+#define IsDownPressed() (IsKeyPressed(KEY_Down) || IsLeftStickPushed(DIRECTION_Down) || IsControllerPressed(CONTROLLER_DPAD_DOWN))
+#define IsLeftPressed() (IsKeyPressed(KEY_Left) || IsLeftStickPushed(DIRECTION_Left) || IsControllerPressed(CONTROLLER_DPAD_LEFT))
+#define IsRightPressed() (IsKeyPressed(KEY_Right) || IsLeftStickPushed(DIRECTION_Right) || IsControllerPressed(CONTROLLER_DPAD_RIGHT))
+#define IsEnterPressed() (IsKeyPressed(KEY_Enter) || IsControllerPressed(CONTROLLER_A))
+#define IsEscPressed() (IsKeyPressed(KEY_Escape) || IsControllerPressed(CONTROLLER_B))
+#define IsFilterPressed() (IsKeyPressed(KEY_F1) || IsControllerPressed(CONTROLLER_Y))
+#define IsInfoPressed() (IsKeyPressed(KEY_I) || IsControllerPressed(CONTROLLER_X))
+
+typedef struct
+{
+	unsigned long eventCount;
+	WORD                                wButtons;
+	BYTE                                bLeftTrigger;
+	BYTE                                bRightTrigger;
+	SHORT                               sThumbLX;
+	SHORT                               sThumbLY;
+	SHORT                               sThumbRX;
+	SHORT                               sThumbRY;
+} XINPUT_GAMEPAD_EX;
+
+// returns 0 on success, 1167 on not connected. Might be others.
+typedef int(__stdcall * get_gamepad_ex)(int, XINPUT_GAMEPAD_EX*);
+
 
 //https://forums.tigsource.com/index.php?topic=26792.0
 struct YaffeInput
@@ -23,6 +39,8 @@ struct YaffeInput
 	DWORD previous_controller_buttons;
 	v2 left_stick;
 	v2 right_stick;
+
+	get_gamepad_ex XInputGetState;
 
 	long last_input;
 };
