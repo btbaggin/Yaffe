@@ -246,12 +246,16 @@ static float CharWidth(FONTS pFont, char pChar)
 		{
 			return 0;
 		}
+		else if (pChar - ' ' < 0)
+		{
+			return 0;
+		}
 		else
 		{
 			stbtt_aligned_quad quad;
 			float y = 0.0F;
 			float x = 0.0F;
-			assert(pChar - ' ' >= 0);
+
 			stbtt_GetPackedQuad(font->charInfo, font->atlasWidth, font->atlasHeight, pChar - ' ', &x, &y, &quad, 1);
 			return x;
 		}
@@ -288,6 +292,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	ZeroMemory(assets, sizeof(Assets));
 	assets->memory = CreateMemoryPool(AssetMemory, pSize);
 	
+	AddFontAsset(assets, FONT_Subtext, "C:/windows/fonts/arial.ttf", 20);
 	AddFontAsset(assets, FONT_Normal, "C:/windows/fonts/arial.ttf", 25);
 	AddFontAsset(assets, FONT_Title, "C:/windows/fonts/arialbd.ttf", 35);
 	AddBitmapAsset(assets, BITMAP_Background, "./Assets/background.jpg");
@@ -345,7 +350,7 @@ void FreeAllAssets(YaffeState* pState, Assets* pAssets)
 
 	for (u32 i = 0; i < pState->emulators.count; i++)
 	{
-		Emulator* e = pState->emulators.GetItem(i);
+		Application* e = pState->emulators.GetItem(i);
 		for (u32 j = 0; j < e->roms.count; j++)
 		{
 			Rom* r = e->roms.GetItem(j);

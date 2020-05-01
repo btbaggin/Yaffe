@@ -1,7 +1,50 @@
-class EmulatorList : public UiElement
+static MODAL_CLOSE(OnAddApplicationModalClose)
+{
+	//TODO
+	//Create an application folder to put all application
+	//Loading won't really need to change and we just need to put a "Application" emulator if the folder exists
+	if (pResult == MODAL_RESULT_Ok)
+	{
+		AddApplicationModal* add = (AddApplicationModal*)pContent;
+		char config_file[MAX_PATH];
+
+		if (add->application.checked)
+		{
+			GetFullPathNameA("./Applications.txt", MAX_PATH, config_file, 0);
+		}
+		else
+		{
+			GetFullPathNameA("./Emulators.txt", MAX_PATH, config_file, 0);
+		}
+
+
+		FILE* fin = fopen(config_file, "a");
+		if (!fin)
+		{
+			DisplayErrorMessage("Unable to add emulator", ERROR_TYPE_Warning);
+			return;
+		}
+
+		fputs("\n\n", fin);
+
+		
+		for (u32 i = 0; i < ArrayCount(add->fields); i++)
+		{
+			char* line = (char*)malloc(add->fields[i].stringlen + 2);
+			strcpy(line, add->fields[i].string);
+			line[add->fields[i].stringlen] = '\n'; line[add->fields[i].stringlen + 1] = '\0';
+			fputs(line, fin);
+			free(line);
+		}
+
+		fclose(fin);
+	}
+}
+
+class EmulatorList : public UiControl
 {
 public:
-	List<Emulator>* emulators;
+	List<Application>* emulators;
 
 	static void Render(RenderState* pRender, UiRegion pRegion, EmulatorList* pList)
 	{
@@ -41,6 +84,11 @@ public:
 				GetRoms(&g_state, emulators->GetItem(g_state.selected_emulator));
 			}
 
+			if (IsInfoPressed())
+			{
+				DisplayModalWindow(&g_state, "Add Emulator", new AddApplicationModal(), BITMAP_None, OnAddApplicationModalClose);
+			}
+
 			if (IsEnterPressed())
 			{
 				FocusElement(UI_Roms);
@@ -48,7 +96,7 @@ public:
 		}
 	}
 
-	EmulatorList(YaffeState* pState) : UiElement(UI_Emulators)
+	EmulatorList(YaffeState* pState) : UiControl(UI_Emulators)
 	{
 		emulators = &pState->emulators;
 	}

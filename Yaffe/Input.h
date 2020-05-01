@@ -41,6 +41,7 @@ struct YaffeInput
 	v2 right_stick;
 
 	get_gamepad_ex XInputGetState;
+	HKL layout;
 
 	long last_input;
 };

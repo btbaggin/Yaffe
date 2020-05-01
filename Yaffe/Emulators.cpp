@@ -1,4 +1,4 @@
-static inline Emulator* GetSelectedEmulator()
+static inline Application* GetSelectedEmulator()
 {
 	return g_state.emulators.GetItem(g_state.selected_emulator);
 }
@@ -45,13 +45,13 @@ static void GetConfiguredEmulators(YaffeState* pState)
 		return;
 	}
 
-	pState->emulators.InitializeWithArray(new Emulator[32], 32);
+	pState->emulators.InitializeWithArray(new Application[32], 32);
 
 	std::string line;
 	while (GetNextLine(file, &line))
 	{
 		assert(pState->emulators.count < 32);
-		Emulator* current = pState->emulators.GetItem(pState->emulators.count++);
+		Application* current = pState->emulators.GetItem(pState->emulators.count++);
 		strcpy(current->display_name, line.c_str());
 
 		GetFullPathNameA(".\\Assets", MAX_PATH, current->asset_path, 0);
@@ -134,7 +134,7 @@ static void QueueAssetDownloads(Rom* pRom, const char* pAssetPath, s32 pPlatform
 }
 
 bool RomsSort(Rom a, Rom b) { return strcmp(a.name, b.name) < 0; }
-static void GetRoms(YaffeState* pState, Emulator* pEmulator, bool pForce)
+static void GetRoms(YaffeState* pState, Application* pEmulator, bool pForce)
 {
 	pState->selected_rom = 0;
 

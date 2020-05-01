@@ -1,4 +1,4 @@
-static void StartRunning(YaffeState* pState, Emulator* pEmulator, Rom* pRom)
+static void StartRunning(YaffeState* pState, Application* pEmulator, Rom* pRom)
 {
 	Overlay* overlay = &pState->overlay;
 	char* path = pRom->path;

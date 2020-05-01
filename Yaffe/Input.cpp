@@ -12,7 +12,6 @@ inline static bool IsKeyPressed(KEYS pKey, bool pDelay = true)
 
 inline static bool IsButtonPressed(MOUSE_BUTTONS pButton)
 {
-	CHECK_KEY_DELAY();
 		//Current state is down
 		//Previous state is up
 	CHECK_KEY_INPUT((g_input.current_keyboard_state[pButton] & 0x80) != 0 &&

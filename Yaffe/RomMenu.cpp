@@ -1,5 +1,5 @@
-static void StartRunning(YaffeState* pState, Emulator* pEmulator, Rom* pRom);
-class RomMenu : public UiElement
+static void StartRunning(YaffeState* pState, Application* pEmulator, Rom* pRom);
+class RomMenu : public UiControl
 {
 public:
 	s32 first_visible;
@@ -12,7 +12,7 @@ public:
 
 	static void Render(RenderState* pState, UiRegion pRegion, RomMenu* pMenu)
 	{
-		Emulator* emu = GetSelectedEmulator();
+		Application* emu = GetSelectedEmulator();
 		List<Rom> roms = emu->roms;
 
 		v2 roms_display_start = pRegion.position + (pRegion.size * ROM_PAGE_PADDING);
@@ -72,7 +72,7 @@ public:
 		}
 	}
 
-	void IncrementIndex(s32* pIndex, s32 pAmount, bool pForward, Emulator* pEmulator)
+	void IncrementIndex(s32* pIndex, s32 pAmount, bool pForward, Application* pEmulator)
 	{
 		s32 old_index = *pIndex;
 		s32 one = pForward ? 1 : -1;
@@ -114,7 +114,7 @@ public:
 
 	void Update(float pDeltaTime)
 	{
-		Emulator* e = GetSelectedEmulator();
+		Application* e = GetSelectedEmulator();
 
 
 		if (IsFocused())
@@ -213,7 +213,7 @@ public:
 		}
 	}
 
-	RomMenu(YaffeState* pState) : UiElement(UI_Roms)
+	RomMenu(YaffeState* pState) : UiControl(UI_Roms)
 	{
 		state = pState;
 		selected_size = tile_size;

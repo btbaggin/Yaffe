@@ -38,6 +38,7 @@ enum BITMAPS : u8
 
 enum FONTS : u8
 {
+	FONT_Subtext,
 	FONT_Normal,
 	FONT_Title,
 

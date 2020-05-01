@@ -24,16 +24,13 @@
     <ClCompile Include="Modal.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
-    <ClCompile Include="SelectorModal.cpp">
-      <Filter>Interface</Filter>
-    </ClCompile>
     <ClCompile Include="FilterBar.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
-    <ClCompile Include="Textbox.cpp">
+    <ClCompile Include="InputHelp.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
-    <ClCompile Include="InputHelp.cpp">
+    <ClCompile Include="UiElements.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
   </ItemGroup>

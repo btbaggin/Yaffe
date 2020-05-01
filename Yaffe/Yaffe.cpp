@@ -2,7 +2,6 @@
 
 /*
 TODO
-stb_textedit
 Allow launching other applications
 Make modal more declarative
 Figure out scraper stuff?
@@ -40,6 +39,8 @@ Interface g_ui = {};
 #include "Assets.cpp"
 #include "Input.cpp"
 #include "Render.cpp"
+#include "UiElements.cpp"
+#include "Modal.cpp"
 #include "Database.cpp"
 #include "Emulators.cpp"
 #include "InputHelp.cpp"
@@ -398,7 +399,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	//Assign it to getControllerData for easier use
 	g_input.XInputGetState = (get_gamepad_ex)lpfnGetProcessID;
-
+	g_input.layout = GetKeyboardLayout(0);
 
 	//Game loop
 	MSG msg;

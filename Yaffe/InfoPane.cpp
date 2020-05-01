@@ -1,10 +1,10 @@
-class InfoPane : public UiElement
+class InfoPane : public UiControl
 {
 public:
 	std::string overview;
 	v2 position;
 
-	InfoPane() : UiElement(UI_Info) 
+	InfoPane() : UiControl(UI_Info) 
 	{ 
 		position = V2((float)g_state.form.width, 0.0F);
 	}
@@ -45,7 +45,7 @@ public:
 	void OnFocusGained()
 	{
 		Rom* rom = GetSelectedRom();
-		Emulator* emu = GetSelectedEmulator();
+		Application* emu = GetSelectedEmulator();
 		overview = GetGameInformation(emu->platform, rom->name);
 	}
 };

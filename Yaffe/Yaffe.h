@@ -77,13 +77,13 @@ struct YaffeTime
 };
 
 struct ModalWindow;
-struct Emulator;
+struct Application;
 struct YaffeState
 {
 	Form form;
 	Overlay overlay;
 
-	List<Emulator> emulators;
+	List<Application> emulators;
 	s32 selected_emulator;
 	s32 selected_rom;
 

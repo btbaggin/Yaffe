@@ -1,6 +1,3 @@
-#include "Modal.cpp"
-#include "SelectorModal.cpp"
-
 static bool IsApplicationFocused()
 {
 	return GetForegroundWindow() == g_state.form.handle;
@@ -34,9 +31,10 @@ static v4 GetFontColor(bool pFocused)
 
 static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
 {
+	const float TITLEBAR_SIZE = 32.0F;
 	const float ICON_SIZE = 32.0F;
 	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
-	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2) + pWindow->content->size;
+	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pWindow->content->size;
 	if (pWindow->icon != BITMAP_None)
 	{
 		size.Height = max(ICON_SIZE_WITH_MARGIN, size.Height);
@@ -44,10 +42,15 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
 	}
 
 	v2 window_position = V2((g_state.form.width - size.Width) / 2, (g_state.form.height - size.Height) / 2);
-	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN); //Window + margin for window + margin for icon
+	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
 
 	PushQuad(pState, window_position, window_position + size, MODAL_BACKGROUND);
+	PushQuad(pState, window_position, window_position + V2(size.Width, TITLEBAR_SIZE), MODAL_TITLE);
+	PushText(pState, FONT_Subtext, pWindow->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
+
 	PushQuad(pState, window_position, window_position + V2(UI_MARGIN / 2.0F, size.Height), ACCENT_COLOR);
+
+
 	if (pWindow->icon != BITMAP_None)
 	{
 		Bitmap* image = GetBitmap(g_assets, pWindow->icon);
@@ -57,13 +60,14 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
 	pWindow->content->Render(pState, icon_position);
 }
 
-static bool DisplayModalWindow(YaffeState* pState, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose)
+static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose)
 {
 	_WriteBarrier();
 	if (pState->current_modal < MAX_MODAL_COUNT)
 	{
 		s32 modal_index = InterlockedIncrement(&pState->current_modal);
 		ModalWindow* modal = new ModalWindow();
+		modal->title = pTitle;
 		modal->icon = pImage;
 		modal->content = pContent;
 		modal->on_close = pClose;
@@ -73,9 +77,9 @@ static bool DisplayModalWindow(YaffeState* pState, ModalContent* pContent, BITMA
 	return false;
 }
 
-static bool DisplayModalWindow(YaffeState* pState, std::string pMessage, BITMAPS pImage, modal_window_close* pClose)
+static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::string pMessage, BITMAPS pImage, modal_window_close* pClose)
 {
-	return DisplayModalWindow(pState, new StringModal(pMessage), pImage, pClose);
+	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose);
 }
 
 MODAL_CLOSE(ErrorModalClose) { if (g_state.error_is_critical) g_state.is_running = false; }
@@ -124,7 +128,7 @@ static void DisplayApplicationErrors(YaffeState* pState)
 			if (i < pState->error_count - 1) message += '\n';
 		}
 
-		DisplayModalWindow(pState, message, BITMAP_Error, ErrorModalClose);
+		DisplayModalWindow(pState, "Error", message, BITMAP_Error, ErrorModalClose);
 		pState->error_count = 0;
 	}
 }
@@ -137,7 +141,7 @@ static void DisplayQuitMessage(YaffeState* pState)
 		std::vector<std::string> options;
 		options.push_back("Quit");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, new SelectorModal(options, (char*)""), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "Close", new SelectorModal(options, (char*)""), BITMAP_None, ExitModalClose);
 	}
 }
 
@@ -159,8 +163,6 @@ static UiRegion CreateRegion(UiRegion pRegion, v2 pSize)
 	return region;
 }
 
-#include "Textbox.cpp"
-TextBox mtc;
 #include "EmulatorList.cpp"
 #include "RomMenu.cpp"
 #include "FilterBar.cpp"
@@ -190,8 +192,6 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	{
 		RenderModalWindow(pRender, pState->modals[pState->current_modal]);
 	}
-
-	RenderTextBox(pRender, &mtc);
 }
 
 static void UpdateUI(YaffeState* pState, float pDeltaTime)
@@ -230,5 +230,4 @@ static void InitializeUI(YaffeState* pState)
 	FocusElement(UI_Emulators);
 
 	pState->current_modal = -1;
-	mtc = CreateTextBox(V2(100), 200, FONT_Normal);
 }

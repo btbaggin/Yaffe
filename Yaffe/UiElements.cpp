@@ -1,25 +1,10 @@
+//
+// TEXTBOX
+//
 #include <stdlib.h>
 #include <string.h> // memmove
 #include <ctype.h>  // isspace
 #include <WinUser.h>
-
-#define STB_TEXTEDIT_CHARTYPE   char
-#define STB_TEXTEDIT_STRING     TextBox
-
-// get the base type
-#include "stb/stb_textedit.h"
-
-// define our editor structure
-struct TextBox
-{
-	char *string;
-	int stringlen;
-	FONTS font;
-	v2 position;
-	bool focused;
-	float width;
-	STB_TexteditState state;
-};
 
 // define the functions we need
 void layout_func(StbTexteditRow *row, STB_TEXTEDIT_STRING *str, int start_i)
@@ -61,8 +46,10 @@ static int MapKey(int key)
 {
 	if (IsKeyUp(KEY_Control))
 	{
-		int result = MapVirtualKeyA(key, MAPVK_VK_TO_CHAR);
-		return result;
+		UINT result = MapVirtualKeyA(key, MAPVK_VK_TO_VSC);
+		WCHAR buffer[2];
+		int chars = ToUnicodeEx(key, result, (const BYTE*)g_input.current_keyboard_state, buffer, 2, 0, g_input.layout);
+		if (chars == 1) return buffer[0];
 	}
 	return -1;
 }
@@ -103,19 +90,37 @@ static int MapKey(int key)
 #define STB_TEXTEDIT_IMPLEMENTATION
 #include "stb/stb_textedit.h"
 
-static TextBox CreateTextBox(v2 pPosition, float pWidth, FONTS pFont)
+static Textbox CreateTextbox(float pWidth, FONTS pFont)
 {
-	TextBox tc = {};
-	tc.position = pPosition;
+	Textbox tc = {};
 	tc.width = pWidth;
 	tc.font = pFont;
+	tc.focused = false;
 	stb_textedit_initialize_state(&tc.state, true);
 	return tc;
 }
 
-static void RenderTextBox(RenderState* pState, TextBox* tc)
+static char* GetClipboardText()
 {
-	v2 pos = GetMousePosition() - tc->position;
+	if (!OpenClipboard(nullptr)) return nullptr;
+
+	HANDLE hData = GetClipboardData(CF_TEXT);
+	if (hData == nullptr) return nullptr;
+
+	char * pszText = static_cast<char*>(GlobalLock(hData));
+	if (pszText == nullptr) return nullptr;
+
+	char* result = pszText;
+
+	GlobalUnlock(hData);
+	CloseClipboard();
+
+	return result;
+}
+
+static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
+{
+	v2 pos = GetMousePosition() - pPosition;
 	float font_size = GetFontSize(tc->font);
 	//
 	// HANDLE INPUT
@@ -139,13 +144,22 @@ static void RenderTextBox(RenderState* pState, TextBox* tc)
 	//Handle keyboard input
 	if (tc->focused)
 	{
+		bool shift = IsKeyDown(KEY_Shift);
+		bool control = IsKeyDown(KEY_Control);
+
+		if (control && IsKeyPressed(KEY_V, false))
+		{
+			char* text = GetClipboardText();
+			if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
+		}
+
 		for (int i = KEY_Backspace; i < KEY_Quote; i++)
 		{
 			int key = i;
 			if (IsKeyPressed((KEYS)key, false))
 			{
-				if (IsKeyDown(KEY_Shift)) key |= STB_TEXTEDIT_K_SHIFT;
-				if (IsKeyDown(KEY_Control)) key |= STB_TEXTEDIT_K_CONTROL;
+				if (shift) key |= STB_TEXTEDIT_K_SHIFT;
+				if (control) key |= STB_TEXTEDIT_K_CONTROL;
 				stb_textedit_key(tc, &tc->state, key);
 			}
 		}
@@ -153,15 +167,14 @@ static void RenderTextBox(RenderState* pState, TextBox* tc)
 
 	//
 	// RENDER
-	//
-	
+	//	
 	//Focus highlight
 	if (tc->focused)
 	{
-		PushQuad(pState, tc->position - V2(2), tc->position + V2(tc->width, font_size) + V2(2), ACCENT_COLOR);
+		PushQuad(pState, pPosition - V2(2), pPosition + V2(tc->width, font_size) + V2(2), ACCENT_COLOR);
 	}
 	//Background
-	PushQuad(pState, tc->position, tc->position + V2(tc->width, font_size), V4(0.5F));
+	PushQuad(pState, pPosition, pPosition + V2(tc->width, font_size), V4(0.5F));
 
 	//Selection
 	if (tc->focused)
@@ -174,14 +187,14 @@ static void RenderTextBox(RenderState* pState, TextBox* tc)
 			StbFindState end = {};
 			stb_textedit_find_charpos(&start, tc, start_index, true);
 			stb_textedit_find_charpos(&end, tc, end_index, true);
-			PushQuad(pState, tc->position + V2(start.x, start.y), tc->position + V2(end.x, end.y + font_size), V4(0, 0.5F, 1, 1));
+			PushQuad(pState, pPosition + V2(start.x, start.y), pPosition + V2(end.x, end.y + font_size), V4(0, 0.5F, 1, 1));
 		}
 	}
 
 	//Text
 	if (tc->string)
 	{
-		PushText(pState, tc->font, tc->string, tc->position);
+		PushText(pState, tc->font, tc->string, pPosition);
 	}
 
 	//Cursor
@@ -189,6 +202,40 @@ static void RenderTextBox(RenderState* pState, TextBox* tc)
 	{
 		StbFindState state = {};
 		stb_textedit_find_charpos(&state, tc, tc->state.cursor, true);
-		PushQuad(pState, tc->position + V2(state.x, state.y), tc->position + V2(state.x + 2, state.y + font_size), V4(1));
+		PushQuad(pState, pPosition + V2(state.x, state.y), pPosition + V2(state.x + 2, state.y + font_size), V4(1));
 	}
 }
+
+
+//
+// CHECKBOX
+//
+static Checkbox CreateCheckbox()
+{
+	Checkbox box;
+	box.checked = false;
+	return box;
+}
+
+static void RenderCheckbox(RenderState* pState, Checkbox* pCheck, v2 pPosition)
+{
+	v2 pos = GetMousePosition() - pPosition;
+	if (pos > V2(0) && pos < V2(24))
+	{
+		if (IsButtonPressed(BUTTON_Left)) pCheck->checked = !pCheck->checked;
+	}
+
+	PushQuad(pState, pPosition, pPosition + V2(24), V4(0.5F));
+	if (pCheck->checked)
+	{
+		PushQuad(pState, pPosition + V2(3), pPosition + V2(21), ACCENT_COLOR);
+	}
+}
+
+
+//
+// LABELEDELEMENT
+//
+#define RenderElementWithLabel(state, element_type, element, position, label) \
+PushText(state, FONT_Normal, label, position, V4(1)); \
+Render##element_type##(pState, &element, position + V2(LABEL_WIDTH, 0));

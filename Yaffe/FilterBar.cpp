@@ -1,4 +1,4 @@
-class FilterBar : public UiElement
+class FilterBar : public UiControl
 {
 	enum FILTER_MODES
 	{
@@ -10,7 +10,7 @@ class FilterBar : public UiElement
 	};
 
 public:
-	FilterBar() : UiElement(UI_Search)
+	FilterBar() : UiControl(UI_Search)
 	{ 
 		mode = FILTER_MODE_None;
 		selected_index = -1;

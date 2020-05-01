@@ -1,7 +1,3 @@
-
-#include "Modal.cpp"
-#include "SelectorModal.cpp"
-
 enum SQLITE_TYPES
 {
 	SQLITE_TYPE_Int,
@@ -167,11 +163,11 @@ static void GetListOfPossibleEmulators(DatabaseConnection* pCon, char* pName)
 
 	if (items.size() > 0)
 	{
-		DisplayModalWindow(&g_state, new SelectorModal(items, pName), BITMAP_None, WritePlatformAliasToDB);
+		DisplayModalWindow(&g_state, "Select Emulator", new SelectorModal(items, pName), BITMAP_None, WritePlatformAliasToDB);
 	}
 }
 
-static bool GetEmulatorPlatform(Emulator* pEmulator)
+static bool GetEmulatorPlatform(Application* pEmulator)
 {
 	DatabaseConnection con;
 	SqliteParameter parm[1] = {
@@ -221,7 +217,7 @@ MODAL_CLOSE(WriteGameAliasToDB)
 			}
 		}
 
-		Emulator* e = GetSelectedEmulator();
+		Application* e = GetSelectedEmulator();
 		for (u32 i = 0; i < e->roms.count; i++)
 		{
 			Rom* r = e->roms.GetItem(i);
@@ -260,7 +256,7 @@ static void GetListOfPossibleGames(DatabaseConnection* pCon, s32 pPlatform, std:
 		GameInfo* gi = new GameInfo();
 		gi->name = pGame;
 		gi->platform = pPlatform;
-		DisplayModalWindow(&g_state, new SelectorModal(items, gi), BITMAP_None, WriteGameAliasToDB);
+		DisplayModalWindow(&g_state, "Select Game", new SelectorModal(items, gi), BITMAP_None, WriteGameAliasToDB);
 	}
 }
 

@@ -6,6 +6,12 @@ enum ROM_DISPLAY_FLAGS : u8
 	ROM_DISPLAY_Filtered,
 };
 
+enum APPLICATION_TYPE : u8
+{
+	APPLICATION_Emulator,
+	APPLICATION_App,
+};
+
 struct Rom
 {
 	char name[100];
@@ -18,12 +24,13 @@ struct Rom
 	v2 position;
 };
 
-struct Emulator
+struct Application
 {
 	char display_name[35];
 	char start_path[MAX_PATH];
 	char rom_path[MAX_PATH];
 	char asset_path[MAX_PATH];
+	APPLICATION_TYPE type;
 	s32 platform;
 
 	List<Rom> roms;
@@ -37,6 +44,6 @@ struct RomAssetWork
 	s32 platform;
 };
 
-static inline Emulator* GetSelectedEmulator();
-static void GetRoms(YaffeState* pState, Emulator* pEmulator, bool pForce = false);
+static inline Application* GetSelectedEmulator();
+static void GetRoms(YaffeState* pState, Application* pEmulator, bool pForce = false);
 static void QueueAssetDownloads(Rom* pRom, const char* pAssetPath, s32 pPlatform);
