@@ -1,83 +1,28 @@
 static void StartRunning(YaffeState* pState, Emulator* pEmulator, Rom* pRom);
 class RomMenu : public UiElement
 {
-	const float SELECTED_ROM_SIZE = 0.2F;
+public:
 	s32 first_visible;
 	v2 selected_size;
-	EmulatorList* emus;
 	YaffeState* state;
 
 	v2 tile_size;
 	s32 tiles_x;
 	s32 tiles_y;
 
-	float GetDefaultItemSize(float pDimension, float pAmount)
+	static void Render(RenderState* pState, UiRegion pRegion, RomMenu* pMenu)
 	{
-		return (pDimension - pDimension * ROM_PAGE_PADDING * 2) / pAmount;
-	}
-
-	void GetTileSize(List<Rom>* pRoms)
-	{
-		float width = 0;
-		float height = 0;
-		tiles_x = 1;
-		tiles_y = 1;
-		if (pRoms->count > 0)
-		{
-			Bitmap* bitmap = nullptr;
-			for (u32 i = 0; i < pRoms->count; i++)
-			{
-				//Try to find a bitmap actually loaded so we get proper sizes.
-				//Should be the first one most times
-				Rom* rom = pRoms->GetItem(i);
-				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
-				if (b)
-				{
-					bitmap = b;
-					break;
-				}
-			}
-
-			if(!bitmap) bitmap = GetBitmap(g_assets, BITMAP_Placeholder);
-			if (!bitmap) return;
-
-			v2 menu_size = GetAbsoluteSize();
-			//Scale based on the larger dimension
-			if (bitmap->width > bitmap->height)
-			{
-				float aspect = (float)bitmap->height / (float)bitmap->width;
-				width = GetDefaultItemSize(menu_size.Width, 4);
-				height = aspect * width;
-			}
-			else
-			{
-				float aspect = (float)bitmap->width / (float)bitmap->height;
-				height = GetDefaultItemSize(menu_size.Height, 3);
-				width = aspect * height;
-			}
-
-			tile_size = V2(width, height);
-			tiles_x = (s32)(menu_size.Width / width);
-			tiles_y = (s32)(menu_size.Height / height);
-		}
-	}
-
-	void Render(RenderState* pState)
-	{
-		position = V2(g_state.form.width * EMU_MENU_PERCENT, 0);
-
 		Emulator* emu = GetSelectedEmulator();
 		List<Rom> roms = emu->roms;
 
-		//Get tile size in render since update only fires when we have focus
-		GetTileSize(&roms);
+		v2 roms_display_start = pRegion.position + (pRegion.size * ROM_PAGE_PADDING);
 
-		v2 roms_display_start = position + V2(g_state.form.width * ROM_PAGE_PADDING, g_state.form.height * ROM_PAGE_PADDING);
+		pMenu->GetTileSize(&roms, pRegion);
 
 		s32 effective_i = 0;
-		for (s32 i = 0; i < tiles_x * tiles_y; i++)
+		for (s32 i = 0; i < pMenu->tiles_x * pMenu->tiles_y; i++)
 		{
-			u32 absolute_index = first_visible + i;
+			u32 absolute_index = pMenu->first_visible + i;
 			if (absolute_index >= roms.count)  break;
 
 			Rom* rom = roms.GetItem(absolute_index);
@@ -86,23 +31,23 @@ class RomMenu : public UiElement
 				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
 				if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
-				u32 x = effective_i % tiles_x;
-				u32 y = effective_i / tiles_x;
+				u32 x = effective_i % pMenu->tiles_x;
+				u32 y = effective_i / pMenu->tiles_x;
 
 				//Calculate the ideal rom spot
-				v2 rom_position = roms_display_start + V2(x * tile_size.Width, y * tile_size.Height);
-				if (absolute_index == state->selected_rom && IsFocused())
+				v2 rom_position = roms_display_start + (pMenu->tile_size * V2(x, y));
+				if (absolute_index == g_state.selected_rom && pMenu->IsFocused())
 				{
 					//Selected rom needs to move a little bit to account for the size increase
-					rom_position -= V2(tile_size.Width * (SELECTED_ROM_SIZE / 2.0F), tile_size.Height * (SELECTED_ROM_SIZE / 2.0F));
+					rom_position -= pMenu->tile_size * (SELECTED_ROM_SIZE / 2.0F);
 				}
 				//This is to prevent roms from sliding in from 0,0 when the application is first started
 				if (rom->position.X == 0 && rom->position.Y == 0) rom->position = rom_position;
 
 				rom->position = Lerp(rom->position, g_state.time.delta_time * 5, rom_position); 
-				if (absolute_index != state->selected_rom) //We are going to draw selected item last
+				if (absolute_index != g_state.selected_rom) //We are going to draw selected item last
 				{
-					PushQuad(pState, rom->position, rom->position + tile_size, b);
+					PushQuad(pState, rom->position, rom->position + pMenu->tile_size, b);
 				}
 				effective_i++;
 			}
@@ -116,19 +61,13 @@ class RomMenu : public UiElement
 			if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
 			//If we aren't focused we want to render everything the same size
-			if(!IsFocused()) selected_size = tile_size;
-			PushQuad(pState, rom->position, rom->position + selected_size, b);
+			if(!pMenu->IsFocused()) pMenu->selected_size = pMenu->tile_size;
+			PushQuad(pState, rom->position, rom->position + pMenu->selected_size, b);
 
-			if (IsFocused())
+			if (pMenu->IsFocused())
 			{
 				float bar_height = GetFontSize(FONT_Title) + UI_MARGIN * 2;
-				PushText(pState, FONT_Title, rom->name, V2(position.X, g_state.form.height - bar_height));
-
-				v2 menu_position = V2(g_state.form.width - (g_state.form.width * ROM_PAGE_PADDING), g_state.form.height - UI_MARGIN);
-				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter"); menu_position.X -= 15;
-				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Info"); menu_position.X -= 15;
-				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back");menu_position.X -= 15;
-				PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Run");
+				PushText(pState, FONT_Title, rom->name, V2(pRegion.position.X, pRegion.size.Height - bar_height));
 			}
 		}
 	}
@@ -177,53 +116,106 @@ class RomMenu : public UiElement
 	{
 		Emulator* e = GetSelectedEmulator();
 
-		if (IsLeftPressed())
-		{
-			IncrementIndex(&state->selected_rom, 1, false, e);
-		}
-		else if (IsRightPressed())
-		{
-			IncrementIndex(&state->selected_rom, 1, true, e);
-		}
-		else if (IsUpPressed())
-		{
-			IncrementIndex(&state->selected_rom, tiles_x, false, e);
-		}
-		else if (IsDownPressed())
-		{
-			IncrementIndex(&state->selected_rom, tiles_x, true, e);
-		}
 
-		if (IsEnterPressed())
+		if (IsFocused())
 		{
-			Rom* r = e->roms.GetItem(state->selected_rom);
-			if (r)
+			if (IsLeftPressed())
 			{
-				StartRunning(&g_state, e, r);
+				IncrementIndex(&state->selected_rom, 1, false, e);
 			}
-		}
-		else if (IsInfoPressed())
-		{
-			FocusElement(UI_Info);
-		}
-		else if (IsFilterPressed())
-		{
-			FocusElement(UI_Search);
-		}
+			else if (IsRightPressed())
+			{
+				IncrementIndex(&state->selected_rom, 1, true, e);
+			}
+			else if (IsUpPressed())
+			{
+				IncrementIndex(&state->selected_rom, tiles_x, false, e);
+			}
+			else if (IsDownPressed())
+			{
+				IncrementIndex(&state->selected_rom, tiles_x, true, e);
+			}
 
-		if (IsEscPressed())
-		{
-			RevertFocus();
-		}
+			if (IsEnterPressed())
+			{
+				Rom* r = e->roms.GetItem(state->selected_rom);
+				if (r)
+				{
+					StartRunning(&g_state, e, r);
+				}
+			}
+			else if (IsInfoPressed())
+			{
+				FocusElement(UI_Info);
+			}
+			else if (IsFilterPressed())
+			{
+				FocusElement(UI_Search);
+			}
 
-		selected_size = Lerp(selected_size, pDeltaTime * 5, tile_size * (1.0F + SELECTED_ROM_SIZE));
+			if (IsEscPressed())
+			{
+				RevertFocus();
+			}
+
+			selected_size = Lerp(selected_size, pDeltaTime * 5, tile_size * (1.0F + SELECTED_ROM_SIZE));
+		}
 	}
 
-public:
-	RomMenu(YaffeState* pState, EmulatorList* pEmus) : UiElement(V2(1 - EMU_MENU_PERCENT, 1), UI_Roms)
+	float GetDefaultItemSize(float pDimension, float pAmount)
+	{
+		return (pDimension - pDimension * ROM_PAGE_PADDING * 2) / pAmount;
+	}
+
+	void GetTileSize(List<Rom>* pRoms, UiRegion pRegion)
+	{
+		float width = 0;
+		float height = 0;
+		tiles_x = 1;
+		tiles_y = 1;
+		if (pRoms->count > 0)
+		{
+			Bitmap* bitmap = nullptr;
+			for (u32 i = 0; i < pRoms->count; i++)
+			{
+				//Try to find a bitmap actually loaded so we get proper sizes.
+				//Should be the first one most times
+				Rom* rom = pRoms->GetItem(i);
+				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
+				if (b)
+				{
+					bitmap = b;
+					break;
+				}
+			}
+
+			if (!bitmap) bitmap = GetBitmap(g_assets, BITMAP_Placeholder);
+			if (!bitmap) return;
+
+			v2 menu_size = pRegion.size;
+			//Scale based on the larger dimension
+			if (bitmap->width > bitmap->height)
+			{
+				float aspect = (float)bitmap->height / (float)bitmap->width;
+				width = GetDefaultItemSize(menu_size.Width, 4);
+				height = aspect * width;
+			}
+			else
+			{
+				float aspect = (float)bitmap->width / (float)bitmap->height;
+				height = GetDefaultItemSize(menu_size.Height, 3);
+				width = aspect * height;
+			}
+
+			tile_size = V2(width, height);
+			tiles_x = (s32)(menu_size.Width / width);
+			tiles_y = (s32)(menu_size.Height / height);
+		}
+	}
+
+	RomMenu(YaffeState* pState) : UiElement(UI_Roms)
 	{
 		state = pState;
-		emus = pEmus;
 		selected_size = tile_size;
 		first_visible = 0;
 	}

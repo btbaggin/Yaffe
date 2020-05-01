@@ -13,53 +13,23 @@ static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 	return V2((pBounds.Width - size.Width) / 2.0F, (pBounds.Height - size.Height - (size.Height / 2.0F)) / 2.0F);
 }
 
-static UiElement* __FindElement(UI_ELEMENT_NAME pTag, UiElement* pElement)
-{
-	if (pElement->tag == pTag)
-	{
-		return pElement;
-	}
-
-	for (u32 i = 0; i < pElement->child_count; i++)
-	{
-		UiElement* node = __FindElement(pTag, pElement->children[i]);
-		if (node) return node;
-	}
-
-	return nullptr;
-}
-static UiElement* FindElement(UI_ELEMENT_NAME pTag)
-{
-	return __FindElement(pTag, g_ui.root);
-}
-
-
-static void __ResetFocus(UiElement* pElement)
-{
-	pElement->SetFocus(false);
-	for (u32 i = 0; i < pElement->child_count; i++)
-	{
-		__ResetFocus(pElement->children[i]);
-	}
-}
 static void FocusElement(UI_ELEMENT_NAME pElement)
 {
-	UiElement* element = FindElement(pElement);
-	if (!pElement) return;
-
-	__ResetFocus(g_ui.root);
-	element->SetFocus(true);
 	g_ui.focus[g_ui.focus_index++] = pElement;
+	g_ui.elements[pElement]->OnFocusGained();
 }
 
 static void RevertFocus()
 {
-	UI_ELEMENT_NAME focus = g_ui.focus[--g_ui.focus_index - 1];
-	UiElement* element = FindElement(focus);
-	if (!element) return;
+	if (g_ui.focus_index > 1)
+	{
+		--g_ui.focus_index;
+	}
+}
 
-	__ResetFocus(g_ui.root);
-	element->SetFocus(true);
+static v4 GetFontColor(bool pFocused)
+{
+	return pFocused ? TEXT_FOCUSED : TEXT_UNFOCUSED;
 }
 
 static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
@@ -141,16 +111,10 @@ MODAL_CLOSE(ExitModalClose)
 		}
 	}
 }
-static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
+
+static void DisplayApplicationErrors(YaffeState* pState)
 {
-	g_ui.root->RenderElement(pRender);
-
-	if (pState->current_modal >= 0)
-	{
-		RenderModalWindow(pRender, pState->modals[pState->current_modal]);
-	}
-
-	//Errors
+	//Check for and display any errors
 	if (pState->error_count > 0)
 	{
 		std::string message;
@@ -163,7 +127,11 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 		DisplayModalWindow(pState, message, BITMAP_Error, ErrorModalClose);
 		pState->error_count = 0;
 	}
-	else if (IsApplicationFocused() && (IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
+}
+
+static void DisplayQuitMessage(YaffeState* pState)
+{
+	if (IsApplicationFocused() && (IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
 	{
 		//Only allow quitting when current window is focused
 		std::vector<std::string> options;
@@ -173,9 +141,64 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	}
 }
 
+static UiRegion CreateRegion(v2 pSize)
+{
+	UiRegion region;
+	region.position = V2(0);
+	region.size = V2(g_state.form.width * pSize.Width, g_state.form.height * pSize.Height);
+
+	return region;
+}
+
+static UiRegion CreateRegion(UiRegion pRegion, v2 pSize)
+{
+	UiRegion region;
+	region.position = pRegion.position;
+	region.size = pRegion.size * pSize;
+
+	return region;
+}
+
+#include "Textbox.cpp"
+TextBox mtc;
+#include "EmulatorList.cpp"
+#include "RomMenu.cpp"
+#include "FilterBar.cpp"
+#include "InfoPane.cpp"
+static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
+{
+	//Render background
+	UiRegion main = CreateRegion(V2(1));
+	Bitmap* b = GetBitmap(g_assets, BITMAP_Background);
+	PushQuad(pRender, main.position, main.size, b);
+
+	UiRegion list_region = CreateRegion(main, V2(EMU_MENU_PERCENT, 1));
+	RenderElement(EmulatorList, UI_Emulators, list_region);
+
+	UiRegion menu_region = CreateRegion(main, V2(1 - EMU_MENU_PERCENT, 1)); 
+	menu_region.position.X += list_region.size.Width;
+	RenderElement(RomMenu, UI_Roms, menu_region);
+
+	UiRegion filter_region = CreateRegion(menu_region, V2(1, 0.05F));
+	RenderElement(FilterBar, UI_Search, filter_region);
+
+	RenderElement(InfoPane, UI_Info, main);
+
+	DisplayInputHelp(pRender, main);
+
+	if (pState->current_modal >= 0)
+	{
+		RenderModalWindow(pRender, pState->modals[pState->current_modal]);
+	}
+
+	RenderTextBox(pRender, &mtc);
+}
+
 static void UpdateUI(YaffeState* pState, float pDeltaTime)
 {
 	if (pState->overlay.running_rom.dwProcessId != 0) return;
+	DisplayApplicationErrors(pState);
+	DisplayQuitMessage(pState);
 
 	if (pState->current_modal >= 0)
 	{
@@ -191,30 +214,21 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		return;
 	}
 
-	g_ui.root->UpdateElement(pDeltaTime);
+	for (u32 i = 0; i < UI_COUNT; i++)
+	{
+		g_ui.elements[i]->Update(pDeltaTime);
+	}
 }
 
-#include "Root.cpp"
-#include "EmulatorList.cpp"
-#include "RomMenu.cpp"
-#include "FilterBar.cpp"
-#include "InfoPane.cpp"
 static void InitializeUI(YaffeState* pState)
 {
-	UiRoot* background = new UiRoot();
-	EmulatorList* emu = new EmulatorList(pState);
-	RomMenu* rom = new RomMenu(pState, emu);
-	FilterBar* toast = new FilterBar();
-	InfoPane* pane = new InfoPane(emu, rom);
+	g_ui.elements[UI_Emulators] = new EmulatorList(pState);
+	g_ui.elements[UI_Roms] = new RomMenu(pState);
+	g_ui.elements[UI_Info] = new InfoPane();
+	g_ui.elements[UI_Search] = new FilterBar();
 
-	background->AddChild(emu);
-	background->AddChild(rom);
-
-	rom->AddChild(toast);
-	rom->AddChild(pane);
-
-	g_ui.root = background;
 	FocusElement(UI_Emulators);
 
 	pState->current_modal = -1;
+	mtc = CreateTextBox(V2(100), 200, FONT_Normal);
 }

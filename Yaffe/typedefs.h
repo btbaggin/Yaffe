@@ -53,6 +53,15 @@ static v2 Lerp(v2 a, float time, v2 b)
 	return result;
 }
 
+static bool operator<(v2 l, v2 r)
+{
+	return l.X < r.X && l.Y < r.Y;
+}
+static bool operator>(v2 l, v2 r)
+{
+	return l.X > r.X && l.Y > r.Y;
+}
+
 static inline void ltrim(std::string* s) {
 	s->erase(s->begin(), std::find_if(s->begin(), s->end(), [](int ch) {
 		return !std::isspace(ch);

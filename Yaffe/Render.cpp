@@ -304,7 +304,7 @@ static v2 PushRightAlignedTextWithIcon(RenderState* pState, v2 pRight, BITMAPS p
 	PushText(pState, pFont, pText, V2(new_pos.X, text_y), pTextColor);
 	PushQuad(pState, new_pos - V2(pIconSize), new_pos, GetBitmap(g_assets, pIcon));
 
-	return V2(new_pos.X - pIconSize, new_pos.Y);
+	return V2(new_pos.X - pIconSize - 15, new_pos.Y);
 }
 
 static void DisposeRenderState(RenderState* pState)

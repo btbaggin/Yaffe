@@ -1,6 +1,6 @@
 #pragma once
 const s32 GLOBAL_INPUT_DELAY = 100;
-#define CHECK_KEY_DELAY if(g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
+#define CHECK_KEY_DELAY() if(g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
 #define CHECK_KEY_INPUT(expression) if(expression) { g_input.last_input = clock(); return true; } else { return false; }
 
 #define IsUpPressed() (IsKeyPressed(KEY_Up) || IsLeftStickPushed(DIRECTION_Up) || IsControllerPressed(CONTROLLER_DPAD_UP))

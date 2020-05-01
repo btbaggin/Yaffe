@@ -1,9 +1,9 @@
 #pragma once
 #include "Input.h"
 
-inline static bool IsKeyPressed(KEYS pKey)
+inline static bool IsKeyPressed(KEYS pKey, bool pDelay = true)
 {
-	CHECK_KEY_DELAY
+	if (pDelay) CHECK_KEY_DELAY();
 	//Current state is down
 	//Previous state is up
 	CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0 &&
@@ -12,7 +12,7 @@ inline static bool IsKeyPressed(KEYS pKey)
 
 inline static bool IsButtonPressed(MOUSE_BUTTONS pButton)
 {
-	CHECK_KEY_DELAY
+	CHECK_KEY_DELAY();
 		//Current state is down
 		//Previous state is up
 	CHECK_KEY_INPUT((g_input.current_keyboard_state[pButton] & 0x80) != 0 &&
@@ -20,8 +20,8 @@ inline static bool IsButtonPressed(MOUSE_BUTTONS pButton)
 }
 inline static bool IsControllerPressed(CONTROLLER_BUTTONS pController)
 {
-	CHECK_KEY_DELAY
-		CHECK_KEY_INPUT((g_input.current_controller_buttons & pController) != 0 &&
+	CHECK_KEY_DELAY();
+	CHECK_KEY_INPUT((g_input.current_controller_buttons & pController) != 0 &&
 		(g_input.previous_controller_buttons & pController) == 0);
 }
 
@@ -49,18 +49,15 @@ inline static bool IsControllerReleased(CONTROLLER_BUTTONS pController)
 
 inline static bool IsKeyDown(KEYS pKey)
 {
-	CHECK_KEY_DELAY
 	CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0);
 }
 inline static bool IsButtonDown(MOUSE_BUTTONS pKey)
 {
-	CHECK_KEY_DELAY
-		CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0);
+	CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0);
 }
 inline static bool IsControllerDown(CONTROLLER_BUTTONS pController)
 {
-	CHECK_KEY_DELAY
-		CHECK_KEY_INPUT((g_input.current_controller_buttons & pController) != 0);
+	CHECK_KEY_INPUT((g_input.current_controller_buttons & pController) != 0);
 }
 
 inline static bool IsKeyUp(KEYS pKey)
@@ -78,7 +75,7 @@ inline static bool IsControllerUp(CONTROLLER_BUTTONS pController)
 
 inline static bool IsLeftStickPushed(DIRECTIONS pDirection)
 {
-	CHECK_KEY_DELAY
+	CHECK_KEY_DELAY();
 	switch (pDirection)
 	{
 	case DIRECTION_Up:
@@ -96,7 +93,7 @@ inline static bool IsLeftStickPushed(DIRECTIONS pDirection)
 
 inline static bool IsRightStickPushed(DIRECTIONS pDirection)
 {
-	CHECK_KEY_DELAY
+	CHECK_KEY_DELAY();
 	switch (pDirection)
 	{
 	case DIRECTION_Up:

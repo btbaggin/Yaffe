@@ -1,55 +1,55 @@
 class EmulatorList : public UiElement
 {
-	YaffeState* state;
+public:
 	List<Emulator>* emulators;
 
-	void Render(RenderState* pRender)
+	static void Render(RenderState* pRender, UiRegion pRegion, EmulatorList* pList)
 	{
-		v4 text_color = IsFocused() ? TEXT_FOCUSED : TEXT_UNFOCUSED;
-		v4 foreground = IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
+		v4 foreground = pList->IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
+		v4 font = GetFontColor(pList->IsFocused());
 
-		v2 size = this->GetAbsoluteSize();
-		PushQuad(pRender, position, size, MENU_BACKGROUND);
+		PushQuad(pRender, pRegion.position, pRegion.size, MENU_BACKGROUND);
 
-		v2 text_size = MeasureString(FONT_Normal, emulators->GetItem(state->selected_emulator)->display_name);
-		for (u32 i = 0; i < emulators->count; i++)
+		float text_size = GetFontSize(FONT_Normal);
+		for (u32 i = 0; i < pList->emulators->count; i++)
 		{
-			char* item = emulators->GetItem(i)->display_name;
-			v2 item_size = V2(size.Width, text_size.Height + UI_MARGIN * 2);
-			v2 item_position = { position.X, position.Y + (i * item_size.Height) };
-			if (i == state->selected_emulator)
+			char* item = pList->emulators->GetItem(i)->display_name;
+			v2 item_size = V2(pRegion.size.Width, text_size + UI_MARGIN * 2);
+			v2 item_position = { pRegion.position.X, pRegion.position.Y + (i * item_size.Height) };
+			if (i == g_state.selected_emulator)
 			{
 				PushQuad(pRender, item_position, item_position + item_size, foreground);
 			}
 
-			PushText(pRender, FONT_Normal, (char*)item, item_position + CenterText(FONT_Normal, item, item_size), text_color);
+			PushText(pRender, FONT_Normal, (char*)item, item_position + CenterText(FONT_Normal, item, item_size), font);
 		}
 	}
 
 	void Update(float pDeltaTime)
 	{
-		if (IsUpPressed())
+		if (IsFocused())
 		{
-			--state->selected_emulator;
-			if (state->selected_emulator < 0) state->selected_emulator = emulators->count - 1;
-			GetRoms(state, emulators->GetItem(state->selected_emulator));
-		}
-		else if (IsDownPressed())
-		{
-			state->selected_emulator = (state->selected_emulator + 1) % emulators->count;
-			GetRoms(state, emulators->GetItem(state->selected_emulator));
-		}
+			if (IsUpPressed())
+			{
+				--g_state.selected_emulator;
+				if (g_state.selected_emulator < 0) g_state.selected_emulator = emulators->count - 1;
+				GetRoms(&g_state, emulators->GetItem(g_state.selected_emulator));
+			}
+			else if (IsDownPressed())
+			{
+				g_state.selected_emulator = (g_state.selected_emulator + 1) % emulators->count;
+				GetRoms(&g_state, emulators->GetItem(g_state.selected_emulator));
+			}
 
-		if (IsEnterPressed())
-		{
-			FocusElement(UI_Roms);
+			if (IsEnterPressed())
+			{
+				FocusElement(UI_Roms);
+			}
 		}
 	}
 
-public:
-	EmulatorList(YaffeState* pState) : UiElement(V2(EMU_MENU_PERCENT, 1),  UI_Emulators)
+	EmulatorList(YaffeState* pState) : UiElement(UI_Emulators)
 	{
-		state = pState;
 		emulators = &pState->emulators;
 	}
 };

@@ -1,50 +1,51 @@
 class InfoPane : public UiElement
 {
-	#define INFO_PANE_WIDTH 0.5F
 public:
-	InfoPane(EmulatorList* pList, RomMenu* pRoms) : UiElement(V2(INFO_PANE_WIDTH, 1), UI_Info)
-	{
-		emus = pList;
-		roms = pRoms;
+	std::string overview;
+	v2 position;
+
+	InfoPane() : UiElement(UI_Info) 
+	{ 
 		position = V2((float)g_state.form.width, 0.0F);
 	}
 
-private:
-	EmulatorList* emus;
-	RomMenu* roms;
-	bool last_focused;
-
-	void Render(RenderState* pState)
+	static void Render(RenderState* pState, UiRegion pRegion, InfoPane* pPane)
 	{
-		if (IsFocused())
+		const float PADDING = 20.0F;
+		float height = 0.15F * pRegion.size.Height;
+		Rom* rom = GetSelectedRom();
+		if (rom)
 		{
-			const float PADDING = 20.0F;
-			float height = 0.15F * g_state.form.height;
-			v2 size = GetAbsoluteSize();
-			Rom* rom = GetSelectedRom();
-			PushQuad(pState, position, position + size, MODAL_BACKGROUND);
-			PushQuad(pState, position, V2(position.X + size.Width, height), GetBitmap(g_assets, &rom->banner));
+			PushQuad(pState, pPane->position, pPane->position + pRegion.size, MODAL_BACKGROUND);
+			PushQuad(pState, pPane->position, V2(pPane->position.X + pRegion.size.Width, height), GetBitmap(g_assets, &rom->banner));
 
-			Emulator* emu = GetSelectedEmulator();
-			std::string overview = GetGameInformation(emu->platform, rom->name);
-			if (!overview.empty())
+			if (!pPane->overview.empty())
 			{
-				PushText(pState, FONT_Normal, overview.c_str(), position + V2(PADDING, height + PADDING), V4(1), size.Width - PADDING * 2);
+				PushText(pState, FONT_Normal, pPane->overview.c_str(), pPane->position + V2(PADDING, height + PADDING), V4(1), pRegion.size.Width - PADDING * 2);
 			}
-		}	
+		}
 	}
 
 	void Update(float pDeltaTime) 
 	{ 
-		position = Lerp(position, pDeltaTime * 5, V2(g_state.form.width * (1 - INFO_PANE_WIDTH), 0));
-		if (IsEscPressed())
+		if (IsFocused())
 		{
-			RevertFocus();
+			position = Lerp(position, pDeltaTime * 5, V2(g_state.form.width * (1 - INFO_PANE_WIDTH), 0));
+			if (IsEscPressed())
+			{
+				RevertFocus();
+			}
+		}
+		else
+		{
+			position = Lerp(position, pDeltaTime * 5, V2((float)g_state.form.width, 0));
 		}
 	}
 
-	void OnFocusLost()
+	void OnFocusGained()
 	{
-		position = V2((float)g_state.form.width, 0.0F);
+		Rom* rom = GetSelectedRom();
+		Emulator* emu = GetSelectedEmulator();
+		overview = GetGameInformation(emu->platform, rom->name);
 	}
 };

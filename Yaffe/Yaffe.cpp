@@ -2,7 +2,9 @@
 
 /*
 TODO
-Changed back to holding start(?) for X seconds?
+stb_textedit
+Allow launching other applications
+Make modal more declarative
 Figure out scraper stuff?
 Don't hardcode emulator allocation count
 */
@@ -40,6 +42,7 @@ Interface g_ui = {};
 #include "Render.cpp"
 #include "Database.cpp"
 #include "Emulators.cpp"
+#include "InputHelp.cpp"
 #include "Interface.cpp"
 #include "YaffeOverlay.cpp"
 

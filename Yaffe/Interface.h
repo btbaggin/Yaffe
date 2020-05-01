@@ -1,17 +1,20 @@
 #pragma once
 
 const float EMU_MENU_PERCENT = 0.2F;
-const float ROM_PAGE_PADDING = 0.05F;
+const float ROM_PAGE_PADDING = 0.075F;
 const float UI_MARGIN = 5.0F;
+const float SELECTED_ROM_SIZE = 0.2F;
+const float INFO_PANE_WIDTH = 0.5F;
 
 struct RenderState;
 enum UI_ELEMENT_NAME
 {
-	UI_None,
 	UI_Emulators,
 	UI_Roms,
 	UI_Info,
 	UI_Search,
+
+	UI_COUNT,
 };
 
 enum MODAL_RESULTS
@@ -32,91 +35,44 @@ struct ModalWindow
 };
 
 extern YaffeState g_state;
-class UiElement
-{
-	bool focused;
-	v2 size;
-
-protected:
-	v2 position;
-
-	UiElement(v2 pSize, UI_ELEMENT_NAME pTag = UI_None)
-	{
-		size = pSize;
-		tag = pTag;
-		child_count = 0;
-		focused = false;
-		position = V2(0);
-	}
-
-	virtual void Render(RenderState* pState) = 0;
-	virtual void Update(float pDeltaTime) = 0;
-	virtual void OnFocusGained() {}
-	virtual void OnFocusLost() {}
-
-public:
-	UI_ELEMENT_NAME tag;
-	UiElement* children[4];
-	u32 child_count;
-
-	v2 GetAbsoluteSize()
-	{
-		return V2(this->size.Width * g_state.form.width, this->size.Height * g_state.form.height);
-	}
-
-	bool IsFocused() { return focused; }
-
-	void SetFocus(bool pFocused)
-	{
-		if (focused != pFocused)
-		{
-			focused = pFocused;
-			if (focused) OnFocusGained();
-			else OnFocusLost();
-		}
-	}
-
-	void AddChild(UiElement* pElement)
-	{
-		assert(child_count < 4);
-		children[child_count++] = pElement;
-	}
-
-	void RenderElement(RenderState* pState)
-	{
-		Render(pState);
-		for (u32 i = 0; i < child_count; i++)
-		{
-			children[i]->RenderElement(pState);
-		}
-	}
-
-	void UpdateElement(float pDeltaTime)
-	{
-		for (u32 i = 0; i < child_count; i++)
-		{
-			children[i]->UpdateElement(pDeltaTime);
-		}
-
-		if(focused) Update(pDeltaTime);
-	}
-
-	virtual void OnEmulatorChanged(Emulator* pEmulator)
-	{
-		for (u32 i = 0; i < child_count; i++)
-		{
-			children[i]->OnEmulatorChanged(pEmulator);
-		}
-	}
-};
-
+class UiElement;
 struct Interface
 {
-	UiElement* root;
+	UiElement* elements[UI_COUNT];
 
 	UI_ELEMENT_NAME focus[8];
 	u32 focus_index;
 };
+
+extern Interface g_ui;
+class UiElement
+{
+public:
+	UI_ELEMENT_NAME tag;
+
+	UiElement(UI_ELEMENT_NAME pTag)
+	{
+		tag = pTag;
+	}
+
+	virtual void Update(float pDeltaTime) = 0;
+	virtual void OnFocusGained() {}
+
+	bool IsFocused()
+	{
+		return g_ui.focus[g_ui.focus_index - 1] == tag;
+	}
+};
+
+#define RenderElement(type, name, region) type::Render(pRender, region, (type*)g_ui.elements[name]);
+
+
+struct UiRegion
+{
+	v2 position;
+	v2 size;
+};
+
 
 const v4 MENU_BACKGROUND = { 0.25F, 0.25F, 0.25F, 0.5F };
 const v4 TEXT_FOCUSED = { 1, 1, 1, 1 };

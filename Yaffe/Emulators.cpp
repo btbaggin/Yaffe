@@ -137,7 +137,6 @@ bool RomsSort(Rom a, Rom b) { return strcmp(a.name, b.name) < 0; }
 static void GetRoms(YaffeState* pState, Emulator* pEmulator, bool pForce)
 {
 	pState->selected_rom = 0;
-	g_ui.root->OnEmulatorChanged(pEmulator);
 
 	//Only retrieve rom information if we know the platform or can find it
 	//If not, we need to wait for the user to select a platform before we continue
@@ -200,7 +199,6 @@ static void GetRoms(YaffeState* pState, Emulator* pEmulator, bool pForce)
 	FindClose(h);
 
 	std::sort(pEmulator->roms.items, pEmulator->roms.items + pEmulator->roms.count, RomsSort);
-	g_ui.root->OnEmulatorChanged(pEmulator);
 }
 
 static void InitializeAssetFiles()

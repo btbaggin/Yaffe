@@ -10,35 +10,34 @@ class FilterBar : public UiElement
 	};
 
 public:
-	FilterBar() : UiElement(V2(1, 0.5), UI_Search)
+	FilterBar() : UiElement(UI_Search)
 	{ 
 		mode = FILTER_MODE_None;
 		selected_index = -1;
 		position = V2(g_state.form.width * EMU_MENU_PERCENT, -100);
 	}
 
-private:
 	s8 mode;
 	bool exists[26];
 	char selected_index;
 	char start;
 	bool is_active;
-	void Render(RenderState* pState)
+	v2 position;
+	static void Render(RenderState* pState, UiRegion pRegion, FilterBar* pBar)
 	{
 		const float SELECTOR_PERCENT = 0.1F;
 		const float ARROW_HEIGHT = 10;
 		const float ARROW_WIDTH = 30;
-		float bar_height = GetFontSize(FONT_Normal) + ARROW_HEIGHT * 2;
-		v2 bar_start = position; 
-		v2 bar_end = bar_start + V2(g_state.form.width * (1 - EMU_MENU_PERCENT), bar_height);
+		v2 bar_start = pBar->position; 
+		v2 bar_end = bar_start + pRegion.size;
 		PushQuad(pState, bar_start, bar_end, MENU_BACKGROUND);
 
-		float filter_name_width = g_state.form.width * SELECTOR_PERCENT;
+		float filter_name_width = pRegion.size.Width * SELECTOR_PERCENT;
 		v2 filter_start = bar_start + V2(filter_name_width, 0);
 
 		char end = 0;
 		const char* name = nullptr;
-		switch (mode)
+		switch (pBar->mode)
 		{
 			case FILTER_MODE_None:
 				name = "None";
@@ -46,112 +45,111 @@ private:
 
 			case FILTER_MODE_Name:
 				name = "Name";
-				start = 'A';
+				pBar->start = 'A';
 				end = 'Z';
 				break;
 
 			case FILTER_MODE_Players:
 				name = "Players";
-				start = '1';
+				pBar->start = '1';
 				end = '4';
 				break;
 
 			default:
 				assert(false);
 		}
-		float item_space = (bar_end.X - filter_start.X) / (end - start + 1);
+		float item_space = (bar_end.X - filter_start.X) / (end - pBar->start + 1);
 
 		//Filter name
-		if (IsFocused() && selected_index < 0)
+		if (pBar->IsFocused() && pBar->selected_index < 0)
 		{
 			PushQuad(pState, bar_start, V2(filter_start.X, bar_end.Y), ACCENT_COLOR);
 		}
-		v4 font_color = IsFocused() ? TEXT_FOCUSED : TEXT_UNFOCUSED;
+		v4 font_color = GetFontColor(pBar->IsFocused());
 		v2 filter_name_position = CenterText(FONT_Normal, name, V2(filter_start.X, bar_end.Y) - bar_start);
 		PushText(pState, FONT_Normal, name, bar_start + filter_name_position, font_color);
-		if (mode > 0)
+
+		if (pBar->mode > 0)
 		{
+			//Up arrow
 			v2 arrow_start = bar_start + V2(filter_name_width / 2 - ARROW_WIDTH / 2, 0);
 			PushQuad(pState, arrow_start, arrow_start + V2(ARROW_WIDTH, ARROW_HEIGHT), font_color, GetBitmap(g_assets, BITMAP_ArrowUp));
 		}
-		if (mode < FILTER_MODE_COUNT - 1)
+		if (pBar->mode < FILTER_MODE_COUNT - 1)
 		{
-			v2 arrow_start = bar_start + V2(filter_name_width / 2 - ARROW_WIDTH / 2, bar_height - ARROW_HEIGHT);
+			//Down arrow
+			v2 arrow_start = bar_start + V2(filter_name_width / 2 - ARROW_WIDTH / 2, pRegion.size.Height - ARROW_HEIGHT);
 			PushQuad(pState, arrow_start, arrow_start + V2(ARROW_WIDTH, ARROW_HEIGHT), font_color, GetBitmap(g_assets, BITMAP_ArrowDown));
 		}
 
 		//Filter items
-		for (char i = start; i <= end; i++)
+		for (char i = pBar->start; i <= end; i++)
 		{
-			v2 position = V2(filter_start.X + item_space * (i - start), bar_start.Y);
-			if (selected_index + start == i && (IsFocused() || is_active))
+			v2 position = V2(filter_start.X + item_space * (i - pBar->start), bar_start.Y);
+			if (pBar->selected_index + pBar->start == i && pBar->is_active)
 			{
 				PushQuad(pState, position, position + V2(item_space, bar_end.Y), ACCENT_COLOR);
 			}
 
 			char text[2]; text[0] = i; text[1] = '\0';
-			v4 color = IsFocused() && exists[i - start] ? TEXT_FOCUSED : TEXT_UNFOCUSED;
+			v4 color = GetFontColor(pBar->IsFocused() && pBar->exists[i - pBar->start]);
 
-			PushText(pState, FONT_Normal, text, position + CenterText(FONT_Normal, text, V2(item_space, bar_height)), color);
+			PushText(pState, FONT_Normal, text, position + CenterText(FONT_Normal, text, V2(item_space, pRegion.size.Height)), color);
 		}
 	}
 
 	void Update(float pDeltaTime) 
 	{
-		//Cycle the index until we get to one that exists, or the filter bar
-		if (IsLeftPressed())
-		{
-			if (selected_index < 0) selected_index = ArrayCount(exists) - 1;
-			while (!exists[--selected_index] && selected_index != -1);
-			FilterRoms();
-		}
-		else if (IsRightPressed())
-		{
-			while (!exists[++selected_index] && selected_index != -1)
-			{
-				if (selected_index == ArrayCount(exists) - 1) selected_index = -2;
-			}
-			FilterRoms();
-		}
-		else if (IsEnterPressed())
-		{
-			is_active = true;
-			FocusElement(UI_Roms);
-		}
-		else if (IsEscPressed())
-		{
-			is_active = false;
-			RevertFocus();
-			ResetRoms();
-		}
-
-		//selected_index == -1, means we are currently on the filter name
-		if (selected_index < 0)
-		{
-			if (IsDownPressed())
-			{
-				mode = min(mode + 1, FILTER_MODE_COUNT - 1);
-				SetExists();
-			}
-			else if (IsUpPressed())
-			{
-				mode = max(0, mode - 1);
-				SetExists();
-			}
-		}
-
 		if (IsFocused())
 		{
+			//Cycle the index until we get to one that exists, or the filter bar
+			if (IsLeftPressed())
+			{
+				if (selected_index < 0) selected_index = ArrayCount(exists) - 1;
+				while (!exists[--selected_index] && selected_index != -1);
+				FilterRoms();
+			}
+			else if (IsRightPressed())
+			{
+				while (!exists[++selected_index] && selected_index != -1)
+				{
+					if (selected_index == ArrayCount(exists) - 1) selected_index = -2;
+				}
+				FilterRoms();
+			}
+			else if (IsEnterPressed())
+			{
+				is_active = true;
+				FocusElement(UI_Roms);
+			}
+			else if (IsEscPressed())
+			{
+				is_active = false;
+				RevertFocus();
+				ResetRoms();
+			}
+
+			//selected_index == -1, means we are currently on the filter name
+			if (selected_index < 0)
+			{
+				if (IsDownPressed())
+				{
+					mode = min(mode + 1, FILTER_MODE_COUNT - 1);
+					SetExists();
+				}
+				else if (IsUpPressed())
+				{
+					mode = max(0, mode - 1);
+					SetExists();
+				}
+			}
+
 			position = Lerp(position, pDeltaTime * 6, V2(g_state.form.width * EMU_MENU_PERCENT, 0));
 		}
-	}
-
-	void OnEmulatorChanged(Emulator* pEmulator)
-	{
-		ResetRoms();
-		is_active = false;
-		selected_index = -1;
-		UiElement::OnEmulatorChanged(pEmulator);
+		else if(!is_active)
+		{
+			position = Lerp(position, pDeltaTime * 6, V2(g_state.form.width * EMU_MENU_PERCENT, -100));
+		}
 	}
 
 	void ResetRoms()
@@ -235,13 +233,6 @@ private:
 	void OnFocusGained()
 	{
 		SetExists();
-	}
-
-	void OnFocusLost()
-	{
-		if (!is_active)
-		{
-			position = V2(g_state.form.width * EMU_MENU_PERCENT, -100);
-		}
+		is_active = true;
 	}
 };

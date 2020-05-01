@@ -237,6 +237,28 @@ static v2 MeasureString(FONTS pFont, const char* pText)
 	return size;
 }
 
+static float CharWidth(FONTS pFont, char pChar)
+{
+	FontInfo* font = GetFont(g_assets, pFont);
+	if (font)
+	{
+		if (pChar == '\n')
+		{
+			return 0;
+		}
+		else
+		{
+			stbtt_aligned_quad quad;
+			float y = 0.0F;
+			float x = 0.0F;
+			assert(pChar - ' ' >= 0);
+			stbtt_GetPackedQuad(font->charInfo, font->atlasWidth, font->atlasHeight, pChar - ' ', &x, &y, &quad, 1);
+			return x;
+		}
+	}
+	return 0;
+}
+
 static float GetFontSize(FONTS pFont)
 {
 	FontInfo* font = GetFont(g_assets, pFont);

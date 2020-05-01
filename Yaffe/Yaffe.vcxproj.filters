@@ -17,9 +17,6 @@
     <ClCompile Include="InfoPane.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
-    <ClCompile Include="Root.cpp">
-      <Filter>Interface</Filter>
-    </ClCompile>
     <ClCompile Include="Database.cpp" />
     <ClCompile Include="YaffeOverlay.cpp">
       <Filter>Interface</Filter>
@@ -31,6 +28,12 @@
       <Filter>Interface</Filter>
     </ClCompile>
     <ClCompile Include="FilterBar.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Textbox.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="InputHelp.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
   </ItemGroup>
