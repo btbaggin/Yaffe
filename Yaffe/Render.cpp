@@ -218,15 +218,17 @@ static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPo
 	float x = pPosition.X;
 	float y = pPosition.Y;
 
-	u32 first_vertex = pState->vertex_count;
-	u32 first_index = pState->index_count;
-	u32 index_count = 0;
-
 	FontInfo* font = GetFont(g_assets, pFont);
 	if (font)
 	{
 		y -= (g_state.form.height - font->size);
+		Renderable_Text* m2 = PushRenderGroupEntry(pState, Renderable_Text, RENDER_GROUP_ENTRY_TYPE_Text);
+		m2->first_vertex = pState->vertex_count;
+		m2->first_index = pState->index_count;
+		m2->index_count = 0;
+		m2->texture = font->texture;
 
+		u32 base_v = 0;
 		for (u32 i = 0; pText[i] != 0; i++)
 		{
 			const unsigned char c = pText[i];
@@ -244,18 +246,13 @@ static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPo
 			}
 
 			u16* indices = PushArray(pState->indices, u16, 6);
-			indices[0] = 0; indices[1] = 2; indices[2] = 1;
-			indices[3] = 0; indices[4] = 3; indices[5] = 2;
+			indices[0] = base_v + 0; indices[1] = base_v + 2; indices[2] = base_v + 1;
+			indices[3] = base_v + 0; indices[4] = base_v + 3; indices[5] = base_v + 2;
 
-			Renderable_Text* m2 = PushRenderGroupEntry(pState, Renderable_Text, RENDER_GROUP_ENTRY_TYPE_Text);
-			m2->first_vertex = pState->vertex_count;
-			m2->first_index = pState->index_count;
-			m2->index_count = 6;
-			m2->texture = font->texture;
-
-			index_count += 6;
-			pState->vertex_count += 4;
+			m2->index_count += 6;
 			pState->index_count += 6;
+			pState->vertex_count += 4;
+			base_v += 4;
 		}
 	}
 }
