@@ -17,7 +17,7 @@ static void RenderInputHelp(RenderState* pState, UiRegion pRegion, KeyHelp* pHel
 
 static void DisplayInputHelp(RenderState* pState, UiRegion pRegion)
 {
-	UI_ELEMENT_NAME focus = g_ui.focus[g_ui.focus_index - 1];
+	UI_NAMES focus = g_ui.focus[g_ui.focus_index - 1];
 	switch (focus)
 	{
 		case UI_Roms:

@@ -49,7 +49,7 @@ static int MapKey(int key)
 		UINT result = MapVirtualKeyA(key, MAPVK_VK_TO_VSC);
 		WCHAR buffer[2];
 		int chars = ToUnicodeEx(key, result, (const BYTE*)g_input.current_keyboard_state, buffer, 2, 0, g_input.layout);
-		if (chars == 1) return buffer[0];
+		if (chars == 1 && buffer[0] != '\t') return buffer[0];
 	}
 	return -1;
 }
@@ -96,6 +96,7 @@ static Textbox CreateTextbox(float pWidth, FONTS pFont)
 	tc.width = pWidth;
 	tc.font = pFont;
 	tc.focused = false;
+	tc.font_x = 0;
 	stb_textedit_initialize_state(&tc.state, true);
 	return tc;
 }
@@ -174,7 +175,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 		PushQuad(pState, pPosition - V2(2), pPosition + V2(tc->width, font_size) + V2(2), ACCENT_COLOR);
 	}
 	//Background
-	PushQuad(pState, pPosition, pPosition + V2(tc->width, font_size), V4(0.5F));
+	PushSizedQuad(pState, pPosition, V2(tc->width, font_size), V4(0.5F));
 
 	//Selection
 	if (tc->focused)
@@ -194,7 +195,8 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	//Text
 	if (tc->string)
 	{
-		PushText(pState, tc->font, tc->string, pPosition);
+		v2 pos = pPosition - V2(tc->font_x, 0);
+		PushClippedText(pState, tc->font, tc->string, pos, TEXT_FOCUSED, pPosition, V2(tc->width, font_size));
 	}
 
 	//Cursor
@@ -202,7 +204,20 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	{
 		StbFindState state = {};
 		stb_textedit_find_charpos(&state, tc, tc->state.cursor, true);
-		PushQuad(pState, pPosition + V2(state.x, state.y), pPosition + V2(state.x + 2, state.y + font_size), V4(1));
+		
+		if (state.x - tc->font_x > tc->width)
+		{
+			//Move font left if the cursor is too far to the right
+			tc->font_x += (state.x - tc->font_x - tc->width);
+		}
+		else if (state.x < tc->font_x)
+		{
+			//Move font right if the cursor is too far to the left
+			tc->font_x -= tc->font_x - state.x;
+		}
+
+		v2 pos = pPosition - V2(tc->font_x, 0) + V2(state.x, state.y);
+		PushSizedQuad(pState, pos, V2(2, font_size), V4(1));
 	}
 }
 

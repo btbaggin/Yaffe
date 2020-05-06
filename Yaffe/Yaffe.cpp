@@ -2,8 +2,7 @@
 
 /*
 TODO
-Allow launching other applications
-Make modal more declarative
+Asset free-ing
 Figure out scraper stuff?
 Don't hardcode emulator allocation count
 */
@@ -12,15 +11,12 @@ Don't hardcode emulator allocation count
 #include <glew\glew.h>
 #include <gl/GL.h>
 #include "gl/wglext.h"
-#include "sqlite/sqlite3.h"
 #include <Shlwapi.h>
 #include <dwmapi.h>
 #include <mmreg.h>
 #include "intrin.h"
-#include <assert.h>
-#include <Xinput.h>
-#include <algorithm>
-#include <vector>
+#include <windows.h>
+#include <shlobj.h>
 
 #include "Yaffe.h"
 #include "Assets.h"
@@ -29,10 +25,41 @@ Don't hardcode emulator allocation count
 #include "Emulators.h"
 #include "Render.h"
 
+struct PlatformWorkQueue
+{
+	u32 volatile CompletionTarget;
+	u32 volatile CompletionCount;
+	u32 volatile NextEntryToWrite;
+	u32 volatile NextEntryToRead;
+	HANDLE Semaphore;
+
+	WorkQueueEntry entries[QUEUE_ENTRIES];
+};
+
+struct PlatformWindow
+{
+	u32 width;
+	u32 height;
+
+	HWND handle;
+	HGLRC rc;
+	HDC dc;
+};
+
+struct PlatformProcess
+{
+	PROCESS_INFORMATION info;
+};
+
+struct win32_thread_info
+{
+	u32 ThreadIndex;
+	PlatformWorkQueue* queue;
+};
+
 YaffeState g_state = {};
 YaffeInput g_input = {};
 Assets* g_assets;
-
 Interface g_ui = {};
 
 #include "Memory.cpp"
@@ -47,14 +74,204 @@ Interface g_ui = {};
 #include "Interface.cpp"
 #include "YaffeOverlay.cpp"
 
-#define WINDOW_CLASS L"Yaffe"
-#define OVERLAY_CLASS L"Overlay"
-const u32 UPDATE_FREQUENCY = 30;
-const float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
+const LPCWSTR WINDOW_CLASS = L"Yaffe";
+const LPCWSTR OVERLAY_CLASS = L"Overlay";
 
+//
+// Win32 implementation of Platform.h
+//
+static void GetFullPath(const char* pPath, char* pBuffer)
+{
+	GetFullPathNameA(pPath, MAX_PATH, pBuffer, 0);
+}
+static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional)
+{
+	PathCombineA(pBuffer, pBase, pAdditional);
+}
+static bool CreateDirectoryIfNotExists(const char* pDirectory)
+{
+	if (!PathIsDirectoryA(pDirectory))
+	{
+		SECURITY_ATTRIBUTES sa = {};
+		return CreateDirectoryA(pDirectory, &sa);
+	}
+
+	return true;
+}
+static bool CopyFileTo(const char* pOld, const char* pNew)
+{
+	return CopyFileA(pOld, pNew, false);
+}
+static bool IsValidRomFile(char* pFile)
+{
+	char* extension = PathFindExtensionA(pFile);
+	if (strcmp(extension, ".srm") == 0) return false;
+	return true;
+}
+static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
+{
+	WIN32_FIND_DATAA file;
+	HANDLE h;
+	std::vector<std::string> files;
+	if ((h = FindFirstFileA(pDirectory, &file)) != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if (strcmp(file.cFileName, ".") != 0 &&
+				strcmp(file.cFileName, "..") != 0 &&
+				(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 &&
+				IsValidRomFile(file.cFileName))
+			{
+				files.push_back(std::string(file.cFileName));
+			}
+		} while (FindNextFileA(h, &file));
+	}
+	FindClose(h);
+
+	return files;
+}
+static bool CreateShortcut(const char* pTargetfile, const char* pTargetargs, char* pLinkfile)
+{
+	HRESULT hRes;
+	IShellLink* pShellLink;
+
+	CoInitialize(NULL);
+	hRes = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (void**)&pShellLink);
+	if (SUCCEEDED(hRes))
+	{
+		/* Set the fields in the IShellLink object */
+		WCHAR target[MAX_PATH];
+		MultiByteToWideChar(CP_ACP, 0, pTargetfile, -1, target, MAX_PATH);
+		hRes = pShellLink->SetPath(target);
+
+		WCHAR args[MAX_PATH];
+		MultiByteToWideChar(CP_ACP, 0, pTargetargs, -1, args, MAX_PATH);
+		hRes = pShellLink->SetArguments(args);
+
+		/* Use the IPersistFile object to save the shell link */
+		IPersistFile* pPersistFile;
+		hRes = pShellLink->QueryInterface(IID_IPersistFile, (void**)&pPersistFile);
+		if (SUCCEEDED(hRes))
+		{
+			WCHAR wszLinkfile[MAX_PATH];
+			strcat(pLinkfile, ".lnk");
+			MultiByteToWideChar(CP_ACP, 0, pLinkfile, -1, wszLinkfile, MAX_PATH);
+			hRes = pPersistFile->Save(wszLinkfile, TRUE);
+			pPersistFile->Release();
+		}
+		pShellLink->Release();
+	}
+	CoUninitialize();
+	return hRes >= 0;
+}
+static void StartProgram(YaffeState* pState, Application* pApplication, Executable* pRom)
+{
+	Overlay* overlay = &pState->overlay;
+	char* path = pRom->path;
+	char safe_path[1000];
+	if (pApplication->type == APPLICATION_App)
+	{
+		sprintf(safe_path, "explorer \"%s\"", path);
+	}
+	else
+	{
+		sprintf(safe_path, "\"%s\" %s \"%s\"", pApplication->start_path, pApplication->start_args, path);
+	}
+
+	STARTUPINFOA si = {};
+	overlay->process = new PlatformProcess();
+	if (!CreateProcessA(NULL, safe_path, NULL, NULL, FALSE, 0, NULL, NULL, &si, &overlay->process->info))
+	{
+		DWORD error = GetLastError();
+		switch (error)
+		{
+			case 740:
+				DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
+				break;
+			default:
+				DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
+				break;
+		}
+		return;
+	}
+
+	//Since we aren't on the application, it's a good time to update the database
+	//We don't want to do it while the application is running because we could block it
+	si = {};
+	si.dwFlags = STARTF_USESHOWWINDOW;
+	si.wShowWindow = SW_MINIMIZE;
+	PROCESS_INFORMATION pi = {};
+	CreateProcessA("YaffeScraper.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+}
+static void ShowOverlay(Overlay* pOverlay)
+{
+	MONITORINFO mi = { sizeof(mi) };
+	GetMonitorInfo(MonitorFromWindow(pOverlay->form->handle, MONITOR_DEFAULTTONEAREST), &mi);
+	pOverlay->form->width = mi.rcMonitor.right - mi.rcMonitor.left;
+	pOverlay->form->height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+
+	SetWindowPos(pOverlay->form->handle, 0, mi.rcMonitor.left, mi.rcMonitor.top, pOverlay->form->width, pOverlay->form->height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+	ShowWindow(pOverlay->form->handle, SW_SHOW);
+	UpdateWindow(pOverlay->form->handle);
+}
+static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
+{
+	ShowWindow(pOverlay->form->handle, SW_HIDE);
+
+	if (pTerminate)
+	{
+		TerminateProcess(pOverlay->process->info.hProcess, 0);
+		WaitForSingleObject(pOverlay->process->info.hProcess, INFINITE);
+		CloseHandle(pOverlay->process->info.hProcess);
+		CloseHandle(pOverlay->process->info.hThread);
+	}
+
+}
+static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
+{
+	u32 newnext = (pQueue->NextEntryToWrite + 1) % QUEUE_ENTRIES;
+	if (newnext == pQueue->NextEntryToRead) return false;
+
+	WorkQueueEntry* entry = pQueue->entries + pQueue->NextEntryToWrite;
+	entry->data = pData;
+	entry->callback = pCallback;
+
+	pQueue->CompletionTarget++;
+	_WriteBarrier();
+	_mm_sfence();
+
+	pQueue->NextEntryToWrite = newnext;
+	ReleaseSemaphore(pQueue->Semaphore, 1, 0);
+
+	return true;
+}
+static bool Shutdown()
+{
+	HANDLE token;
+	TOKEN_PRIVILEGES tkp;
+	OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token);
+
+	LookupPrivilegeValue(NULL, SE_SHUTDOWN_NAME, &tkp.Privileges[0].Luid);
+
+	tkp.PrivilegeCount = 1;
+	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	if (!AdjustTokenPrivileges(token, FALSE, &tkp, 0, NULL, 0)) return false;
+	return ExitWindowsEx(EWX_POWEROFF, SHTDN_REASON_FLAG_PLANNED);
+}
+static void SwapBuffers(PlatformWindow* pWindow)
+{
+	SwapBuffers(pWindow->dc);
+}
+
+
+//
+// Main Yaffe loop
+//
 LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeight, LPCWSTR pTitle, bool pFullscreen)
+bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeight, LPCWSTR pTitle, bool pFullscreen)
 {
 	WNDCLASSW wcex = {};
 	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -187,14 +404,14 @@ static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
 	RegisterClassW(&wcex);
 
 	// | WS_EX_LAYERED
-	pOverlay->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, pOverlay->width, pOverlay->height, NULL, NULL, hInstance, NULL);
-	pOverlay->dc = GetDC(pOverlay->handle);
+	pOverlay->form->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, pOverlay->form->width, pOverlay->form->height, NULL, NULL, hInstance, NULL);
+	pOverlay->form->dc = GetDC(pOverlay->form->handle);
 
 	DWM_BLURBEHIND bb = { 0 };
 	bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
 	bb.fEnable = true;
 	bb.hRgnBlur = CreateRectRgn(0, 0, 1, 1);
-	if (!SUCCEEDED(DwmEnableBlurBehindWindow(pOverlay->handle, &bb))) return false;
+	if (!SUCCEEDED(DwmEnableBlurBehindWindow(pOverlay->form->handle, &bb))) return false;
 
 	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = nullptr;
 	wglChoosePixelFormatARB = reinterpret_cast<PFNWGLCHOOSEPIXELFORMATARBPROC>(wglGetProcAddress("wglChoosePixelFormatARB"));
@@ -220,19 +437,19 @@ static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
 	};
 
 	int pixelFormatID; UINT numFormats;
-	const bool status = wglChoosePixelFormatARB(pOverlay->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
+	const bool status = wglChoosePixelFormatARB(pOverlay->form->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
 	if (!status || !numFormats) return false;
 
 	PIXELFORMATDESCRIPTOR PFD;
-	DescribePixelFormat(pOverlay->dc, pixelFormatID, sizeof(PFD), &PFD);
-	SetPixelFormat(pOverlay->dc, pixelFormatID, &PFD);
+	DescribePixelFormat(pOverlay->form->dc, pixelFormatID, sizeof(PFD), &PFD);
+	SetPixelFormat(pOverlay->form->dc, pixelFormatID, &PFD);
 
 	pOverlay->showing = false;
 
 	return true;
 }
 
-static void DestroyGlWindow(Form* pForm)
+static void DestroyGlWindow(PlatformWindow* pForm)
 {
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(pForm->rc);
@@ -240,34 +457,7 @@ static void DestroyGlWindow(Form* pForm)
 	DestroyWindow(pForm->handle);
 }
 
-static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
-{
-	assert(g_state.error_count < MAX_ERROR_COUNT);
-
-	g_state.errors[g_state.error_count++] = pError;
-	if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
-}
-
-bool QueueUserWorkItem(WorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
-{
-	u32 newnext = (pQueue->NextEntryToWrite + 1) % QUEUE_ENTRIES;
-	if (newnext == pQueue->NextEntryToRead) return false;
-
-	WorkQueueEntry* entry = pQueue->entries + pQueue->NextEntryToWrite;
-	entry->data = pData;
-	entry->callback = pCallback;
-
-	pQueue->CompletionTarget++;
-	_WriteBarrier();
-	_mm_sfence();
-
-	pQueue->NextEntryToWrite = newnext;
-	ReleaseSemaphore(pQueue->Semaphore, 1, 0);
-
-	return true;
-}
-
-bool Win32DoNextWorkQueueEntry(WorkQueue* pQueue)
+bool Win32DoNextWorkQueueEntry(PlatformWorkQueue* pQueue)
 {
 	u32 oldnext = pQueue->NextEntryToRead;
 	u32 newnext = (oldnext + 1) % QUEUE_ENTRIES;
@@ -290,7 +480,7 @@ bool Win32DoNextWorkQueueEntry(WorkQueue* pQueue)
 	return false;
 }
 
-void Win32CompleteAllWork(WorkQueue* pQueue)
+void Win32CompleteAllWork(PlatformWorkQueue* pQueue)
 {
 	while (pQueue->CompletionTarget != pQueue->CompletionCount)
 	{
@@ -321,19 +511,57 @@ inline void Tick(YaffeTime* pTime)
 	pTime->current_time = current_time;
 }
 
+void Win32GetInput(YaffeInput* pInput, HWND pHandle)
+{
+	memcpy(pInput->previous_keyboard_state, pInput->current_keyboard_state, 256);
+	pInput->previous_controller_buttons = pInput->current_controller_buttons;
+
+	GetKeyboardState((PBYTE)pInput->current_keyboard_state);
+
+	POINT point;
+	GetCursorPos(&point);
+	ScreenToClient(pHandle, &point);
+
+	pInput->mouse_position = V2((float)point.x, (float)point.y);
+
+	XINPUT_GAMEPAD_EX state = {};
+	DWORD result = g_input.XInputGetState(0, &state);
+	if (result == ERROR_SUCCESS)
+	{
+		pInput->current_controller_buttons = state.wButtons;
+		pInput->left_stick = { (float)state.sThumbLX, (float)state.sThumbLY };
+		pInput->right_stick = { (float)state.sThumbRX, (float)state.sThumbRY };
+
+		float length = HMM_LengthSquaredVec2(pInput->left_stick);
+		if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE * XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+		{
+			pInput->left_stick = V2(0);
+		}
+		length = HMM_LengthSquaredVec2(pInput->right_stick);
+		if (length <= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+		{
+			pInput->right_stick = V2(0);
+		}
+	}
+}
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					  _In_opt_ HINSTANCE hPrevInstance,
 					  _In_ LPWSTR    lpCmdLine,
 					  _In_ int       nCmdShow)
 {
-	if (!CreateOpenGLWindow(&g_state.form, hInstance, 720, 480, L"Yaffe", true))
+	PlatformWindow form = {};
+	g_state.form = &form;
+	if (!CreateOpenGLWindow(g_state.form, hInstance, 720, 480, L"Yaffe", true))
 	{
 		MessageBoxA(nullptr, "Unable to initialize window", "Error", MB_OK);
 		return 1;
 	}
-	ShowWindow(g_state.form.handle, nCmdShow);
-	UpdateWindow(g_state.form.handle);
+	ShowWindow(g_state.form->handle, nCmdShow);
+	UpdateWindow(g_state.form->handle);
 
+	PlatformWindow overlay = {};
+	g_state.overlay.form = &overlay;
 	if (!CreateOverlayWindow(&g_state.overlay, hInstance))
 	{
 		MessageBoxA(nullptr, "Unable to initialize overlay", "Error", MB_OK);
@@ -343,7 +571,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	//Set up work queue
 	const u32 THREAD_COUNT = 8;
 	win32_thread_info threads[THREAD_COUNT];
-	WorkQueue queue = {};
+	PlatformWorkQueue queue = {};
 	HANDLE sem = CreateSemaphoreEx(0, 0, THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
 	queue.Semaphore = sem;
 	for (u32 i = 0; i < THREAD_COUNT; i++)
@@ -366,16 +594,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	glewInit();
 
 	//Initialization
-	void* asset_memory = malloc(Megabytes(4));
+	void* asset_memory = malloc(Megabytes(6));
 
 	RenderState render_state = {};
 	InitializeRenderer(&render_state);
 	InitializeAssetFiles();
-	g_assets = LoadAssets(asset_memory, Megabytes(4));
+	g_assets = LoadAssets(asset_memory, Megabytes(6));
 	InitializeUI(&g_state);
 	GetConfiguredEmulators(&g_state);
-	GetRoms(&g_state, GetSelectedEmulator());
-
+	GetExecutables(&g_state, GetSelectedApplication());
 
 	HINSTANCE xinput_dll;
 	char system_path[MAX_PATH];
@@ -417,12 +644,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			if (msg.message == WM_QUIT) g_state.is_running = false;
 		}
 
-		Win32GetInput(&g_input, g_state.form.handle);
+		Win32GetInput(&g_input, g_state.form->handle);
 		Tick(&g_state.time);
 
 		UpdateUI(&g_state, g_state.time.delta_time);
 
-		v2 size = V2((float)g_state.form.width, (float)g_state.form.height);
+		v2 size = V2((float)g_state.form->width, (float)g_state.form->height);
 		ProcessTaskCallbacks(&g_state.callbacks);
 		BeginRenderPass(size, &render_state);
 		glClearColor(1, 1, 1, 1);
@@ -431,7 +658,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		RenderUI(&g_state, &render_state, g_assets);
 
 		EndRenderPass(size, &render_state);
-		SwapBuffers(g_state.form.dc);
+		SwapBuffers(g_state.form);
 
 		UpdateOverlay(&g_state.overlay);
 		RenderOverlay(&g_state, &render_state);
@@ -451,7 +678,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	FreeAllAssets(&g_state, g_assets);
 	DisposeRenderState(&render_state);
-	DestroyGlWindow(&g_state.form);
+	DestroyGlWindow(g_state.form);
 	CloseHandle(queue.Semaphore);
 	UnregisterClassW(WINDOW_CLASS, hInstance);
 	UnregisterClassW(OVERLAY_CLASS, hInstance);
@@ -475,13 +702,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		if (wParam == SIZE_MINIMIZED)
 		{
-			g_state.form.width = 0;
-			g_state.form.height = 0;
+			g_state.form->width = 0;
+			g_state.form->height = 0;
 		}
 		else
 		{
-			g_state.form.width = lParam & 0xFFFF;
-			g_state.form.height = (lParam >> 16) & 0xFFFF;
+			g_state.form->width = lParam & 0xFFFF;
+			g_state.form->height = (lParam >> 16) & 0xFFFF;
 			if (g_state.is_running)
 			{
 				for (u32 i = 0; i < FONT_COUNT; i++)
@@ -491,7 +718,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 		}
 
-		glViewport(0, 0, g_state.form.width, g_state.form.height);
+		glViewport(0, 0, g_state.form->width, g_state.form->height);
 		return 0;
 	}
 

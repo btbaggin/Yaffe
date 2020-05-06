@@ -75,7 +75,7 @@ class SelectorModal : public ModalContent
 			v2 position = pPosition + V2(0, (font_size + UI_MARGIN * 2) * i);
 			if (i == index)
 			{
-				PushQuad(pState, position, position + V2(size.Width, font_size + UI_MARGIN * 2), ACCENT_COLOR);
+				PushSizedQuad(pState, position, V2(size.Width, font_size + UI_MARGIN * 2), ACCENT_COLOR);
 			}
 
 			PushText(pState, FONT_Normal, text.c_str(), position, TEXT_FOCUSED);
@@ -111,7 +111,7 @@ class AddApplicationModal : public ModalContent
 	{
 		float size = GetFontSize(FONT_Normal);
 		RenderElementWithLabel(pState, Checkbox, application, pPosition, "Application");
-		field_label[2] = application.checked ? "Image" : "Folder";
+		field_label[3] = application.checked ? "Image" : "Folder";
 
 		for (u32 i = 0; i < ArrayCount(fields); i++)
 		{
@@ -122,8 +122,8 @@ class AddApplicationModal : public ModalContent
 
 public:
 	Checkbox application;
-	Textbox fields[3];
-	const char* field_label[3] = { "Name", "Executable", "Folder" };
+	Textbox fields[4];
+	const char* field_label[4] = { "Name", "Executable", "Args", "Folder" };
 
 	AddApplicationModal()
 	{
@@ -131,4 +131,10 @@ public:
 		for (u32 i = 0; i < ArrayCount(fields); i++) fields[i] = CreateTextbox(width, FONT_Normal);
 		application = CreateCheckbox();
 	}
+
+	std::string GetName() { return std::string(fields[0].string, fields[0].stringlen); }
+	std::string GetExecutable() { return std::string(fields[1].string, fields[1].stringlen); }
+	std::string GetArgs() { return std::string(fields[2].string, fields[2].stringlen); }
+	std::string GetFolder() { return std::string(fields[3].string, fields[3].stringlen); }
+
 };

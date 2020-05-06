@@ -1,4 +1,4 @@
-static void StartRunning(YaffeState* pState, Application* pEmulator, Rom* pRom);
+static void StartProgram(YaffeState* pState, Application* pEmulator, Executable* pRom);
 class RomMenu : public UiControl
 {
 public:
@@ -12,8 +12,8 @@ public:
 
 	static void Render(RenderState* pState, UiRegion pRegion, RomMenu* pMenu)
 	{
-		Application* emu = GetSelectedEmulator();
-		List<Rom> roms = emu->roms;
+		Application* emu = GetSelectedApplication();
+		List<Executable> roms = emu->files;
 
 		v2 roms_display_start = pRegion.position + (pRegion.size * ROM_PAGE_PADDING);
 
@@ -25,8 +25,8 @@ public:
 			u32 absolute_index = pMenu->first_visible + i;
 			if (absolute_index >= roms.count)  break;
 
-			Rom* rom = roms.GetItem(absolute_index);
-			if (!HasFlag(rom->flags, ROM_DISPLAY_Filtered))
+			Executable* rom = roms.GetItem(absolute_index);
+			if (!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 			{
 				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
 				if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
@@ -35,7 +35,7 @@ public:
 				u32 y = effective_i / pMenu->tiles_x;
 
 				//Calculate the ideal rom spot
-				v2 rom_position = roms_display_start + (pMenu->tile_size * V2(x, y));
+				v2 rom_position = roms_display_start + (pMenu->tile_size * V2((float)x, (float)y));
 				if (absolute_index == g_state.selected_rom && pMenu->IsFocused())
 				{
 					//Selected rom needs to move a little bit to account for the size increase
@@ -47,27 +47,27 @@ public:
 				rom->position = Lerp(rom->position, g_state.time.delta_time * 5, rom_position); 
 				if (absolute_index != g_state.selected_rom) //We are going to draw selected item last
 				{
-					PushQuad(pState, rom->position, rom->position + pMenu->tile_size, b);
+					PushSizedQuad(pState, rom->position, pMenu->tile_size, b);
 				}
 				effective_i++;
 			}
 		}
 
 		//Render selected rom last so it's on top of everything else
-		Rom* rom = GetSelectedRom();
-		if (rom && !HasFlag(rom->flags, ROM_DISPLAY_Filtered))
+		Executable* rom = GetSelectedExecutable();
+		if (rom && !HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 		{
 			Bitmap* b = GetBitmap(g_assets, &rom->boxart);
 			if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
 			//If we aren't focused we want to render everything the same size
 			if(!pMenu->IsFocused()) pMenu->selected_size = pMenu->tile_size;
-			PushQuad(pState, rom->position, rom->position + pMenu->selected_size, b);
+			PushSizedQuad(pState, rom->position, pMenu->selected_size, b);
 
 			if (pMenu->IsFocused())
 			{
 				float bar_height = GetFontSize(FONT_Title) + UI_MARGIN * 2;
-				PushText(pState, FONT_Title, rom->name, V2(pRegion.position.X, pRegion.size.Height - bar_height));
+				PushText(pState, FONT_Title, rom->name, V2(pRegion.position.X, pRegion.size.Height - bar_height), V4(0, 0, 0, 1));
 			}
 		}
 	}
@@ -76,7 +76,7 @@ public:
 	{
 		s32 old_index = *pIndex;
 		s32 one = pForward ? 1 : -1;
-		List<Rom> roms = pEmulator->roms;
+		List<Executable> roms = pEmulator->files;
 		s32 i = 0;
 		//Since certain roms could be filtered out,
 		//we will loop until we have incremented the proper amount of times
@@ -86,7 +86,7 @@ public:
  			s32 new_index = *pIndex + one;
 			while (new_index >= 0 &&
 				   new_index < (s32)roms.count &&
-				   HasFlag(roms.GetItem(new_index)->flags, ROM_DISPLAY_Filtered))
+				   HasFlag(roms.GetItem(new_index)->flags, EXECUTABLE_FLAG_Filtered))
 			{
 				new_index += one;
 			}
@@ -114,7 +114,7 @@ public:
 
 	void Update(float pDeltaTime)
 	{
-		Application* e = GetSelectedEmulator();
+		Application* e = GetSelectedApplication();
 
 
 		if (IsFocused())
@@ -138,13 +138,13 @@ public:
 
 			if (IsEnterPressed())
 			{
-				Rom* r = e->roms.GetItem(state->selected_rom);
+				Executable* r = e->files.GetItem(state->selected_rom);
 				if (r)
 				{
-					StartRunning(&g_state, e, r);
+					StartProgram(&g_state, e, r);
 				}
 			}
-			else if (IsInfoPressed())
+			else if (e->type != APPLICATION_App && IsInfoPressed())
 			{
 				FocusElement(UI_Info);
 			}
@@ -167,7 +167,7 @@ public:
 		return (pDimension - pDimension * ROM_PAGE_PADDING * 2) / pAmount;
 	}
 
-	void GetTileSize(List<Rom>* pRoms, UiRegion pRegion)
+	void GetTileSize(List<Executable>* pRoms, UiRegion pRegion)
 	{
 		float width = 0;
 		float height = 0;
@@ -180,7 +180,7 @@ public:
 			{
 				//Try to find a bitmap actually loaded so we get proper sizes.
 				//Should be the first one most times
-				Rom* rom = pRoms->GetItem(i);
+				Executable* rom = pRoms->GetItem(i);
 				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
 				if (b)
 				{

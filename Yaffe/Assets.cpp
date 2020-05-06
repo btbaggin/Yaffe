@@ -75,7 +75,7 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 	void* data = Alloc(pAssets->memory, (ATLAS_SIZE * ATLAS_SIZE) + (sizeof(stbtt_packedchar) * charCount) + sizeof(FontInfo));
 
 	FontInfo* font = (FontInfo*)data;
-	font->size = (pSize / 1000) * g_state.form.height;
+	font->size = (pSize / 1000) * g_state.form->height;
 	font->atlasWidth = ATLAS_SIZE;
 	font->atlasHeight = ATLAS_SIZE;
 	font->charInfo = (stbtt_packedchar*)((char*)data + sizeof(FontInfo));
@@ -183,7 +183,6 @@ static Bitmap* GetBitmap(Assets* pAssets, AssetSlot* pSlot)
 	{
 		LoadAsset(pAssets, pSlot);
 	}
-
 	return pSlot->bitmap;
 }
 
@@ -199,7 +198,6 @@ static FontInfo* GetFont(Assets* pAssets, AssetSlot* pSlot)
 	{
 		LoadAsset(pAssets, pSlot);
 	}
-
 	return pSlot->font;
 }
 
@@ -242,11 +240,7 @@ static float CharWidth(FONTS pFont, char pChar)
 	FontInfo* font = GetFont(g_assets, pFont);
 	if (font)
 	{
-		if (pChar == '\n')
-		{
-			return 0;
-		}
-		else if (pChar - ' ' < 0)
+		if (pChar == '\n' || pChar - ' ' < 0)
 		{
 			return 0;
 		}
@@ -351,9 +345,9 @@ void FreeAllAssets(YaffeState* pState, Assets* pAssets)
 	for (u32 i = 0; i < pState->emulators.count; i++)
 	{
 		Application* e = pState->emulators.GetItem(i);
-		for (u32 j = 0; j < e->roms.count; j++)
+		for (u32 j = 0; j < e->files.count; j++)
 		{
-			Rom* r = e->roms.GetItem(j);
+			Executable* r = e->files.GetItem(j);
 			FreeAsset(&r->banner);
 			FreeAsset(&r->boxart);
 		}
@@ -374,4 +368,12 @@ void EvictOldestBitmap(List<AssetSlot> pAssets)
 		}
 	}
 	FreeAsset(slot);
+}
+
+static void InitializeAssetFiles()
+{
+	char assets_path[MAX_PATH];
+	GetFullPath(".\\Assets\\", assets_path);
+
+	Verify(CreateDirectoryIfNotExists(assets_path), "Unable to create assets directory", ERROR_TYPE_Warning);
 }

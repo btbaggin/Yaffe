@@ -112,7 +112,7 @@ static void EndRenderPass(v2 pFormSize, RenderState* pState)
 	glBufferData(GL_ARRAY_BUFFER, pState->vertex_count * sizeof(Vertex), MemoryAddress(pState->vertices), GL_STATIC_DRAW);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, pState->index_count * sizeof(u16), MemoryAddress(pState->indices), GL_STATIC_DRAW);
 
-	glViewport(0, 0, pFormSize.Width, pFormSize.Height);
+	glViewport(0, 0, (int)pFormSize.Width, (int)pFormSize.Height);
 
 	char* address = (char*)MemoryAddress(pState->arena, pState->memory.count);
 	for (u32 i = 0; i < pState->entry_count; i++)
@@ -137,7 +137,14 @@ static void EndRenderPass(v2 pFormSize, RenderState* pState)
 			glActiveTexture(GL_TEXTURE0);
 			glUniform1i(pState->program.texture, 0);
 
+			if (HasFlag(text->flags, RENDER_TEXT_FLAG_Clip))
+			{
+				glEnable(GL_SCISSOR_TEST);
+				glScissor((u32)text->clip_min.X, (u32)(g_state.form->height - (text->clip_min.Y + text->clip_max.Y)), (int)text->clip_max.X, (int)text->clip_max.Y);
+			}
+
 			glDrawElementsBaseVertex(GL_TRIANGLES, text->index_count, GL_UNSIGNED_SHORT, (void*)(text->first_index * sizeof(u16)), text->first_vertex);
+			glDisable(GL_SCISSOR_TEST);
 
 			glUniform1i(pState->program.font, 0);
 		}
@@ -213,7 +220,7 @@ GlyphQuad GetGlyph(FontInfo* pFont, u32 pChar, v4 pColor, float* pX, float* pY)
 	return info;
 }
 
-static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor = { 0, 0, 0, 1 }, float pWrapSize = -1.0F)
+static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, float pWrapSize, v2 pClipMin, v2 pClipMax)
 {
 	float x = pPosition.X;
 	float y = pPosition.Y;
@@ -221,12 +228,16 @@ static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPo
 	FontInfo* font = GetFont(g_assets, pFont);
 	if (font)
 	{
-		y -= (g_state.form.height - font->size);
+		y -= (g_state.form->height - font->size);
 		Renderable_Text* m2 = PushRenderGroupEntry(pState, Renderable_Text, RENDER_GROUP_ENTRY_TYPE_Text);
 		m2->first_vertex = pState->vertex_count;
 		m2->first_index = pState->index_count;
 		m2->index_count = 0;
 		m2->texture = font->texture;
+		m2->flags = 0;
+		if (pClipMin.X > 0) m2->flags |= RENDER_TEXT_FLAG_Clip;
+		m2->clip_min = pClipMin;
+		m2->clip_max = pClipMax;
 
 		u32 base_v = 0;
 		for (u32 i = 0; pText[i] != 0; i++)
@@ -257,10 +268,25 @@ static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPo
 	}
 }
 
+static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor)
+{
+	_PushText(pState, pFont, pText, pPosition, pColor, -1, V2(0), V2(0));
+}
+
+static void PushWrappedText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, float pWrapSize)
+{
+	_PushText(pState, pFont, pText, pPosition, pColor, pWrapSize, V2(0), V2(0));
+}
+
+static void PushClippedText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, v2 pClipMin, v2 pClipMax)
+{
+	_PushText(pState, pFont, pText, pPosition, pColor, -1, pClipMin, pClipMax);
+}
+
 static void PushQuad(RenderState* pState, v2 pMin, v2 pMax, v4 pColor, Bitmap* pTexture)
 {
-	pMin.Y = g_state.form.height - pMin.Y; 
-	pMax.Y = g_state.form.height - pMax.Y;
+	pMin.Y = g_state.form->height - pMin.Y;
+	pMax.Y = g_state.form->height - pMax.Y;
 	Vertex* vertices = PushArray(pState->vertices, Vertex, 4);
 	vertices[0] = { { pMin.X, pMin.Y }, pColor, {0, 0} };
 	vertices[1] = { { pMin.X, pMax.Y }, pColor, {0, 1} };
@@ -279,15 +305,27 @@ static void PushQuad(RenderState* pState, v2 pMin, v2 pMax, v4 pColor, Bitmap* p
 	pState->vertex_count += 4;
 	pState->index_count += 6;
 }
+static void PushSizedQuad(RenderState* pState, v2 pMin, v2 pSize, v4 pColor, Bitmap* pTexture)
+{
+	PushQuad(pState, pMin, pMin + pSize, pColor, pTexture);
+}
 
 static void PushQuad(RenderState* pState, v2 pMin, v2 pMax, Bitmap* pTexture)
 {
 	PushQuad(pState, pMin, pMax, V4(1, 1, 1, 1), pTexture);
 }
+static void PushSizedQuad(RenderState* pState, v2 pMin, v2 pSize, Bitmap* pTexture)
+{
+	PushQuad(pState, pMin, pMin + pSize, V4(1, 1, 1, 1), pTexture);
+}
 
 static void PushQuad(RenderState* pState, v2 pMin, v2 pMax, v4 pColor)
 {
 	PushQuad(pState, pMin, pMax, pColor, nullptr);
+}
+static void PushSizedQuad(RenderState* pState, v2 pMin, v2 pSize, v4 pColor)
+{
+	PushQuad(pState, pMin, pMin + pSize, pColor, nullptr);
 }
 
 static v2 PushRightAlignedTextWithIcon(RenderState* pState, v2 pRight, BITMAPS pIcon, float pIconSize, FONTS pFont, const char* pText, v4 pTextColor = V4(0, 0, 0, 1))

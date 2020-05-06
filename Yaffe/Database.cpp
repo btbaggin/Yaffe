@@ -15,10 +15,7 @@ struct DatabaseConnection
 	sqlite3* con;
 	DatabaseConnection()
 	{
-		if (sqlite3_open("Yaffe.db", &con) != SQLITE_OK)
-		{
-			DisplayErrorMessage("Unable to connect to games database", ERROR_TYPE_Error);
-		}
+		Verify(sqlite3_open("Yaffe.db", &con) == SQLITE_OK, "Unable to connect to games database", ERROR_TYPE_Error);
 	}
 	~DatabaseConnection()
 	{
@@ -32,10 +29,7 @@ struct SqlStatement
 	sqlite3_stmt* stmt;
 	SqlStatement(DatabaseConnection* pCon, const char* pQuery)
 	{
-		if (sqlite3_prepare_v2(pCon->con, pQuery, -1, &stmt, 0) != SQLITE_OK)
-		{
-			DisplayErrorMessage("Unable to prepare statement", ERROR_TYPE_Error);
-		}
+		Verify(sqlite3_prepare_v2(pCon->con, pQuery, -1, &stmt, 0) == SQLITE_OK, "Unable to prepare statement", ERROR_TYPE_Error);
 	}
 	~SqlStatement()
 	{
@@ -98,11 +92,7 @@ static void DownloadImage(const char* pUrl, std::string pSlot)
 	IStream* stream;
 	//Also works with https URL's - unsure about the extent of SSL support though.
 	HRESULT result = URLOpenBlockingStreamA(0, pUrl, &stream, 0, 0);
-	if (result != 0)
-	{
-		DisplayErrorMessage("Unable to retrieve image", ERROR_TYPE_Warning);
-		return;
-	}
+	Verify(result != 0, "Unable to retrieve image", ERROR_TYPE_Warning);
 
 	static const u32 READ_AMOUNT = 100;
 	HANDLE file = CreateFileA(pSlot.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
@@ -141,7 +131,7 @@ MODAL_CLOSE(WritePlatformAliasToDB)
 			}
 		}
 
-		GetRoms(&g_state, GetSelectedEmulator(), true);
+		GetExecutables(&g_state, GetSelectedApplication(), true);
 	}
 }
 
@@ -167,7 +157,7 @@ static void GetListOfPossibleEmulators(DatabaseConnection* pCon, char* pName)
 	}
 }
 
-static bool GetEmulatorPlatform(Application* pEmulator)
+static s32 GetEmulatorPlatform(Application* pEmulator)
 {
 	DatabaseConnection con;
 	SqliteParameter parm[1] = {
@@ -179,10 +169,9 @@ static bool GetEmulatorPlatform(Application* pEmulator)
 	if (!ExecuteReader(&stmt))
 	{
 		GetListOfPossibleEmulators(&con, pEmulator->display_name);
-		return false;
+		return 0;
 	}
-	pEmulator->platform = GetIntColumn(&stmt, 0);
-	return true;
+	return GetIntColumn(&stmt, 0);
 }
 
 struct GameInfo
@@ -217,14 +206,14 @@ MODAL_CLOSE(WriteGameAliasToDB)
 			}
 		}
 
-		Application* e = GetSelectedEmulator();
-		for (u32 i = 0; i < e->roms.count; i++)
+		Application* e = GetSelectedApplication();
+		for (u32 i = 0; i < e->files.count; i++)
 		{
-			Rom* r = e->roms.GetItem(i);
+			Executable* r = e->files.GetItem(i);
 			if (strcmp(r->name, gi->name.c_str()) == 0)
 			{
 				char rom_asset_path[MAX_PATH];
-				PathCombineA(rom_asset_path, e->asset_path, r->name);
+				CombinePath(rom_asset_path, e->asset_path, r->name);
 
 				QueueAssetDownloads(r, rom_asset_path, gi->platform);
 				break;
@@ -266,11 +255,7 @@ static void GetGameImages(s32 pPlatform, std::string pGame, std::string pBanner,
 	std::string url_base;
 	{
 		SqlStatement stmt(&con, "SELECT URL FROM ImageUrls WHERE Size = 'medium'");
-		if (!ExecuteReader(&stmt))
-		{
-			DisplayErrorMessage("Unable to get base image URL", ERROR_TYPE_Warning);
-			return;
-		}
+		Verify(ExecuteReader(&stmt), "Unable to get base image URL", ERROR_TYPE_Warning);
 		url_base = std::string(GetTextColumn(&stmt, 0));
 	}
 	

@@ -1,5 +1,4 @@
 #pragma once
-#include "Input.h"
 
 inline static bool IsKeyPressed(KEYS pKey, bool pDelay = true)
 {
@@ -110,39 +109,4 @@ inline static bool IsRightStickPushed(DIRECTIONS pDirection)
 inline static v2 GetMousePosition()
 {
 	return g_input.mouse_position;
-}
-
-void Win32GetInput(YaffeInput* pInput, HWND pHandle)
-{
-	memcpy(pInput->previous_keyboard_state, pInput->current_keyboard_state, 256);
-	pInput->previous_controller_buttons = pInput->current_controller_buttons;
-
-	GetKeyboardState((PBYTE)pInput->current_keyboard_state);
-
-	POINT point;
-	GetCursorPos(&point);
-	ScreenToClient(pHandle, &point);
-
-	pInput->mouse_position = { (float)point.x, (float)point.y };
-
-	XINPUT_GAMEPAD_EX state = {};
-	DWORD result = g_input.XInputGetState(0, &state);// pInput->get_state(0, &state);
-	if (result == ERROR_SUCCESS)
-	{
-		pInput->current_controller_buttons = state.wButtons;
-		pInput->left_stick = { (float)state.sThumbLX, (float)state.sThumbLY };
-		pInput->right_stick = { (float)state.sThumbRX, (float)state.sThumbRY };
-
-
-		float length = HMM_LengthSquaredVec2(pInput->left_stick);
-		if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE * XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
-		{
-			pInput->left_stick = { 0, 0 };
-		}
-		length = HMM_LengthSquaredVec2(pInput->right_stick);
-		if (length <= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
-		{
-			pInput->right_stick = { 0, 0 };
-		}
-	}
 }

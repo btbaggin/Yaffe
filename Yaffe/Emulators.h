@@ -1,9 +1,9 @@
 #pragma once
 
-enum ROM_DISPLAY_FLAGS : u8
+enum EXECUTABLE_FLAGS : u8
 {
-	ROM_DISPLAY_None,
-	ROM_DISPLAY_Filtered,
+	EXECUTABLE_FLAG_None = 0,
+	EXECUTABLE_FLAG_Filtered = 1,
 };
 
 enum APPLICATION_TYPE : u8
@@ -12,12 +12,13 @@ enum APPLICATION_TYPE : u8
 	APPLICATION_App,
 };
 
-struct Rom
+struct Executable
 {
 	char name[100];
 	char path[MAX_PATH];
 	AssetSlot boxart;
 	AssetSlot banner;
+	s32 platform;
 	u8 players;
 
 	u8 flags;
@@ -28,12 +29,12 @@ struct Application
 {
 	char display_name[35];
 	char start_path[MAX_PATH];
+	char start_args[100];
 	char rom_path[MAX_PATH];
 	char asset_path[MAX_PATH];
 	APPLICATION_TYPE type;
-	s32 platform;
 
-	List<Rom> roms;
+	List<Executable> files;
 };
 
 struct RomAssetWork
@@ -44,6 +45,6 @@ struct RomAssetWork
 	s32 platform;
 };
 
-static inline Application* GetSelectedEmulator();
-static void GetRoms(YaffeState* pState, Application* pEmulator, bool pForce = false);
-static void QueueAssetDownloads(Rom* pRom, const char* pAssetPath, s32 pPlatform);
+static inline Application* GetSelectedApplication();
+static void GetExecutables(YaffeState* pState, Application* pEmulator, bool pForce = false);
+static void QueueAssetDownloads(Executable* pRom, const char* pAssetPath, s32 pPlatform);

@@ -7,12 +7,20 @@ enum RENDER_GROUP_ENTRY_TYPE : u8
 	RENDER_GROUP_ENTRY_TYPE_Quad,
 };
 
+enum RENDER_TEXT_FLAGS : u8
+{
+	RENDER_TEXT_FLAG_Clip = 1
+};
+
 struct Renderable_Text
 {
 	u32 first_index;
 	u32 first_vertex;
 	u32 index_count;
 	u32 texture;
+	v2 clip_min;
+	v2 clip_max;
+	u8 flags;
 };
 
 struct Renderable_Quad

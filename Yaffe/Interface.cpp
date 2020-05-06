@@ -1,8 +1,3 @@
-static bool IsApplicationFocused()
-{
-	return GetForegroundWindow() == g_state.form.handle;
-}
-
 static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 {
 	v2 size = MeasureString(pFont, pText);
@@ -10,7 +5,12 @@ static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 	return V2((pBounds.Width - size.Width) / 2.0F, (pBounds.Height - size.Height - (size.Height / 2.0F)) / 2.0F);
 }
 
-static void FocusElement(UI_ELEMENT_NAME pElement)
+static v4 GetFontColor(bool pFocused)
+{
+	return pFocused ? TEXT_FOCUSED : TEXT_UNFOCUSED;
+}
+
+static void FocusElement(UI_NAMES pElement)
 {
 	g_ui.focus[g_ui.focus_index++] = pElement;
 	g_ui.elements[pElement]->OnFocusGained();
@@ -18,15 +18,15 @@ static void FocusElement(UI_ELEMENT_NAME pElement)
 
 static void RevertFocus()
 {
-	if (g_ui.focus_index > 1)
-	{
-		--g_ui.focus_index;
-	}
+	if (g_ui.focus_index > 1) --g_ui.focus_index;
 }
 
-static v4 GetFontColor(bool pFocused)
+static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 {
-	return pFocused ? TEXT_FOCUSED : TEXT_UNFOCUSED;
+	assert(g_state.error_count < MAX_ERROR_COUNT);
+
+	g_state.errors[g_state.error_count++] = pError;
+	if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
 }
 
 static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
@@ -41,20 +41,24 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
 		size.Width += ICON_SIZE_WITH_MARGIN;
 	}
 
-	v2 window_position = V2((g_state.form.width - size.Width) / 2, (g_state.form.height - size.Height) / 2);
+	v2 window_position = V2((g_state.form->width - size.Width) / 2, (g_state.form->height - size.Height) / 2);
 	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
+	
+	PushQuad(pState, V2(0.0F), V2((float)g_state.form->width, (float)g_state.form->height), V4(0.0F, 0.0F, 0.0F, 0.4F));
 
-	PushQuad(pState, window_position, window_position + size, MODAL_BACKGROUND);
-	PushQuad(pState, window_position, window_position + V2(size.Width, TITLEBAR_SIZE), MODAL_TITLE);
+	//Window
+	PushSizedQuad(pState, window_position, size, MODAL_BACKGROUND);
+	//Tilebar
+	PushSizedQuad(pState, window_position, V2(size.Width, TITLEBAR_SIZE), MODAL_TITLE);
 	PushText(pState, FONT_Subtext, pWindow->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
 
-	PushQuad(pState, window_position, window_position + V2(UI_MARGIN / 2.0F, size.Height), ACCENT_COLOR);
-
+	//Sidebar highlight
+	PushSizedQuad(pState, window_position, V2(UI_MARGIN / 2.0F, size.Height), ACCENT_COLOR);
 
 	if (pWindow->icon != BITMAP_None)
 	{
 		Bitmap* image = GetBitmap(g_assets, pWindow->icon);
-		PushQuad(pState, icon_position, icon_position + V2(ICON_SIZE), image);
+		PushSizedQuad(pState, icon_position, V2(ICON_SIZE), image);
 		icon_position.X += ICON_SIZE;
 	}
 	pWindow->content->Render(pState, icon_position);
@@ -76,7 +80,6 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalCont
 	}
 	return false;
 }
-
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::string pMessage, BITMAPS pImage, modal_window_close* pClose)
 {
 	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose);
@@ -94,24 +97,7 @@ MODAL_CLOSE(ExitModalClose)
 		}
 		else
 		{
-			HANDLE token;
-			TOKEN_PRIVILEGES tkp;
-			OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token);
-
-			LookupPrivilegeValue(NULL, SE_SHUTDOWN_NAME, &tkp.Privileges[0].Luid);
-
-			tkp.PrivilegeCount = 1;
-			tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-			if(!AdjustTokenPrivileges(token, FALSE, &tkp, 0, NULL, 0))
-			{
-				DisplayErrorMessage("Unable to initiate shut down", ERROR_TYPE_Warning);
-			}
-
-			if (ExitWindowsEx(EWX_POWEROFF, SHTDN_REASON_FLAG_PLANNED))
-			{
-				DisplayErrorMessage("Unable to initiate show down", ERROR_TYPE_Warning);
-			}
+			Verify(Shutdown(), "Unable to initiate shutdown", ERROR_TYPE_Warning);
 		}
 	}
 }
@@ -135,13 +121,15 @@ static void DisplayApplicationErrors(YaffeState* pState)
 
 static void DisplayQuitMessage(YaffeState* pState)
 {
-	if (IsApplicationFocused() && (IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
+	if (GetForegroundWindow() == g_state.form->handle &&
+		g_state.current_modal < 0 &&
+		(IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
 	{
 		//Only allow quitting when current window is focused
 		std::vector<std::string> options;
 		options.push_back("Quit");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "Close", new SelectorModal(options, (char*)""), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "", new SelectorModal(options, (char*)""), BITMAP_None, ExitModalClose);
 	}
 }
 
@@ -149,7 +137,7 @@ static UiRegion CreateRegion(v2 pSize)
 {
 	UiRegion region;
 	region.position = V2(0);
-	region.size = V2(g_state.form.width * pSize.Width, g_state.form.height * pSize.Height);
+	region.size = V2(g_state.form->width * pSize.Width, g_state.form->height * pSize.Height);
 
 	return region;
 }
@@ -187,7 +175,6 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	RenderElement(InfoPane, UI_Info, main);
 
 	DisplayInputHelp(pRender, main);
-
 	if (pState->current_modal >= 0)
 	{
 		RenderModalWindow(pRender, pState->modals[pState->current_modal]);
@@ -196,7 +183,7 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 
 static void UpdateUI(YaffeState* pState, float pDeltaTime)
 {
-	if (pState->overlay.running_rom.dwProcessId != 0) return;
+	if (pState->overlay.process) return;
 	DisplayApplicationErrors(pState);
 	DisplayQuitMessage(pState);
 

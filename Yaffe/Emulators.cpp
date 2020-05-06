@@ -1,14 +1,15 @@
-static inline Application* GetSelectedEmulator()
+static inline Application* GetSelectedApplication()
 {
 	return g_state.emulators.GetItem(g_state.selected_emulator);
 }
 
-static inline Rom* GetSelectedRom()
+static inline Executable* GetSelectedExecutable()
 {
-	return GetSelectedEmulator()->roms.GetItem(g_state.selected_rom);
+	Application* app = GetSelectedApplication();
+	return app->files.GetItem(g_state.selected_rom);
 }
 
-static bool GetNextLine(FILE* pFile, std::string* pLine)
+static bool GetNextLine(FILE* pFile, std::string* pLine, bool pSkipBlankLines = true)
 {
 	char l[256];
 	if (fgets(l, 256, pFile))
@@ -16,8 +17,12 @@ static bool GetNextLine(FILE* pFile, std::string* pLine)
 		do
 		{
 			std::string line(l);
-			ltrim(&line);
-			if (line[0] != '#' && line.length() > 0)
+			//Trim beginning spaces
+			line.erase(line.begin(), std::find_if(line.begin(), line.end(), [](int ch) {
+				return !std::isspace(ch);
+			}));
+
+			if (line[0] != '#' && (line.length() > 0 || !pSkipBlankLines))
 			{
 				std::replace(line.begin(), line.end(), '\n', '\0');
 				*pLine = line;
@@ -29,56 +34,100 @@ static bool GetNextLine(FILE* pFile, std::string* pLine)
 	return false;
 }
 
+static void AddNewEmulator(std::string pName, std::string pPath, std::string pArgs, std::string pRoms)
+{
+	char config_file[MAX_PATH];
+	GetFullPath("./Emulators.txt", config_file);
+
+	FILE* fin = fopen(config_file, "a");
+	Verify(fin, "Unable to add emulator", ERROR_TYPE_Warning);
+
+	fputs("\n\n", fin);
+	std::string name = pName.append("\n"); fputs(name.c_str(), fin);
+	std::string path = pPath.append("\n"); fputs(path.c_str(), fin);
+	std::string args = pArgs.append("\n"); fputs(args.c_str(), fin);
+	std::string roms = pRoms.append("\n"); fputs(roms.c_str(), fin);
+
+	fclose(fin);
+}
+
+static void AddNewApplication(std::string pName, std::string pPath, std::string pArgs, std::string pImage)
+{
+	char config_file[MAX_PATH];
+	GetFullPath(".\\Applications\\", config_file);
+	Verify(CreateDirectoryIfNotExists(config_file), "Unable to create applications folder", ERROR_TYPE_Warning);
+
+	char assets[MAX_PATH];
+	GetFullPath(".\\Applications\\Assets\\", assets);
+	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
+
+	CombinePath(assets, assets, pName.c_str());
+	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
+
+	CombinePath(config_file, config_file, pName.c_str());
+	Verify(CreateShortcut(pPath.c_str(), pArgs.c_str(), config_file), "Unable to create application shortcut", ERROR_TYPE_Warning);
+
+	CombinePath(assets, assets, "boxart.jpg");
+	Verify(CopyFileTo(pImage.c_str(), assets), "Unable to copy application image", ERROR_TYPE_Warning);
+}
+
 static void GetConfiguredEmulators(YaffeState* pState)
 {
 	char config_file[MAX_PATH];
-	if (!GetFullPathNameA("./Emulators.txt", MAX_PATH, config_file, 0))
-	{
-		DisplayErrorMessage("Unable to find emulators configuration file", ERROR_TYPE_Error);
-		return;
-	}
+	GetFullPath(".\\Emulators.txt", config_file);
 
-	FILE* file = fopen(config_file, "r");
-	if (!file)
-	{
-		DisplayErrorMessage("Unable to read emulators configuration file", ERROR_TYPE_Error);
-		return;
-	}
+	FILE* fin = fopen(config_file, "r");
+	Verify(fin, "Unable to read emulators configuration file", ERROR_TYPE_Error);
 
 	pState->emulators.InitializeWithArray(new Application[32], 32);
 
+	//
+	// EMULATORS
+	//
 	std::string line;
-	while (GetNextLine(file, &line))
+	while (GetNextLine(fin, &line))
 	{
 		assert(pState->emulators.count < 32);
 		Application* current = pState->emulators.GetItem(pState->emulators.count++);
+		current->type = APPLICATION_Emulator;
 		strcpy(current->display_name, line.c_str());
 
-		GetFullPathNameA(".\\Assets", MAX_PATH, current->asset_path, 0);
-		PathAppendA(current->asset_path, current->display_name);
-		if (!PathIsDirectoryA(current->asset_path))
-		{
-			SECURITY_ATTRIBUTES sa = {};
-			CreateDirectoryA(current->asset_path, &sa);
-		}
+		GetFullPath(".\\Assets", current->asset_path);
+		CombinePath(current->asset_path, current->asset_path, current->display_name);
+		CreateDirectoryIfNotExists(current->asset_path);
 
 		//Get path to executable
-		if (!GetNextLine(file, &line))
-		{
-			DisplayErrorMessage("Incorrectly configured emulators file", ERROR_TYPE_Error);
-			return;
-		}
+		Verify(GetNextLine(fin, &line, false), "Incorrectly configured emulators file", ERROR_TYPE_Error);
 		strcpy(current->start_path, line.c_str());
 
+		//Get executable args
+		Verify(GetNextLine(fin, &line, false), "Incorrectly configured emulators file", ERROR_TYPE_Error);
+		strcpy(current->start_args, line.c_str());
+
 		//Get path to roms folder
-		if (!GetNextLine(file, &line))
-		{
-			DisplayErrorMessage("Incorrectly configured emulators file", ERROR_TYPE_Error);
-			return;
-		}
+		Verify(GetNextLine(fin, &line, false), "Incorrectly configured emulators file", ERROR_TYPE_Error);
 		strcpy(current->rom_path, line.c_str());
 	}
-	fclose(file);
+	fclose(fin);
+
+	//
+	// APPLICATIONS
+	//
+	char applications[MAX_PATH];
+	GetFullPath(".\\Applications\\", applications);
+
+	if (PathIsDirectoryA(applications))
+	{
+		Application* current = pState->emulators.GetItem(pState->emulators.count++);
+		current->type = APPLICATION_App;
+		strcpy(current->display_name, "Applications");
+
+		strcpy(current->rom_path, applications);
+
+		CombinePath(applications, applications, "Assets\\");
+		strcpy(current->asset_path, applications);
+		CreateDirectoryIfNotExists(current->asset_path);
+	}
 }
 
 WORK_QUEUE_CALLBACK(DownloadRomAssets)
@@ -89,35 +138,7 @@ WORK_QUEUE_CALLBACK(DownloadRomAssets)
 	delete work;
 }
 
-static bool IsValidRomFile(char* pFile)
-{
-	char* extension = PathFindExtensionA(pFile);
-	if (strcmp(extension, ".srm") == 0) return false;
-	return true;
-}
-
-static u32 CountFilesInDirectory(char* pDirectory)
-{
-	WIN32_FIND_DATAA file;
-	HANDLE h;
-	u32 count = 0;
-	if ((h = FindFirstFileA(pDirectory, &file)) != INVALID_HANDLE_VALUE)
-	{
-		do
-		{
-			if (strcmp(file.cFileName, ".") != 0 &&
-				strcmp(file.cFileName, "..") != 0)
-			{
-				if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 && IsValidRomFile(file.cFileName)) count++;
-			}
-		} while (FindNextFileA(h, &file));
-	}
-	FindClose(h);
-
-	return count;
-}
-
-static void QueueAssetDownloads(Rom* pRom, const char* pAssetPath, s32 pPlatform)
+static void QueueAssetDownloads(Executable* pRom, const char* pAssetPath, s32 pPlatform)
 {
 	if (!FileExists(pRom->banner.load_path) || !FileExists(pRom->boxart.load_path))
 	{
@@ -133,86 +154,55 @@ static void QueueAssetDownloads(Rom* pRom, const char* pAssetPath, s32 pPlatform
 	}
 }
 
-bool RomsSort(Rom a, Rom b) { return strcmp(a.name, b.name) < 0; }
-static void GetRoms(YaffeState* pState, Application* pEmulator, bool pForce)
+bool RomsSort(Executable a, Executable b) { return strcmp(a.name, b.name) < 0; }
+static void GetExecutables(YaffeState* pState, Application* pEmulator, bool pForce)
 {
 	pState->selected_rom = 0;
 
 	//Only retrieve rom information if we know the platform or can find it
 	//If not, we need to wait for the user to select a platform before we continue
-	if (pEmulator->platform == 0)
+	u32 platform = 0;
+	if (pEmulator->type == APPLICATION_Emulator)
 	{
-		if (!GetEmulatorPlatform(pEmulator)) return;
+		platform = GetEmulatorPlatform(pEmulator);
 	}
 
 	char path[MAX_PATH];
 	sprintf(path, "%s\\*.*", pEmulator->rom_path);
 
-	u32 count = CountFilesInDirectory(path);
-	if (pEmulator->roms.count == count && !pForce) return;
+	std::vector<std::string> files = GetFilesInDirectory(path);
+	if (pEmulator->files.count == files.size() && !pForce) return;
 	
-	if (pEmulator->roms.items) delete pEmulator->roms.items;
-	pEmulator->roms.InitializeWithArray(new Rom[count], count);
+	if (pEmulator->files.items) delete pEmulator->files.items;
+	pEmulator->files.InitializeWithArray(new Executable[files.size()], (u32)files.size());
 
-	WIN32_FIND_DATAA file;
-	HANDLE h;
-	if ((h = FindFirstFileA(path, &file)) == INVALID_HANDLE_VALUE)
+	for (u32 i = 0; i < files.size(); i++)
 	{
-		DisplayErrorMessage("Invalid roms directory", ERROR_TYPE_Warning);
-		return;
+		char* file_name = (char*)files[i].c_str();
+		Executable* rom = pEmulator->files.items + pEmulator->files.count++;
+		rom->platform = platform;
+		CombinePath(rom->path, pEmulator->rom_path, file_name);
+
+		PathRemoveExtensionA(file_name);
+		strcpy(rom->name, file_name);
+
+		char rom_asset_path[MAX_PATH];
+		CombinePath(rom_asset_path, pEmulator->asset_path, rom->name);
+
+		char boxart_path[MAX_PATH];
+		CombinePath(boxart_path, rom_asset_path, "boxart.jpg");
+		strcpy(rom->boxart.load_path, boxart_path);
+		rom->boxart.type = ASSET_TYPE_Bitmap;
+
+		char banner_path[MAX_PATH];
+		CombinePath(banner_path, rom_asset_path, "banner.jpg");
+		strcpy(rom->banner.load_path, banner_path);
+		rom->banner.type = ASSET_TYPE_Bitmap;
+
+		rom->players = GetGamePlayers(platform, rom->name);
+
+		QueueAssetDownloads(rom, rom_asset_path, platform);
 	}
 
-	do
-	{
-		//Find first file will always return "."
-		//    and ".." as the first two directories. 
-		if (strcmp(file.cFileName, ".") != 0 && 
-			strcmp(file.cFileName, "..") != 0)
-		{
-			if ((file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 && IsValidRomFile(file.cFileName))
-			{
-				Rom* rom = pEmulator->roms.items + pEmulator->roms.count++;
-				PathCombineA(rom->path, pEmulator->rom_path, file.cFileName);
-
-				PathRemoveExtensionA(file.cFileName);
-				strcpy(rom->name, file.cFileName);
-
-				char rom_asset_path[MAX_PATH];
-				PathCombineA(rom_asset_path, pEmulator->asset_path, rom->name);
-
-				char boxart_path[MAX_PATH];
-				PathCombineA(boxart_path, rom_asset_path, "boxart.jpg");
-				strcpy(rom->boxart.load_path, boxart_path);
-				rom->boxart.type = ASSET_TYPE_Bitmap;
-
-				char banner_path[MAX_PATH];
-				PathCombineA(banner_path, rom_asset_path, "banner.jpg");
-				strcpy(rom->banner.load_path, banner_path);
-				rom->banner.type = ASSET_TYPE_Bitmap;
-
-				rom->players = GetGamePlayers(pEmulator->platform, rom->name);
-
-				QueueAssetDownloads(rom, rom_asset_path, pEmulator->platform);
-			}
-		}
-	} while (FindNextFileA(h, &file)); //Find the next file. 
-	FindClose(h);
-
-	std::sort(pEmulator->roms.items, pEmulator->roms.items + pEmulator->roms.count, RomsSort);
+	std::sort(pEmulator->files.items, pEmulator->files.items + pEmulator->files.count, RomsSort);
 }
-
-static void InitializeAssetFiles()
-{
-	char assets_path[MAX_PATH];
-	GetFullPathNameA("./Assets/", MAX_PATH, assets_path, 0);
-
-	if (!PathIsDirectoryA(assets_path))
-	{
-		SECURITY_ATTRIBUTES sa = {};
-		if (!CreateDirectoryA(assets_path, &sa))
-		{
-			DisplayErrorMessage("Unable to create assets directory", ERROR_TYPE_Warning);
-		}
-	}
-}
-

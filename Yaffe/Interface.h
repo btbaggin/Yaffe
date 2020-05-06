@@ -14,7 +14,7 @@ const float INFO_PANE_WIDTH = 0.5F;
 const float LABEL_WIDTH = 220;
 
 struct RenderState;
-enum UI_ELEMENT_NAME
+enum UI_NAMES
 {
 	UI_Emulators,
 	UI_Roms,
@@ -54,7 +54,7 @@ struct Interface
 {
 	UiControl* elements[UI_COUNT];
 
-	UI_ELEMENT_NAME focus[8];
+	UI_NAMES focus[8];
 	u32 focus_index;
 };
 
@@ -62,9 +62,9 @@ extern Interface g_ui;
 class UiControl
 {
 public:
-	UI_ELEMENT_NAME tag;
+	UI_NAMES tag;
 
-	UiControl(UI_ELEMENT_NAME pTag)
+	UiControl(UI_NAMES pTag)
 	{
 		tag = pTag;
 	}
@@ -93,6 +93,7 @@ struct Textbox
 	FONTS font;
 	bool focused;
 	float width;
+	float font_x;
 	STB_TexteditState state;
 };
 

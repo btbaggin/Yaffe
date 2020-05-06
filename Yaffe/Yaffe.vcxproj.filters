@@ -45,6 +45,7 @@
     <ClInclude Include="Emulators.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Render.h" />
+    <ClInclude Include="Platform.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Interface">
