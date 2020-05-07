@@ -264,6 +264,37 @@ static float GetFontSize(FONTS pFont)
 	return 0;
 }
 
+static void WrapText(char* pText, u32 pLength, FONTS pFont, float pWidth)
+{ 
+	u32 last_index = 0;
+	float total_size = 0;
+	float word_size = 0;
+	for (u32 i = 0; i <= pLength; i++)
+	{
+		if (pText[i] == '\n')
+		{
+			total_size = 0;
+			last_index = i;
+		}
+		else if (i == pLength || (pText[i] > 0 && isspace(pText[i]))) 
+		{
+			word_size = 0;
+			for (u32 j = last_index; j < i; j++)
+			{
+				word_size += CharWidth(pFont, pText[j]);
+			}
+
+			total_size += word_size;
+			if (total_size > pWidth)
+			{
+				pText[last_index] = '\n';
+				total_size = word_size;
+			}
+			last_index = i;
+		}
+	}
+}
+
 static void AddBitmapAsset(Assets* pAssets, BITMAPS pName, const char* pPath)
 {
 	AssetSlot* slot = pAssets->bitmaps + pName;
@@ -286,9 +317,9 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	ZeroMemory(assets, sizeof(Assets));
 	assets->memory = CreateMemoryPool(AssetMemory, pSize);
 	
-	AddFontAsset(assets, FONT_Subtext, "C:/windows/fonts/arial.ttf", 20);
-	AddFontAsset(assets, FONT_Normal, "C:/windows/fonts/arial.ttf", 25);
-	AddFontAsset(assets, FONT_Title, "C:/windows/fonts/arialbd.ttf", 35);
+	AddFontAsset(assets, FONT_Subtext, "./Assets/roboto-regular.ttf", 20);
+	AddFontAsset(assets, FONT_Normal, "./Assets/roboto-regular.ttf", 25);
+	AddFontAsset(assets, FONT_Title, "./Assets/roboto-black.ttf", 36);
 	AddBitmapAsset(assets, BITMAP_Background, "./Assets/background.jpg");
 	AddBitmapAsset(assets, BITMAP_Placeholder, "./Assets/placeholder.jpg");
 	AddBitmapAsset(assets, BITMAP_Error, "./Assets/error.png");
@@ -299,7 +330,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	AddBitmapAsset(assets, BITMAP_ButtonB, "./Assets/button_b.png");
 	AddBitmapAsset(assets, BITMAP_ButtonX, "./Assets/button_x.png");
 	AddBitmapAsset(assets, BITMAP_ButtonY, "./Assets/button_y.png");
-	
+
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };
 	glGenTextures(1, &assets->blank_texture);

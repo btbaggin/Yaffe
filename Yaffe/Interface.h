@@ -10,10 +10,10 @@ const float EMU_MENU_PERCENT = 0.2F;
 const float ROM_PAGE_PADDING = 0.075F;
 const float UI_MARGIN = 5.0F;
 const float SELECTED_ROM_SIZE = 0.2F;
-const float INFO_PANE_WIDTH = 0.5F;
+const float INFO_PANE_WIDTH = 0.33F;
 const float LABEL_WIDTH = 220;
+const float ROM_OUTLINE_SIZE = 5;
 
-struct RenderState;
 enum UI_NAMES
 {
 	UI_Emulators,
@@ -103,13 +103,13 @@ struct Checkbox
 };
 
 const v4 MENU_BACKGROUND = { 0.25F, 0.25F, 0.25F, 0.5F };
-const v4 TEXT_FOCUSED = { 1, 1, 1, 1 };
+const v4 TEXT_FOCUSED = { 0.95F, 0.95F, 0.95F, 1 };
 const v4 TEXT_UNFOCUSED = { 0.6F, 0.6F, 0.6F, 1 };
 
 const v4 MODAL_BACKGROUND = { 0.1F, 0.1F, 0.1F, 1 };
 const v4 MODAL_TITLE = { 0.6F, 0.6F, 0.6F, 1 };
 
-const v4 ACCENT_COLOR = { 0.25, 0.75, 1, 1 };
-const v4 ACCENT_UNFOCUSED = { 0.F, 0.4F, 0.4F, 1 };
+const v4 ACCENT_COLOR = V4(0.25F, 0.3F, 1, 1);
+const v4 ACCENT_UNFOCUSED = V4(0.2F, 0.25F, 0.75F, 1);
 
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose);

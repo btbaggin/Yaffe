@@ -107,6 +107,8 @@ static void GetConfiguredEmulators(YaffeState* pState)
 		//Get path to roms folder
 		Verify(GetNextLine(fin, &line, false), "Incorrectly configured emulators file", ERROR_TYPE_Error);
 		strcpy(current->rom_path, line.c_str());
+
+		GetExecutables(pState, current, true);
 	}
 	fclose(fin);
 
@@ -127,6 +129,8 @@ static void GetConfiguredEmulators(YaffeState* pState)
 		CombinePath(applications, applications, "Assets\\");
 		strcpy(current->asset_path, applications);
 		CreateDirectoryIfNotExists(current->asset_path);
+
+		GetExecutables(pState, current, true);
 	}
 }
 

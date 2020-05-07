@@ -22,11 +22,9 @@ static void DisplayInputHelp(RenderState* pState, UiRegion pRegion)
 	{
 		case UI_Roms:
 		{
-			KeyHelp keys[4] = {
+			KeyHelp keys[2] = {
 				{BITMAP_ButtonY, "Filter"},
-				{BITMAP_ButtonX, "Info"},
 				{BITMAP_ButtonB, "Back"},
-				{BITMAP_ButtonA, "Run"},
 			};
 			RenderInputHelp(pState, pRegion, keys, ArrayCount(keys));
 		}

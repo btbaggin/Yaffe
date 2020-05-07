@@ -53,7 +53,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
 	PushText(pState, FONT_Subtext, pWindow->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
 
 	//Sidebar highlight
-	PushSizedQuad(pState, window_position, V2(UI_MARGIN / 2.0F, size.Height), ACCENT_COLOR);
+	PushSizedQuad(pState, window_position + V2(0, TITLEBAR_SIZE), V2(UI_MARGIN, size.Height - TITLEBAR_SIZE), ACCENT_COLOR);
 
 	if (pWindow->icon != BITMAP_None)
 	{

@@ -228,6 +228,10 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 	}
 
 }
+static bool ProcessIsRunning(PlatformProcess* pProcess)
+{
+	return WaitForSingleObject(pProcess->info.hProcess, 100) != 0;
+}
 static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
 {
 	u32 newnext = (pQueue->NextEntryToWrite + 1) % QUEUE_ENTRIES;

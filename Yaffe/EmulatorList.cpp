@@ -18,7 +18,7 @@ static MODAL_CLOSE(OnAddApplicationModalClose)
 class EmulatorList : public UiControl
 {
 public:
-	List<Application>* emulators;
+	List<Application>* applications;
 
 	static void Render(RenderState* pRender, UiRegion pRegion, EmulatorList* pList)
 	{
@@ -27,18 +27,27 @@ public:
 
 		PushQuad(pRender, pRegion.position, pRegion.size, MENU_BACKGROUND);
 
+		PushText(pRender, FONT_Title, "Yaffe", pRegion.position + V2(UI_MARGIN), TEXT_FOCUSED);
+		float start_y = GetFontSize(FONT_Title) + UI_MARGIN * 2;
+
+		const float OFFSET = 30.0F;
+
 		float text_size = GetFontSize(FONT_Normal);
-		for (u32 i = 0; i < pList->emulators->count; i++)
+		for (u32 i = 0; i < pList->applications->count; i++)
 		{
-			char* item = pList->emulators->GetItem(i)->display_name;
-			v2 item_size = V2(pRegion.size.Width, text_size + UI_MARGIN * 2);
-			v2 item_position = { pRegion.position.X, pRegion.position.Y + (i * item_size.Height) };
+			Application* app = pList->applications->GetItem(i);
+			char* item = app->display_name;
+			v2 item_size = V2(pRegion.size.Width - OFFSET, text_size + UI_MARGIN * 2);
+			v2 item_position = { pRegion.position.X + OFFSET, pRegion.position.Y + start_y + (i * item_size.Height) };
 			if (i == g_state.selected_emulator)
 			{
 				PushSizedQuad(pRender, item_position, item_size, foreground);
 			}
 
-			PushText(pRender, FONT_Normal, (char*)item, item_position + CenterText(FONT_Normal, item, item_size), font);
+			PushText(pRender, FONT_Normal, (char*)item, item_position, font);
+			char count[5]; sprintf(count, "%d", app->files.count);
+			float size = MeasureString(FONT_Subtext, count).Width;
+			PushText(pRender, FONT_Subtext, count, item_position + V2(pRegion.size.Width - size - OFFSET - UI_MARGIN, 0), font);
 		}
 	}
 
@@ -49,13 +58,13 @@ public:
 			if (IsUpPressed())
 			{
 				--g_state.selected_emulator;
-				if (g_state.selected_emulator < 0) g_state.selected_emulator = emulators->count - 1;
-				GetExecutables(&g_state, emulators->GetItem(g_state.selected_emulator));
+				if (g_state.selected_emulator < 0) g_state.selected_emulator = applications->count - 1;
+				GetExecutables(&g_state, applications->GetItem(g_state.selected_emulator));
 			}
 			else if (IsDownPressed())
 			{
-				g_state.selected_emulator = (g_state.selected_emulator + 1) % emulators->count;
-				GetExecutables(&g_state, emulators->GetItem(g_state.selected_emulator));
+				g_state.selected_emulator = (g_state.selected_emulator + 1) % applications->count;
+				GetExecutables(&g_state, applications->GetItem(g_state.selected_emulator));
 			}
 
 			if (IsInfoPressed())
@@ -72,6 +81,6 @@ public:
 
 	EmulatorList(YaffeState* pState) : UiControl(UI_Emulators)
 	{
-		emulators = &pState->emulators;
+		applications = &pState->emulators;
 	}
 };

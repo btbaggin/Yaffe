@@ -62,13 +62,25 @@ public:
 
 			//If we aren't focused we want to render everything the same size
 			if(!pMenu->IsFocused()) pMenu->selected_size = pMenu->tile_size;
-			PushSizedQuad(pState, rom->position, pMenu->selected_size, b);
 
-			if (pMenu->IsFocused())
-			{
-				float bar_height = GetFontSize(FONT_Title) + UI_MARGIN * 2;
-				PushText(pState, FONT_Title, rom->name, V2(pRegion.position.X, pRegion.size.Height - bar_height), V4(0, 0, 0, 1));
-			}
+			//Have alpha fade in as the item grows to full size
+			float alpha = (1 - ((pMenu->tile_size.X * SELECTED_ROM_SIZE) - (pMenu->selected_size.X - pMenu->tile_size.X)));
+			float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
+			v2 menu_position = rom->position + pMenu->selected_size + V2(ROM_OUTLINE_SIZE, height);
+
+			//Selected background
+			PushSizedQuad(pState, 
+						  rom->position - V2(ROM_OUTLINE_SIZE), 
+						  pMenu->selected_size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height), 
+						  V4(MODAL_BACKGROUND.R, MODAL_BACKGROUND.G, MODAL_BACKGROUND.B, alpha * 0.94F));
+			//Name
+			PushText(pState, FONT_Subtext, rom->name, rom->position + V2(0, pMenu->selected_size.Height), V4(TEXT_FOCUSED.R, TEXT_FOCUSED.G, TEXT_FOCUSED.B, alpha));
+
+			//Help
+			menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", UI_MARGIN, V4(1, 1, 1, alpha));
+			menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", UI_MARGIN, V4(1, 1, 1, alpha));
+
+			PushSizedQuad(pState, rom->position, pMenu->selected_size, b);
 		}
 	}
 

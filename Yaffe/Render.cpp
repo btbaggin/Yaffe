@@ -202,8 +202,9 @@ GlyphQuad GetGlyph(FontInfo* pFont, u32 pChar, v4 pColor, float* pX, float* pY)
 	stbtt_aligned_quad quad;
 
 	int index = pChar - ' ';
-	if (index < 0) index = 0;
+	if (index < 0 || index > '~' - ' ') index = 0;
 
+	//pFont->info.numGlyphs
 	stbtt_GetPackedQuad(pFont->charInfo, pFont->atlasWidth, pFont->atlasHeight, index, pX, pY, &quad, 1);
 
 	float x_min = quad.x0;
@@ -220,7 +221,7 @@ GlyphQuad GetGlyph(FontInfo* pFont, u32 pChar, v4 pColor, float* pX, float* pY)
 	return info;
 }
 
-static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, float pWrapSize, v2 pClipMin, v2 pClipMax)
+static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, v2 pClipMin, v2 pClipMax)
 {
 	float x = pPosition.X;
 	float y = pPosition.Y;
@@ -243,12 +244,12 @@ static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pP
 		for (u32 i = 0; pText[i] != 0; i++)
 		{
 			const unsigned char c = pText[i];
-			GlyphQuad info = GetGlyph(font, c, pColor, &x, &y);
-			if ((pWrapSize > 0 && x - pPosition.X >= pWrapSize) || c == '\n')
+			if (c == '\n')
 			{
 				y += font->size;
 				x = pPosition.X;
 			}
+			GlyphQuad info = GetGlyph(font, c, pColor, &x, &y);
 
 			Vertex* v = PushArray(pState->vertices, Vertex, 4);
 			for (u32 i = 0; i < 4; i++)
@@ -270,17 +271,12 @@ static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pP
 
 static void PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor)
 {
-	_PushText(pState, pFont, pText, pPosition, pColor, -1, V2(0), V2(0));
-}
-
-static void PushWrappedText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, float pWrapSize)
-{
-	_PushText(pState, pFont, pText, pPosition, pColor, pWrapSize, V2(0), V2(0));
+	_PushText(pState, pFont, pText, pPosition, pColor, V2(0), V2(0));
 }
 
 static void PushClippedText(RenderState* pState, FONTS pFont, const char* pText, v2 pPosition, v4 pColor, v2 pClipMin, v2 pClipMax)
 {
-	_PushText(pState, pFont, pText, pPosition, pColor, -1, pClipMin, pClipMax);
+	_PushText(pState, pFont, pText, pPosition, pColor, pClipMin, pClipMax);
 }
 
 static void PushQuad(RenderState* pState, v2 pMin, v2 pMax, v4 pColor, Bitmap* pTexture)
@@ -328,18 +324,18 @@ static void PushSizedQuad(RenderState* pState, v2 pMin, v2 pSize, v4 pColor)
 	PushQuad(pState, pMin, pMin + pSize, pColor, nullptr);
 }
 
-static v2 PushRightAlignedTextWithIcon(RenderState* pState, v2 pRight, BITMAPS pIcon, float pIconSize, FONTS pFont, const char* pText, v4 pTextColor = V4(0, 0, 0, 1))
+static v2 PushRightAlignedTextWithIcon(RenderState* pState, v2 pRight, BITMAPS pIcon, float pIconSize, FONTS pFont, const char* pText, float pMargin = 15, v4 pTextColor = V4(0, 0, 0, 1))
 {
 	v2 new_pos = pRight;
 	v2 text_size = MeasureString(pFont, pText);
 	new_pos.X -= text_size.Width;
 
-	float text_y = new_pos.Y - text_size.Height -((text_size.Height - pIconSize) / 2.0F);
+	float text_y = new_pos.Y - text_size.Height - (text_size.Height - pIconSize);
 
 	PushText(pState, pFont, pText, V2(new_pos.X, text_y), pTextColor);
-	PushQuad(pState, new_pos - V2(pIconSize), new_pos, GetBitmap(g_assets, pIcon));
+	PushQuad(pState, new_pos - V2(pIconSize), new_pos, V4(1, 1, 1, pTextColor.A), GetBitmap(g_assets, pIcon));
 
-	return V2(new_pos.X - pIconSize - 15, new_pos.Y);
+	return V2(new_pos.X - pIconSize - pMargin, new_pos.Y);
 }
 
 static void DisposeRenderState(RenderState* pState)

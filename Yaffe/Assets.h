@@ -42,7 +42,7 @@ enum FONTS : u8
 	FONT_Normal,
 	FONT_Title,
 
-	FONT_COUNT,
+	FONT_COUNT
 };
 
 struct FontInfo

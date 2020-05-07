@@ -15,7 +15,7 @@ static void UpdateOverlay(Overlay* pOverlay)
 			delete pOverlay->process; pOverlay->process = nullptr;
 			pOverlay->showing = false;
 		}
-		else if (WaitForSingleObject(pOverlay->process->info.hProcess, 100) == 0) //TODO Platform
+		else if (!ProcessIsRunning(pOverlay->process))
 		{
 			//Check if the program closed without going through the overlay
 			CloseOverlay(pOverlay, false);

@@ -24,6 +24,7 @@ static void SwapBuffers(PlatformWindow* pWindow);
 
 static void ShowOverlay(Overlay* pOverlay);
 static void CloseOverlay(Overlay* pOverlay, bool pTerminate);
+static bool ProcessIsRunning(PlatformProcess* pProcess);
 
 static bool Shutdown();
 
