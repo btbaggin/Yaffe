@@ -56,7 +56,7 @@ static void SendFontToGraphicsCard(void* pData)
 
 static Bitmap* LoadBitmapAsset(Assets* pAssets, const char* pPath)
 {
-	Bitmap* bitmap = AllocStruct(pAssets->memory, Bitmap);
+	Bitmap* bitmap = AllocStruct(pAssets, Bitmap);
 
 	bitmap->data = stbi_load(pPath, &bitmap->width, &bitmap->height, &bitmap->channels, 0);
 	if (!bitmap->data) return nullptr;
@@ -72,7 +72,7 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 	const u32 ATLAS_SIZE = 1024;
 
 	//Alloc in one big block so we can free in one big block
-	void* data = Alloc(pAssets->memory, (ATLAS_SIZE * ATLAS_SIZE) + (sizeof(stbtt_packedchar) * charCount) + sizeof(FontInfo));
+	void* data = Alloc(pAssets, (ATLAS_SIZE * ATLAS_SIZE) + (sizeof(stbtt_packedchar) * charCount) + sizeof(FontInfo));
 
 	FontInfo* font = (FontInfo*)data;
 	font->size = (pSize / 1000) * g_state.form->height;
@@ -89,7 +89,7 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 	}
 	const auto size = file.tellg();
 	file.seekg(0, std::ios::beg);
-	u8* bytes = (u8*)Alloc(pAssets->memory, size);
+	u8* bytes = (u8*)Alloc(pAssets, size);
 	file.read(reinterpret_cast<char*>(&bytes[0]), size);
 	file.close();
 	stbtt_InitFont(&font->info, bytes, stbtt_GetFontOffsetForIndex(bytes, 0));
@@ -362,7 +362,7 @@ void FreeAsset(AssetSlot* pSlot)
 			break;
 		}
 		pSlot->last_requested = 0;
-		_InterlockedExchange(&pSlot->state, ASSET_STATE_Unloaded);
+		InterlockedExchange(&pSlot->state, ASSET_STATE_Unloaded);
 	}
 }
 
@@ -385,13 +385,13 @@ void FreeAllAssets(YaffeState* pState, Assets* pAssets)
 	}
 }
 
-void EvictOldestBitmap(List<AssetSlot> pAssets)
+void EvictOldestAsset(AssetSlot* pAssets, u32 pAssetCount)
 {
 	AssetSlot* slot = nullptr;
 	u64 request = __rdtsc();
-	for (u32 i = 0; i < pAssets.count; i++)
+	for (u32 i = 0; i < pAssetCount; i++)
 	{
-		AssetSlot* asset = pAssets.GetItem(i);
+		AssetSlot* asset = pAssets + i;
 		if (asset->state == ASSET_STATE_Loaded && asset->last_requested < request)
 		{
 			request = asset->last_requested;

@@ -158,6 +158,11 @@ static void QueueAssetDownloads(Executable* pRom, const char* pAssetPath, s32 pP
 	}
 }
 
+static char* CleanFileName(char* pName)
+{
+	return pName;
+}
+
 bool RomsSort(Executable a, Executable b) { return strcmp(a.name, b.name) < 0; }
 static void GetExecutables(YaffeState* pState, Application* pEmulator, bool pForce)
 {
@@ -188,7 +193,7 @@ static void GetExecutables(YaffeState* pState, Application* pEmulator, bool pFor
 		CombinePath(rom->path, pEmulator->rom_path, file_name);
 
 		PathRemoveExtensionA(file_name);
-		strcpy(rom->name, file_name);
+		strcpy(rom->name, CleanFileName(file_name));
 
 		char rom_asset_path[MAX_PATH];
 		CombinePath(rom_asset_path, pEmulator->asset_path, rom->name);

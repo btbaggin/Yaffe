@@ -95,3 +95,5 @@ struct LoadAssetWork
 	AssetSlot* slot;
 	const char* load_info;
 };
+
+void EvictOldestAsset(AssetSlot* pAssets, u32 pAssetCount);

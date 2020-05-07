@@ -3,7 +3,6 @@
 /*
 TODO
 Asset free-ing
-Figure out scraper stuff?
 Don't hardcode emulator allocation count
 */
 
@@ -24,6 +23,7 @@ Don't hardcode emulator allocation count
 #include "Interface.h"
 #include "Emulators.h"
 #include "Render.h"
+#include "Memory.h"
 
 struct PlatformWorkQueue
 {

@@ -306,7 +306,7 @@ static std::string GetGameInformation(s32 pPlatform, char* pGame)
 		return std::string(GetTextColumn(&stmt, 0));
 	}
 
-	return nullptr;
+	return std::string();
 }
 
 static u32 GetGamePlayers(s32 pPlatform, char* pGame)

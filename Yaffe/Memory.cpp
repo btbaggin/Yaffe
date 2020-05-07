@@ -1,5 +1,4 @@
 #pragma once
-#include "Memory.h"
 
 MemoryStack* CreateMemoryStack(void* pMemory, u64 pSize)
 {
@@ -145,12 +144,17 @@ void Free(void* pMemory)
 	}
 }
 
-void* Alloc(MemoryPool* pPool, u64 pSize)
+void* Alloc(Assets* pAssets, u64 pSize)
 {
 	void* result = nullptr;
-	MemoryBlock* block = FindBlockForSize(pPool, pSize);
-	assert(block);
+	MemoryBlock* block = FindBlockForSize(pAssets->memory, pSize);
+	for(u32 i = 0; i < 5 && !block; i++)
+	{
+		EvictOldestAsset(pAssets->bitmaps, BITMAP_COUNT);
+		block = FindBlockForSize(pAssets->memory, pSize);
+	}
 
+	assert(block);
 	if (block && pSize <= block->size)
 	{
 		result = (char*)(block + 1);
@@ -162,17 +166,11 @@ void* Alloc(MemoryPool* pPool, u64 pSize)
 		if (remaining > 1024)
 		{
 			InsertBlock(block, remaining, (char*)result + pSize);
-			_InterlockedExchangeAdd(&block->size, -(s64)remaining);
+			InterlockedExchangeAdd(&block->size, -(s64)remaining);
 		}
 	}
 
 	return result;
-}
-
-void* Resize(MemoryPool* pPool, void* pMemory, u32 pSize)
-{
-	if (pMemory) Free(pMemory);
-	return Alloc(pPool, pSize);
 }
 
 #define AllocStruct(pPool, pType) (pType*)Alloc(pPool, sizeof(pType))
