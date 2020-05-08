@@ -101,7 +101,7 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 		return nullptr;
 	}
 
-	stbtt_PackSetOversampling(&context, 2, 2);
+	stbtt_PackSetOversampling(&context, 3, 3);
 	if (!stbtt_PackFontRange(&context, bytes, 0, font->size, firstChar, charCount, font->charInfo))
 	{
 		DisplayErrorMessage("Unable pack font range", ERROR_TYPE_Warning);
@@ -348,18 +348,17 @@ void FreeAsset(AssetSlot* pSlot)
 	{
 		switch (pSlot->type)
 		{
-		case ASSET_TYPE_Bitmap:
-			//stbi_image_free(pSlot->bitmap->data);
-			Free(pSlot->bitmap);
-			glDeleteTextures(1, &pSlot->bitmap->texture);
-			pSlot->bitmap = nullptr;
-			break;
+			case ASSET_TYPE_Bitmap:
+				Free(pSlot->bitmap);
+				glDeleteTextures(1, &pSlot->bitmap->texture);
+				pSlot->bitmap = nullptr;
+				break;
 
-		case ASSET_TYPE_Font:
-			Free(pSlot->font);
-			glDeleteTextures(1, &pSlot->font->texture);
-			pSlot->font = nullptr;
-			break;
+			case ASSET_TYPE_Font:
+				Free(pSlot->font);
+				glDeleteTextures(1, &pSlot->font->texture);
+				pSlot->font = nullptr;
+				break;
 		}
 		pSlot->last_requested = 0;
 		InterlockedExchange(&pSlot->state, ASSET_STATE_Unloaded);

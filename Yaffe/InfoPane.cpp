@@ -28,7 +28,7 @@ public:
 				PushQuad(pState, pPane->position, V2(pPane->position.X + width, height), b);
 			}
 			//Accent bar
-			PushSizedQuad(pState, pPane->position, V2(UI_MARGIN, pRegion.size.Height), ACCENT_COLOR);
+			PushSizedQuad(pState, pPane->position + V2(0, height), V2(UI_MARGIN, pRegion.size.Height - height), ACCENT_COLOR);
 
 			//Description
 			if (!pPane->overview.empty())
@@ -42,7 +42,7 @@ public:
 	{ 
 		if (IsFocused())
 		{
-			position = Lerp(position, pDeltaTime * 5, V2(g_state.form->width * (1 - INFO_PANE_WIDTH), 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width * (1 - INFO_PANE_WIDTH), 0));
 			if (IsEscPressed())
 			{
 				RevertFocus();
@@ -50,7 +50,7 @@ public:
 		}
 		else
 		{
-			position = Lerp(position, pDeltaTime * 5, V2((float)g_state.form->width, 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2((float)g_state.form->width, 0));
 		}
 	}
 
@@ -60,6 +60,6 @@ public:
 		Application* emu = GetSelectedApplication();
 		overview = GetGameInformation(rom->platform, rom->name);
 
-		WrapText((char*)overview.c_str(), overview.size(), FONT_Normal, g_state.form->width * INFO_PANE_WIDTH - 20 * 2);
+		WrapText((char*)overview.c_str(), (u32)overview.size(), FONT_Normal, g_state.form->width * INFO_PANE_WIDTH - 20 * 2);
 	}
 };

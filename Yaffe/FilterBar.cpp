@@ -147,11 +147,11 @@ public:
 				}
 			}
 
-			position = Lerp(position, pDeltaTime * 6, V2(g_state.form->width * EMU_MENU_PERCENT, 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width * EMU_MENU_PERCENT, 0));
 		}
 		else if(!is_active)
 		{
-			position = Lerp(position, pDeltaTime * 6, V2(g_state.form->width * EMU_MENU_PERCENT, -100));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width * EMU_MENU_PERCENT, -100));
 		}
 	}
 

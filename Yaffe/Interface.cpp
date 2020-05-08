@@ -1,24 +1,34 @@
-static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
+inline static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 {
 	v2 size = MeasureString(pFont, pText);
 
 	return V2((pBounds.Width - size.Width) / 2.0F, (pBounds.Height - size.Height - (size.Height / 2.0F)) / 2.0F);
 }
 
-static v4 GetFontColor(bool pFocused)
+inline static v4 GetFontColor(bool pFocused)
 {
 	return pFocused ? TEXT_FOCUSED : TEXT_UNFOCUSED;
 }
 
-static void FocusElement(UI_NAMES pElement)
+inline static void FocusElement(UI_NAMES pElement)
 {
 	g_ui.focus[g_ui.focus_index++] = pElement;
 	g_ui.elements[pElement]->OnFocusGained();
 }
 
-static void RevertFocus()
+inline static void RevertFocus()
 {
 	if (g_ui.focus_index > 1) --g_ui.focus_index;
+}
+
+inline static UI_NAMES GetFocusedElement()
+{
+	return g_ui.focus[g_ui.focus_index - 1];
+}
+
+inline static UiControl* GetControl(UI_NAMES pName)
+{
+	return g_ui.elements[pName];
 }
 
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
@@ -129,15 +139,15 @@ static void DisplayQuitMessage(YaffeState* pState)
 		std::vector<std::string> options;
 		options.push_back("Quit");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "", new SelectorModal(options, (char*)""), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "Exit", new SelectorModal(options, nullptr), BITMAP_None, ExitModalClose);
 	}
 }
 
-static UiRegion CreateRegion(v2 pSize)
+static UiRegion CreateRegion()
 {
 	UiRegion region;
 	region.position = V2(0);
-	region.size = V2(g_state.form->width * pSize.Width, g_state.form->height * pSize.Height);
+	region.size = V2((float)g_state.form->width, (float)g_state.form->height);
 
 	return region;
 }
@@ -158,7 +168,7 @@ static UiRegion CreateRegion(UiRegion pRegion, v2 pSize)
 static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 {
 	//Render background
-	UiRegion main = CreateRegion(V2(1));
+	UiRegion main = CreateRegion();
 	Bitmap* b = GetBitmap(g_assets, BITMAP_Background);
 	PushQuad(pRender, main.position, main.size, b);
 
@@ -174,7 +184,23 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 
 	RenderElement(InfoPane, UI_Info, main);
 
-	DisplayInputHelp(pRender, main);
+	v2 menu_position = main.size - V2(UI_MARGIN);
+	switch (GetFocusedElement())
+	{
+		case UI_Roms:
+		{
+			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter");
+			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back");
+		}
+		break;
+
+		case UI_Emulators:
+		{
+			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add");
+			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select");
+		}
+		break;
+	}
 	if (pState->current_modal >= 0)
 	{
 		RenderModalWindow(pRender, pState->modals[pState->current_modal]);

@@ -13,6 +13,7 @@ const float SELECTED_ROM_SIZE = 0.2F;
 const float INFO_PANE_WIDTH = 0.33F;
 const float LABEL_WIDTH = 220;
 const float ROM_OUTLINE_SIZE = 5;
+const float ANIMATION_SPEED = 5;
 
 enum UI_NAMES
 {
@@ -58,7 +59,8 @@ struct Interface
 	u32 focus_index;
 };
 
-extern Interface g_ui;
+inline static UI_NAMES GetFocusedElement();
+inline static UiControl* GetControl(UI_NAMES pName);
 class UiControl
 {
 public:
@@ -74,11 +76,11 @@ public:
 
 	bool IsFocused()
 	{
-		return g_ui.focus[g_ui.focus_index - 1] == tag;
+		return GetFocusedElement() == tag;
 	}
 };
 
-#define RenderElement(type, name, region) type::Render(pRender, region, (type*)g_ui.elements[name]);
+#define RenderElement(type, name, region) type::Render(pRender, region, (type*)GetControl(name));
 
 struct UiRegion
 {

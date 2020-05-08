@@ -2,7 +2,7 @@
 
 /*
 TODO
-Asset free-ing
+ClearFileName
 Don't hardcode emulator allocation count
 */
 
@@ -70,7 +70,6 @@ Interface g_ui = {};
 #include "Modal.cpp"
 #include "Database.cpp"
 #include "Emulators.cpp"
-#include "InputHelp.cpp"
 #include "Interface.cpp"
 #include "YaffeOverlay.cpp"
 
@@ -599,6 +598,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	//Initialization
 	void* asset_memory = malloc(Megabytes(6));
+	ZeroMemory(asset_memory, Megabytes(6));
 
 	RenderState render_state = {};
 	InitializeRenderer(&render_state);

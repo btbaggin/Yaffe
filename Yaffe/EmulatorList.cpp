@@ -28,20 +28,19 @@ public:
 		PushQuad(pRender, pRegion.position, pRegion.size, MENU_BACKGROUND);
 
 		PushText(pRender, FONT_Title, "Yaffe", pRegion.position + V2(UI_MARGIN), TEXT_FOCUSED);
-		float start_y = GetFontSize(FONT_Title) + UI_MARGIN * 2;
+		float start_y = GetFontSize(FONT_Title) + UI_MARGIN * 3;
 
 		const float OFFSET = 30.0F;
 
-		float text_size = GetFontSize(FONT_Normal);
+		float item_size = GetFontSize(FONT_Normal) + UI_MARGIN * 2;
 		for (u32 i = 0; i < pList->applications->count; i++)
 		{
 			Application* app = pList->applications->GetItem(i);
 			char* item = app->display_name;
-			v2 item_size = V2(pRegion.size.Width - OFFSET, text_size + UI_MARGIN * 2);
-			v2 item_position = { pRegion.position.X + OFFSET, pRegion.position.Y + start_y + (i * item_size.Height) };
+			v2 item_position = { pRegion.position.X + OFFSET, pRegion.position.Y + start_y + (i * item_size) };
 			if (i == g_state.selected_emulator)
 			{
-				PushSizedQuad(pRender, item_position, item_size, foreground);
+				PushQuad(pRender, item_position, V2(pRegion.size.Width, item_position.Y + item_size), foreground);
 			}
 
 			PushText(pRender, FONT_Normal, (char*)item, item_position, font);

@@ -146,8 +146,7 @@ static void QueueAssetDownloads(Executable* pRom, const char* pAssetPath, s32 pP
 {
 	if (!FileExists(pRom->banner.load_path) || !FileExists(pRom->boxart.load_path))
 	{
-		SECURITY_ATTRIBUTES sa = {};
-		CreateDirectoryA(pAssetPath, &sa);
+		CreateDirectoryIfNotExists(pAssetPath);
 
 		RomAssetWork* work = new RomAssetWork();
 		work->name = std::string(pRom->name);
@@ -158,9 +157,30 @@ static void QueueAssetDownloads(Executable* pRom, const char* pAssetPath, s32 pP
 	}
 }
 
-static char* CleanFileName(char* pName)
+static void CleanFileName(char* pName, char* pDest)
 {
-	return pName;
+	//Stip any bracket/parenthesis that are commonly appended to names
+	bool in_bracket = false;
+	u32 j = 0;
+	for (u32 i = 0; pName[i] != 0; i++)
+	{
+		if (pName[i] == '(' || pName[i] == '[')
+			in_bracket = true;
+
+		if (!in_bracket)
+		{
+			pDest[j++] = pName[i];
+		}
+
+		if (pName[i] == ')' || pName[i] == ']')
+			in_bracket = false;
+	}
+
+	//Trim right whitespace
+	while (isspace(pDest[--j]) && j > 0)
+	{
+		pDest[j] = '\0';
+	}
 }
 
 bool RomsSort(Executable a, Executable b) { return strcmp(a.name, b.name) < 0; }
@@ -193,7 +213,7 @@ static void GetExecutables(YaffeState* pState, Application* pEmulator, bool pFor
 		CombinePath(rom->path, pEmulator->rom_path, file_name);
 
 		PathRemoveExtensionA(file_name);
-		strcpy(rom->name, CleanFileName(file_name));
+		CleanFileName(file_name, rom->name);
 
 		char rom_asset_path[MAX_PATH];
 		CombinePath(rom_asset_path, pEmulator->asset_path, rom->name);

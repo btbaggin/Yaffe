@@ -1,4 +1,3 @@
-static void StartProgram(YaffeState* pState, Application* pEmulator, Executable* pRom);
 class RomMenu : public UiControl
 {
 public:
@@ -62,23 +61,25 @@ public:
 
 			//If we aren't focused we want to render everything the same size
 			if(!pMenu->IsFocused()) pMenu->selected_size = pMenu->tile_size;
+			else
+			{
+				//Have alpha fade in as the item grows to full size
+				float alpha = (1 - ((pMenu->tile_size.X * SELECTED_ROM_SIZE) - (pMenu->selected_size.X - pMenu->tile_size.X)));
+				float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
+				v2 menu_position = rom->position + pMenu->selected_size + V2(ROM_OUTLINE_SIZE, height);
 
-			//Have alpha fade in as the item grows to full size
-			float alpha = (1 - ((pMenu->tile_size.X * SELECTED_ROM_SIZE) - (pMenu->selected_size.X - pMenu->tile_size.X)));
-			float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
-			v2 menu_position = rom->position + pMenu->selected_size + V2(ROM_OUTLINE_SIZE, height);
+				//Selected background
+				PushSizedQuad(pState,
+					rom->position - V2(ROM_OUTLINE_SIZE),
+					pMenu->selected_size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height),
+					V4(MODAL_BACKGROUND.R, MODAL_BACKGROUND.G, MODAL_BACKGROUND.B, alpha * 0.94F));
+				//Name
+				PushText(pState, FONT_Subtext, rom->name, rom->position + V2(0, pMenu->selected_size.Height), V4(TEXT_FOCUSED.R, TEXT_FOCUSED.G, TEXT_FOCUSED.B, alpha));
 
-			//Selected background
-			PushSizedQuad(pState, 
-						  rom->position - V2(ROM_OUTLINE_SIZE), 
-						  pMenu->selected_size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height), 
-						  V4(MODAL_BACKGROUND.R, MODAL_BACKGROUND.G, MODAL_BACKGROUND.B, alpha * 0.94F));
-			//Name
-			PushText(pState, FONT_Subtext, rom->name, rom->position + V2(0, pMenu->selected_size.Height), V4(TEXT_FOCUSED.R, TEXT_FOCUSED.G, TEXT_FOCUSED.B, alpha));
-
-			//Help
-			menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", UI_MARGIN, V4(1, 1, 1, alpha));
-			menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", UI_MARGIN, V4(1, 1, 1, alpha));
+				//Help
+				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", UI_MARGIN, V4(1, 1, 1, alpha));
+				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", UI_MARGIN, V4(1, 1, 1, alpha));
+			}
 
 			PushSizedQuad(pState, rom->position, pMenu->selected_size, b);
 		}
@@ -88,7 +89,7 @@ public:
 	{
 		s32 old_index = *pIndex;
 		s32 one = pForward ? 1 : -1;
-		List<Executable> roms = pEmulator->files;
+		List<Executable> files = pEmulator->files;
 		s32 i = 0;
 		//Since certain roms could be filtered out,
 		//we will loop until we have incremented the proper amount of times
@@ -97,13 +98,13 @@ public:
 			//Move until we have found an unfiltered rom
  			s32 new_index = *pIndex + one;
 			while (new_index >= 0 &&
-				   new_index < (s32)roms.count &&
-				   HasFlag(roms.GetItem(new_index)->flags, EXECUTABLE_FLAG_Filtered))
+				   new_index < (s32)files.count &&
+				   HasFlag(files.GetItem(new_index)->flags, EXECUTABLE_FLAG_Filtered))
 			{
 				new_index += one;
 			}
 
-			if (new_index < 0 || new_index >= (s32)roms.count) break;
+			if (new_index < 0 || new_index >= (s32)files.count) break;
 			*pIndex = new_index;
 		}
 
@@ -127,8 +128,6 @@ public:
 	void Update(float pDeltaTime)
 	{
 		Application* e = GetSelectedApplication();
-
-
 		if (IsFocused())
 		{
 			if (IsLeftPressed())
@@ -150,7 +149,7 @@ public:
 
 			if (IsEnterPressed())
 			{
-				Executable* r = e->files.GetItem(state->selected_rom);
+				Executable* r = GetSelectedExecutable();
 				if (r)
 				{
 					StartProgram(&g_state, e, r);
@@ -170,7 +169,7 @@ public:
 				RevertFocus();
 			}
 
-			selected_size = Lerp(selected_size, pDeltaTime * 5, tile_size * (1.0F + SELECTED_ROM_SIZE));
+			selected_size = Lerp(selected_size, pDeltaTime * ANIMATION_SPEED, tile_size * (1.0F + SELECTED_ROM_SIZE));
 		}
 	}
 
