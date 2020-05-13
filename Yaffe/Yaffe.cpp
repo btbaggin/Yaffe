@@ -2,7 +2,6 @@
 
 /*
 TODO
-ClearFileName
 Don't hardcode emulator allocation count
 */
 
@@ -21,9 +20,10 @@ Don't hardcode emulator allocation count
 #include "Assets.h"
 #include "Input.h"
 #include "Interface.h"
-#include "Emulators.h"
+#include "Platform.h"
 #include "Render.h"
 #include "Memory.h"
+#include "Database.h"
 
 struct PlatformWorkQueue
 {
@@ -68,8 +68,10 @@ Interface g_ui = {};
 #include "Render.cpp"
 #include "UiElements.cpp"
 #include "Modal.cpp"
+#include "ListModal.cpp"
+#include "Server.cpp"
 #include "Database.cpp"
-#include "Emulators.cpp"
+#include "Platform.cpp"
 #include "Interface.cpp"
 #include "YaffeOverlay.cpp"
 
@@ -109,10 +111,14 @@ static bool IsValidRomFile(char* pFile)
 }
 static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 {
+	char path[MAX_PATH];
+	sprintf(path, "%s\\*.*", pDirectory);
+
+
 	WIN32_FIND_DATAA file;
 	HANDLE h;
 	std::vector<std::string> files;
-	if ((h = FindFirstFileA(pDirectory, &file)) != INVALID_HANDLE_VALUE)
+	if ((h = FindFirstFileA(path, &file)) != INVALID_HANDLE_VALUE)
 	{
 		do
 		{
@@ -129,57 +135,13 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 
 	return files;
 }
-static bool CreateShortcut(const char* pTargetfile, const char* pTargetargs, char* pLinkfile)
-{
-	HRESULT hRes;
-	IShellLink* pShellLink;
-
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (void**)&pShellLink);
-	if (SUCCEEDED(hRes))
-	{
-		/* Set the fields in the IShellLink object */
-		WCHAR target[MAX_PATH];
-		MultiByteToWideChar(CP_ACP, 0, pTargetfile, -1, target, MAX_PATH);
-		hRes = pShellLink->SetPath(target);
-
-		WCHAR args[MAX_PATH];
-		MultiByteToWideChar(CP_ACP, 0, pTargetargs, -1, args, MAX_PATH);
-		hRes = pShellLink->SetArguments(args);
-
-		/* Use the IPersistFile object to save the shell link */
-		IPersistFile* pPersistFile;
-		hRes = pShellLink->QueryInterface(IID_IPersistFile, (void**)&pPersistFile);
-		if (SUCCEEDED(hRes))
-		{
-			WCHAR wszLinkfile[MAX_PATH];
-			strcat(pLinkfile, ".lnk");
-			MultiByteToWideChar(CP_ACP, 0, pLinkfile, -1, wszLinkfile, MAX_PATH);
-			hRes = pPersistFile->Save(wszLinkfile, TRUE);
-			pPersistFile->Release();
-		}
-		pShellLink->Release();
-	}
-	CoUninitialize();
-	return hRes >= 0;
-}
-static void StartProgram(YaffeState* pState, Application* pApplication, Executable* pRom)
+static void StartProgram(YaffeState* pState, Platform* pApplication, Executable* pRom)
 {
 	Overlay* overlay = &pState->overlay;
-	char* path = pRom->path;
-	char safe_path[1000];
-	if (pApplication->type == APPLICATION_App)
-	{
-		sprintf(safe_path, "explorer \"%s\"", path);
-	}
-	else
-	{
-		sprintf(safe_path, "\"%s\" %s \"%s\"", pApplication->start_path, pApplication->start_args, path);
-	}
 
 	STARTUPINFOA si = {};
 	overlay->process = new PlatformProcess();
-	if (!CreateProcessA(NULL, safe_path, NULL, NULL, FALSE, 0, NULL, NULL, &si, &overlay->process->info))
+	if (!CreateProcessA(NULL, pRom->command_line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &overlay->process->info))
 	{
 		DWORD error = GetLastError();
 		switch (error)
@@ -193,14 +155,6 @@ static void StartProgram(YaffeState* pState, Application* pApplication, Executab
 		}
 		return;
 	}
-
-	//Since we aren't on the application, it's a good time to update the database
-	//We don't want to do it while the application is running because we could block it
-	si = {};
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	si.wShowWindow = SW_MINIMIZE;
-	PROCESS_INFORMATION pi = {};
-	CreateProcessA("YaffeScraper.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 }
 static void ShowOverlay(Overlay* pOverlay)
 {
@@ -602,11 +556,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	RenderState render_state = {};
 	InitializeRenderer(&render_state);
-	InitializeAssetFiles();
 	g_assets = LoadAssets(asset_memory, Megabytes(6));
 	InitializeUI(&g_state);
+
+	g_state.service = new PlatformService();
+	InitYaffeService(g_state.service);
 	GetConfiguredEmulators(&g_state);
-	GetExecutables(&g_state, GetSelectedApplication());
 
 	HINSTANCE xinput_dll;
 	char system_path[MAX_PATH];
@@ -679,6 +634,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			}
 		}
 	}
+
+	ShutdownYaffeService(g_state.service);
 
 	FreeAllAssets(&g_state, g_assets);
 	DisposeRenderState(&render_state);
