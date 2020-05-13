@@ -1,31 +1,52 @@
 #pragma once
-struct PlatformWorkQueue;
-struct PlatformWindow;
-struct PlatformProcess;
-struct YaffeState;
-struct Application;
-struct Executable;
-struct Overlay;
 
-#define WORK_QUEUE_CALLBACK(name)void name(PlatformWorkQueue* pQueue, void* pData)
-typedef WORK_QUEUE_CALLBACK(work_queue_callback);
+enum EXECUTABLE_FLAGS : u8
+{
+	EXECUTABLE_FLAG_None = 0,
+	EXECUTABLE_FLAG_Filtered = 1,
+};
 
-static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData);
-static void StartProgram(YaffeState* pState, Application* pApplication, Executable* pRom);
+enum APPLICATION_TYPE : u8
+{
+	APPLICATION_Emulator,
+	APPLICATION_App,
+};
 
-static void GetFullPath(const char* pPath, char* pBuffer);
-static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional);
-static std::vector<std::string> GetFilesInDirectory(char* pDirectory);
-static bool CreateShortcut(const char* pTargetfile, const char* pTargetargs, char* pLinkfile);
-static bool CreateDirectoryIfNotExists(const char* pDirectory);
-static bool CopyFileTo(const char* pOld, const char* pNew);
+struct Executable
+{
+	char name[100];
+	char command_line[1000];
+	std::string overview;
+	AssetSlot boxart;
+	AssetSlot banner;
+	s32 platform;
+	u8 players;
 
-static void SwapBuffers(PlatformWindow* pWindow);
+	u8 flags;
+	v2 position;
+};
 
-static void ShowOverlay(Overlay* pOverlay);
-static void CloseOverlay(Overlay* pOverlay, bool pTerminate);
-static bool ProcessIsRunning(PlatformProcess* pProcess);
+struct Platform
+{
+	char name[35];
+	APPLICATION_TYPE type;
+	s32 platform;
 
-static bool Shutdown();
+	List<Executable> files;
+};
 
-#define MAX_PATH 260 //Is this smart?
+
+static inline Platform* GetSelectedApplication();
+static void RefreshExecutables(YaffeState* pState, Platform* pEmulator);
+static void GetConfiguredEmulators(YaffeState* pState);
+bool RomsSort(Executable a, Executable b) { return strcmp(a.name, b.name) < 0; }
+
+static void GetAssetPath(char* pPath, Platform* pApp, Executable* pExe)
+{
+	GetFullPath(".\\Assets", pPath);
+	CombinePath(pPath, pPath, pApp->name);
+	CreateDirectoryIfNotExists(pPath);
+
+	CombinePath(pPath, pPath, pExe->name);
+	CreateDirectoryIfNotExists(pPath);
+}

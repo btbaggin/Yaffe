@@ -312,6 +312,14 @@ static void AddFontAsset(Assets* pAssets, FONTS pName, const char* pPath, float 
 
 static Assets* LoadAssets(void* pStack, u64 pSize)
 {
+	char assets_path[MAX_PATH];
+	GetFullPath(".\\Assets\\", assets_path);
+	if (!CreateDirectoryIfNotExists(assets_path))
+	{
+		DisplayErrorMessage("Unable to create assets directory", ERROR_TYPE_Error);
+		return nullptr;
+	}
+
 	Assets* assets = (Assets*)pStack;
 	void* AssetMemory = (char*)pStack + sizeof(Assets);
 	ZeroMemory(assets, sizeof(Assets));
@@ -330,6 +338,8 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	AddBitmapAsset(assets, BITMAP_ButtonB, "./Assets/button_b.png");
 	AddBitmapAsset(assets, BITMAP_ButtonX, "./Assets/button_x.png");
 	AddBitmapAsset(assets, BITMAP_ButtonY, "./Assets/button_y.png");
+	AddBitmapAsset(assets, BITMAP_App, "./Assets/apps.png");
+	AddBitmapAsset(assets, BITMAP_Emulator, "./Assets/emulator.png");
 
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };
@@ -374,7 +384,7 @@ void FreeAllAssets(YaffeState* pState, Assets* pAssets)
 
 	for (u32 i = 0; i < pState->emulators.count; i++)
 	{
-		Application* e = pState->emulators.GetItem(i);
+		Platform* e = pState->emulators.GetItem(i);
 		for (u32 j = 0; j < e->files.count; j++)
 		{
 			Executable* r = e->files.GetItem(j);
@@ -398,12 +408,4 @@ void EvictOldestAsset(AssetSlot* pAssets, u32 pAssetCount)
 		}
 	}
 	FreeAsset(slot);
-}
-
-static void InitializeAssetFiles()
-{
-	char assets_path[MAX_PATH];
-	GetFullPath(".\\Assets\\", assets_path);
-
-	Verify(CreateDirectoryIfNotExists(assets_path), "Unable to create assets directory", ERROR_TYPE_Warning);
 }

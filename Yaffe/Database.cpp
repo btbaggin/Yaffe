@@ -1,98 +1,18 @@
-enum SQLITE_TYPES
-{
-	SQLITE_TYPE_Int,
-	SQLITE_TYPE_Text,
-};
-
-struct SqliteParameter
-{
-	SQLITE_TYPES type;
-	void* data;
-};
-
-struct DatabaseConnection
-{
-	sqlite3* con;
-	DatabaseConnection()
-	{
-		Verify(sqlite3_open("Yaffe.db", &con) == SQLITE_OK, "Unable to connect to games database", ERROR_TYPE_Error);
-	}
-	~DatabaseConnection()
-	{
-		int rc = sqlite3_close(con);
-		assert(rc == SQLITE_OK);
-	}
-};
-
-struct SqlStatement
-{
-	sqlite3_stmt* stmt;
-	SqlStatement(DatabaseConnection* pCon, const char* pQuery)
-	{
-		Verify(sqlite3_prepare_v2(pCon->con, pQuery, -1, &stmt, 0) == SQLITE_OK, "Unable to prepare statement", ERROR_TYPE_Error);
-	}
-	~SqlStatement()
-	{
-		sqlite3_finalize(stmt);
-	}
-};
-
-inline static bool ExecuteReader(SqlStatement* pStmt)
-{
-	return sqlite3_step(pStmt->stmt) == SQLITE_ROW;
-}
-
-inline static bool ExecuteUpdate(SqlStatement* pStmt)
-{
-	return sqlite3_step(pStmt->stmt) == SQLITE_DONE;
-}
-
-inline static const char* GetTextColumn(SqlStatement* pStmt, int pColumn)
-{
-	return (const char*)sqlite3_column_text(pStmt->stmt, pColumn);
-}
-
-inline static int GetIntColumn(SqlStatement* pStmt, int pColumn)
-{
-	return sqlite3_column_int(pStmt->stmt, pColumn);
-}
-
-static void _BindParameters(SqlStatement* pStatement, SqliteParameter* pParameters, u32 pParameterCount)
-{
-	for (u32 i = 0; i < pParameterCount; i++)
-	{
-		int index = i + 1;
-		SqliteParameter* parm = pParameters + i;
-		switch (parm->type)
-		{
-		case SQLITE_TYPE_Int:
-		{
-			int* value = (int*)parm->data;
-			sqlite3_bind_int(pStatement->stmt, index, *value);
-		}
-		break;
-
-		case SQLITE_TYPE_Text:
-		{
-			char* value = (char*)parm->data;
-			sqlite3_bind_text(pStatement->stmt, index, value, -1, nullptr);
-		}
-		break;
-		}
-	}
-}
-#define BindParameters(pStatement, pParameters) _BindParameters(pStatement, pParameters, ArrayCount(pParameters))
+#define ExecuteUpdate(pStatement) (sqlite3_step(pStatement.stmt) == SQLITE_DONE)
+#define ExecuteReader(pStatement) (sqlite3_step(pStatement.stmt) == SQLITE_ROW)
+#define GetTextColumn(pStatement, pColumn) ((const char*)sqlite3_column_text(pStatement.stmt, pColumn))
+#define GetIntColumn(pStatement, pColumn) sqlite3_column_int(pStatement.stmt, pColumn);
+#define BindIntParm(pStatement, pValue) sqlite3_bind_int(pStatement.stmt, pStatement.parm_index++, pValue)
+#define BindTextParm(pStatement, pValue) sqlite3_bind_text(pStatement.stmt, pStatement.parm_index++, pValue, -1, nullptr)
 
 #pragma comment(lib, "urlmon.lib")
 #include <urlmon.h>
 static void DownloadImage(const char* pUrl, std::string pSlot)
 {
-	if (FileExists(pSlot.c_str())) return;
-
 	IStream* stream;
 	//Also works with https URL's - unsure about the extent of SSL support though.
 	HRESULT result = URLOpenBlockingStreamA(0, pUrl, &stream, 0, 0);
-	Verify(result != 0, "Unable to retrieve image", ERROR_TYPE_Warning);
+	Verify(result == 0, "Unable to retrieve image", ERROR_TYPE_Warning);
 
 	static const u32 READ_AMOUNT = 100;
 	HANDLE file = CreateFileA(pSlot.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
@@ -108,221 +28,258 @@ static void DownloadImage(const char* pUrl, std::string pSlot)
 	CloseHandle(file);
 }
 
-MODAL_CLOSE(WritePlatformAliasToDB)
+
+static void RefreshPlatformList(void* pData) { GetConfiguredEmulators(&g_state); }
+static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
+{
+	std::lock_guard<std::mutex> guard(db_mutex);
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_AddPlatform);
+	BindIntParm(stmt, pInfo->id);
+	BindTextParm(stmt, pInfo->display_name.c_str());
+	BindTextParm(stmt, pInfo->path.c_str());
+	BindTextParm(stmt, pInfo->args.c_str());
+	BindTextParm(stmt, pInfo->folder.c_str());
+	Verify(ExecuteUpdate(stmt), "Unable to add new platform", ERROR_TYPE_Error);
+	AddTaskCallback(&g_state.callbacks, RefreshPlatformList, nullptr);
+}
+MODAL_CLOSE(WritePlatformToDB)
 {
 	if (pResult == MODAL_RESULT_Ok)
 	{
-		SelectorModal* content = (SelectorModal*)pContent;
-		std::string alias = content->GetSelected();
+		ListModal<PlatformInfo>* content = (ListModal<PlatformInfo>*)pContent;
+		PlatformInfo alias = content->GetSelected();
 
-		SqliteParameter parm[2] = {
-			{SQLITE_TYPE_Text, (char*)content->data},
-			{SQLITE_TYPE_Text, (char*)alias.c_str()},
-		};
-
-		{
-			DatabaseConnection con;
-			SqlStatement stmt(&con, "UPDATE Platforms SET Alias = @Alias WHERE Platform = @Platform");
-			BindParameters(&stmt, parm);
-
-			if (!ExecuteUpdate(&stmt))
-			{
-				DisplayErrorMessage("Unable to update platform alias", ERROR_TYPE_Warning);
-			}
-		}
-
-		GetExecutables(&g_state, GetSelectedApplication(), true);
+		WritePlatformToDB(&alias, content->old_value);
 	}
 }
-
-static void GetListOfPossibleEmulators(DatabaseConnection* pCon, char* pName)
+WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 {
-	std::string name(pName);
-	name = "%" + name + "%";
-	SqliteParameter parm[1] = {
-		{SQLITE_TYPE_Text, (char*)name.c_str()},
-	};
+	PlatformInfoWork* work = (PlatformInfoWork*)pData;
 
-	std::vector<std::string> items;
-	SqlStatement stmt(pCon, "SELECT ID, Platform  FROM Platforms where Platform LIKE @Platform");
-	BindParameters(&stmt, parm);
-	while (ExecuteReader(&stmt))
+	json j = CreateServiceMessage(MESSAGE_TYPE_Platform, work->name.c_str(), 0);
+	json response;
+	Verify(SendServiceMessage(g_state.service, j, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
+
+	u32 count = response["count"].get<u32>();
+
+	json games = response["platforms"];
+	std::vector<PlatformInfo> items;
+	for (u32 i = 0; i < count; i++)
 	{
-		items.push_back(std::string(GetTextColumn(&stmt, 1)));
+		json game = games.at(i);
+		PlatformInfo pi;
+		pi.name = game["name"].get<std::string>();
+		pi.args = work->args;
+		pi.folder = work->folder;
+		pi.path = work->path;
+		pi.id = game["id"].get<s32>();
+		pi.display_name = work->name;
+		items.push_back(pi);
 	}
 
-	if (items.size() > 0)
+	if (count > 1)
 	{
-		DisplayModalWindow(&g_state, "Select Emulator", new SelectorModal(items, pName), BITMAP_None, WritePlatformAliasToDB);
+		char title[200];
+		sprintf(title, "Found %d results for platform '%s'", count, work->name.c_str());
+		DisplayModalWindow(&g_state, "Select Emulator", new ListModal<PlatformInfo>(items, work->name.c_str(), title), BITMAP_None, WritePlatformToDB);
 	}
-}
-
-static s32 GetEmulatorPlatform(Application* pEmulator)
-{
-	DatabaseConnection con;
-	SqliteParameter parm[1] = {
-		{SQLITE_TYPE_Text, pEmulator->display_name},
-	};
-
-	SqlStatement stmt(&con, "SELECT ID FROM Platforms where Platform = @Platform OR Alias = @Platform");
-	BindParameters(&stmt, parm);
-	if (!ExecuteReader(&stmt))
+	else if(count == 1)
 	{
-		GetListOfPossibleEmulators(&con, pEmulator->display_name);
-		return 0;
-	}
-	return GetIntColumn(&stmt, 0);
-}
-
-struct GameInfo
-{
-	std::string name;
-	s32 platform;
-};
-MODAL_CLOSE(WriteGameAliasToDB)
-{
-	if (pResult == MODAL_RESULT_Ok)
-	{
-		SelectorModal* content = (SelectorModal*)pContent;
-		std::string alias = content->GetSelected();
-
-		GameInfo* gi = (GameInfo*)content->data;
-		SqliteParameter parm[3] = {
-			{SQLITE_TYPE_Text, (char*)gi->name.c_str()},
-			{SQLITE_TYPE_Text, (char*)alias.c_str()},
-			{SQLITE_TYPE_Int, &gi->platform},
-		};
-
-		{
-			DatabaseConnection con;
-			SqlStatement stmt(&con, "UPDATE Games SET Alias = @Alias WHERE Game = @Game AND Platform = @Platform");
-			BindParameters(&stmt, parm);
-
-			if (!ExecuteUpdate(&stmt))
-			{
-				DisplayErrorMessage("Unable to update platform alias", ERROR_TYPE_Warning);
-				delete gi;
-				return;
-			}
-		}
-
-		Application* e = GetSelectedApplication();
-		for (u32 i = 0; i < e->files.count; i++)
-		{
-			Executable* r = e->files.GetItem(i);
-			if (strcmp(r->name, gi->name.c_str()) == 0)
-			{
-				char rom_asset_path[MAX_PATH];
-				CombinePath(rom_asset_path, e->asset_path, r->name);
-
-				QueueAssetDownloads(r, rom_asset_path, gi->platform);
-				break;
-			}
-		}
-
-		delete gi;
-	}
-}
-
-static void GetListOfPossibleGames(DatabaseConnection* pCon, s32 pPlatform, std::string pGame)
-{
-	std::string game = "%" + pGame + "%";
-	SqliteParameter parm[2] = {
-		{SQLITE_TYPE_Text, (char*)game.c_str()},
-		{SQLITE_TYPE_Int, &pPlatform},
-	};
-
-	std::vector<std::string> items;
-	SqlStatement stmt(pCon, "SELECT Game FROM Games where Game LIKE @Game AND Platform = @Platform");
-	BindParameters(&stmt, parm);
-	while (ExecuteReader(&stmt))
-	{
-		items.push_back(std::string(GetTextColumn(&stmt, 0)));
-	}
-
-	if (items.size() > 0)
-	{
-		GameInfo* gi = new GameInfo();
-		gi->name = pGame;
-		gi->platform = pPlatform;
-		DisplayModalWindow(&g_state, "Select Game", new SelectorModal(items, gi), BITMAP_None, WriteGameAliasToDB);
-	}
-}
-
-static void GetGameImages(s32 pPlatform, std::string pGame, std::string pBanner, std::string pBoxart)
-{
-	DatabaseConnection con;
-	std::string url_base;
-	{
-		SqlStatement stmt(&con, "SELECT URL FROM ImageUrls WHERE Size = 'medium'");
-		Verify(ExecuteReader(&stmt), "Unable to get base image URL", ERROR_TYPE_Warning);
-		url_base = std::string(GetTextColumn(&stmt, 0));
+		WritePlatformToDB(&items[0], work->name.c_str());
 	}
 	
-
-	SqliteParameter parm[2] = {
-		{SQLITE_TYPE_Text, (char*)pGame.c_str()},
-		{SQLITE_TYPE_Int, &pPlatform},
-	};
-	SqlStatement stmt(&con, "SELECT i.Type, i.Side, i.File FROM Games g, Images i WHERE i.GameID = g.ID AND (g.Game = @Game OR g.Alias = @Game) AND g.Platform = @Platform");
-	BindParameters(&stmt, parm);
-	if (ExecuteReader(&stmt))
+}
+static void GetAllPlatforms(YaffeState* pState)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_GetAllPlatforms);
+	
+	pState->emulators.InitializeWithArray(new Platform[32], 32);
+	while (ExecuteReader(stmt))
 	{
-		do
-		{
-			const char* type = GetTextColumn(&stmt, 0);
-			const char* side = GetTextColumn(&stmt, 1);
-			std::string file = std::string(GetTextColumn(&stmt, 2));
+		Platform* current = pState->emulators.GetItem(pState->emulators.count++);
+		current->type = APPLICATION_Emulator;
+		current->platform = GetIntColumn(stmt, 0);
+		strcpy(current->name, GetTextColumn(stmt, 1));
 
-			if (strcmp(type, "banner") == 0)
-			{
-				DownloadImage((url_base + file).c_str(), pBanner);
-			}
-			else if (strcmp(type, "boxart") == 0 &&
-				strcmp(side, "front") == 0)
-			{
-				DownloadImage((url_base + file).c_str(), pBoxart);
-			}
-		} while (ExecuteReader(&stmt));
+		RefreshExecutables(pState, current);
+	}
+}
+static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* pRoms)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_GetPlatform);
+	BindIntParm(stmt, Application->platform);
+	Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
+
+	strcpy(pPath, GetTextColumn(stmt, 0));
+	strcpy(pArgs, GetTextColumn(stmt, 1));
+	strcpy(pRoms, GetTextColumn(stmt, 2));
+}
+static void InsertPlatform(std::string pName, std::string pPath, std::string pArgs, std::string pRom)
+{
+	PlatformInfoWork* work = new PlatformInfoWork();
+	work->name = pName;
+	work->path = pPath;
+	work->args = pArgs;
+	work->folder = pRom;
+	QueueUserWorkItem(g_state.queue, RetrievePossiblePlatforms, work);
+}
+
+
+
+
+static void AddNewApplication(std::string pName, std::string pPath, std::string pArgs, std::string pImage)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_AddApplication);
+	BindTextParm(stmt, pName.c_str());
+	BindTextParm(stmt, pPath.c_str());
+	BindTextParm(stmt, pArgs.c_str());
+	Verify(ExecuteUpdate(stmt), "Unable to add new application", ERROR_TYPE_Error);
+
+	char assets[MAX_PATH];
+	GetFullPath(".\\Assets\\Applications", assets);
+	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
+
+	CombinePath(assets, assets, pName.c_str());
+	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
+
+	CombinePath(assets, assets, "boxart.jpg");
+	Verify(CopyFileTo(pImage.c_str(), assets), "Unable to copy application image", ERROR_TYPE_Warning);
+}
+
+static void GetAllApplications(YaffeState* pState)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_GetAllApplications);
+
+	Platform* current = pState->emulators.GetItem(pState->emulators.count++);
+	current->type = APPLICATION_App;
+	current->platform = -1;
+	strcpy(current->name, "Applications");
+
+	//TODO don't hardcode
+	//TODO i could add an application per one, but one display one?
+	current->files.InitializeWithArray(new Executable[128], 128);
+
+	while (ExecuteReader(stmt))
+	{
+		//Executable* exe = current->files.GetItem(current->files.count++);
+
+		//strcpy(exe->name, GetTextColumn(stmt, 0));
+		////TODO start args???
+
+		//char rom_asset_path[MAX_PATH];
+		//GetAssetPath(rom_asset_path, current, exe);
+
+		//CombinePath(exe->boxart.load_path, rom_asset_path, "boxart.jpg");
+		//exe->boxart.type = ASSET_TYPE_Bitmap;
+	}
+	std::sort(current->files.items, current->files.items + current->files.count, RomsSort);
+}
+
+
+
+
+
+
+
+static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
+{
+	std::lock_guard<std::mutex> guard(db_mutex);
+	DatabaseConnection con;
+	{
+		SqlStatement stmt(&con, qs_AddGame);
+		BindIntParm(stmt, pInfo->id);
+		BindIntParm(stmt, pInfo->platform);
+		BindTextParm(stmt, pInfo->name.c_str());
+		BindTextParm(stmt, pInfo->overview.c_str());
+		BindIntParm(stmt, pInfo->players);
+		BindTextParm(stmt, pOld.c_str());
+		Verify(ExecuteUpdate(stmt), "Unable to update additional game information", ERROR_TYPE_Warning);
+	}
+	
+	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
+	if(!pInfo->boxart.empty())
+	{
+		DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->boxart_load);
+	}
+
+	if(!pInfo->banner.empty())
+	{
+		DownloadImage((url_base + pInfo->banner).c_str(), pInfo->banner_load);
+	}
+}
+MODAL_CLOSE(WriteGameToDB)
+{
+	if (pResult == MODAL_RESULT_Ok)
+	{
+		ListModal<GameInfo>* content = (ListModal<GameInfo>*)pContent;
+		GameInfo pi = content->GetSelected();
+
+		WriteGameToDB(&pi, content->old_value);
+	}
+}
+WORK_QUEUE_CALLBACK(RetrievePossibleGames)
+{
+	GameInfoWork* work = (GameInfoWork*)pData;
+
+	json request = CreateServiceMessage(MESSAGE_TYPE_Game, work->name.c_str(), work->platform);
+	json response;
+	Verify(SendServiceMessage(g_state.service, request, &response), "Unable to communicate to YaffeService", ERROR_TYPE_Error);
+
+	u32 count = response["count"].get<u32>();
+	json games = response["games"];
+	std::vector<GameInfo> items;
+	for (u32 i = 0; i < count; i++)
+	{
+		json game = games.at(i);
+		GameInfo pi;
+		pi.name = game["name"].get<std::string>();
+		pi.id = game["id"].get<s32>();
+		pi.overview = game["overview"].get<std::string>();
+		pi.players = game["players"].get<s32>();
+		pi.platform = work->platform;
+		pi.banner = game["banner"].get<std::string>();
+		pi.boxart = game["boxart"].get<std::string>();
+		pi.banner_load = work->banner;
+		pi.boxart_load = work->boxart;
+		items.push_back(pi);
+	}
+
+	if (count > 1)
+	{
+		char title[200];
+		sprintf(title, "Found %d results for game '%s'", count, work->name.c_str());
+		DisplayModalWindow(&g_state, "Select Game", new ListModal<GameInfo>(items, work->name.c_str(), title), BITMAP_None, WriteGameToDB);
+	}
+	else if(count == 1)
+	{
+		WriteGameToDB(&items[0], (char*)work->name.c_str());
+	}
+	
+	delete work;
+}
+static void GetGameInfo(Platform* pApp, Executable* pExe)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_GetGame);
+	BindIntParm(stmt, pApp->platform);
+	BindTextParm(stmt, pExe->name);
+	if(ExecuteReader(stmt))
+	{
+		pExe->overview = GetTextColumn(stmt, 2);
+		pExe->players = GetIntColumn(stmt, 3);
 	}
 	else
 	{
-		GetListOfPossibleGames(&con, pPlatform, pGame);
+		GameInfoWork* work = new GameInfoWork();
+		work->name = pExe->name;
+		work->banner = pExe->banner.load_path;
+		work->boxart = pExe->boxart.load_path;
+		work->platform = pApp->platform;
+		QueueUserWorkItem(g_state.queue, RetrievePossibleGames, work);
 	}
-}
-
-static std::string GetGameInformation(s32 pPlatform, char* pGame)
-{
-	DatabaseConnection con;
-	SqliteParameter parm[2] = {
-		{SQLITE_TYPE_Text, pGame},
-		{SQLITE_TYPE_Int, &pPlatform},
-	};
-
-	SqlStatement stmt(&con, "SELECT Overview FROM Games WHERE Game = @Game AND Platform = @Platform");
-	BindParameters(&stmt, parm);
-	if (ExecuteReader(&stmt))
-	{
-		return std::string(GetTextColumn(&stmt, 0));
-	}
-
-	return std::string();
-}
-
-static u32 GetGamePlayers(s32 pPlatform, char* pGame)
-{
-	DatabaseConnection con;
-	SqliteParameter parm[2] = {
-		{SQLITE_TYPE_Text, pGame},
-		{SQLITE_TYPE_Int, &pPlatform},
-	};
-
-	SqlStatement stmt(&con, "SELECT Players FROM Games WHERE Game = @Game AND Platform = @Platform");
-	BindParameters(&stmt, parm);
-	if (ExecuteReader(&stmt))
-	{
-		return GetIntColumn(&stmt, 0);
-	}
-
-	return 1;
 }

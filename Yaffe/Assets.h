@@ -32,6 +32,8 @@ enum BITMAPS : u8
 	BITMAP_ButtonB,
 	BITMAP_ButtonX,
 	BITMAP_ButtonY,
+	BITMAP_App,
+	BITMAP_Emulator,
 
 	BITMAP_COUNT
 };

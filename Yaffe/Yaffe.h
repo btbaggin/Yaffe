@@ -2,9 +2,10 @@
 #include <algorithm>
 #include <vector>
 #include <assert.h>
+#include "time.h"
 
 #include "typedefs.h"
-#include "Platform.h"
+#include "YaffePlatform.h"
 #include "Memory.h"
 #include "sqlite/sqlite3.h"
 
@@ -62,7 +63,7 @@ struct YaffeState
 	PlatformWindow* form;
 	Overlay overlay;
 
-	List<Application> emulators;
+	List<Platform> emulators;
 	s32 selected_emulator;
 	s32 selected_rom;
 
@@ -78,6 +79,8 @@ struct YaffeState
 
 	bool is_running;
 	YaffeTime time;
+
+	PlatformService* service;
 };
 
 void DisplayErrorMessage(const char* pError, ERROR_TYPE pType);

@@ -11,7 +11,7 @@ public:
 
 	static void Render(RenderState* pState, UiRegion pRegion, RomMenu* pMenu)
 	{
-		Application* emu = GetSelectedApplication();
+		Platform* emu = GetSelectedApplication();
 		List<Executable> roms = emu->files;
 
 		v2 roms_display_start = pRegion.position + (pRegion.size * ROM_PAGE_PADDING);
@@ -66,7 +66,7 @@ public:
 				//Have alpha fade in as the item grows to full size
 				float alpha = (1 - ((pMenu->tile_size.X * SELECTED_ROM_SIZE) - (pMenu->selected_size.X - pMenu->tile_size.X)));
 				float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
-				v2 menu_position = rom->position + pMenu->selected_size + V2(ROM_OUTLINE_SIZE, height);
+				v2 menu_position = rom->position + pMenu->selected_size;// +V2(ROM_OUTLINE_SIZE, height);
 
 				//Selected background
 				PushSizedQuad(pState,
@@ -77,15 +77,15 @@ public:
 				PushText(pState, FONT_Subtext, rom->name, rom->position + V2(0, pMenu->selected_size.Height), V4(TEXT_FOCUSED.R, TEXT_FOCUSED.G, TEXT_FOCUSED.B, alpha));
 
 				//Help
-				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", UI_MARGIN, V4(1, 1, 1, alpha));
-				menu_position = PushRightAlignedTextWithIcon(pState, menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", UI_MARGIN, V4(1, 1, 1, alpha));
+				PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
+				PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", V4(1, 1, 1, alpha));
 			}
 
 			PushSizedQuad(pState, rom->position, pMenu->selected_size, b);
 		}
 	}
 
-	void IncrementIndex(s32* pIndex, s32 pAmount, bool pForward, Application* pEmulator)
+	void IncrementIndex(s32* pIndex, s32 pAmount, bool pForward, Platform* pEmulator)
 	{
 		s32 old_index = *pIndex;
 		s32 one = pForward ? 1 : -1;
@@ -127,7 +127,7 @@ public:
 
 	void Update(float pDeltaTime)
 	{
-		Application* e = GetSelectedApplication();
+		Platform* e = GetSelectedApplication();
 		if (IsFocused())
 		{
 			if (IsLeftPressed())

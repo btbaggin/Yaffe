@@ -100,7 +100,7 @@ MODAL_CLOSE(ExitModalClose)
 { 
 	if (pResult == MODAL_RESULT_Ok)
 	{
-		SelectorModal* content = (SelectorModal*)pContent;
+		ListModal<std::string>* content = (ListModal<std::string>*)pContent;
 		if (content->GetSelected() == "Quit")
 		{
 			g_state.is_running = false;
@@ -129,6 +129,34 @@ static void DisplayApplicationErrors(YaffeState* pState)
 	}
 }
 
+static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
+{
+	float title = GetFontSize(FONT_Title);
+	v2 menu_position = pMain.size - V2(UI_MARGIN, UI_MARGIN + title);
+
+	char buffer[20];
+	GetTime(buffer, 20);
+	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
+
+	menu_position.Y += (title - GetFontSize(FONT_Normal));
+	switch (GetFocusedElement())
+	{
+		case UI_Roms:
+		{
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter");
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back");
+		}
+		break;
+
+		case UI_Emulators:
+		{
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add");
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select");
+		}
+		break;
+	}
+}
+
 static void DisplayQuitMessage(YaffeState* pState)
 {
 	if (GetForegroundWindow() == g_state.form->handle &&
@@ -139,7 +167,7 @@ static void DisplayQuitMessage(YaffeState* pState)
 		std::vector<std::string> options;
 		options.push_back("Quit");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "Exit", new SelectorModal(options, nullptr), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "Exit", new ListModal<std::string>(options), BITMAP_None, ExitModalClose);
 	}
 }
 
@@ -184,23 +212,7 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 
 	RenderElement(InfoPane, UI_Info, main);
 
-	v2 menu_position = main.size - V2(UI_MARGIN);
-	switch (GetFocusedElement())
-	{
-		case UI_Roms:
-		{
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter");
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back");
-		}
-		break;
-
-		case UI_Emulators:
-		{
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add");
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select");
-		}
-		break;
-	}
+	DisplayToolbar(main, pRender);
 	if (pState->current_modal >= 0)
 	{
 		RenderModalWindow(pRender, pState->modals[pState->current_modal]);

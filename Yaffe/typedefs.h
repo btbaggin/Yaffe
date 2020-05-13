@@ -53,6 +53,15 @@ static bool operator>(v2 l, v2 r)
 	return l.X > r.X && l.Y > r.Y;
 }
 
+static void GetTime(char* pBuffer, u32 pBufferSize)
+{
+	time_t t;
+	struct tm* timeinfo;
+	time(&t);
+	timeinfo = localtime(&t);
+	strftime(pBuffer, pBufferSize, "%I:%M%p", timeinfo);
+}
+
 #define ArrayCount(a) sizeof(a) / sizeof(a[0])
 #define HasFlag(flag, value) (flag & value) != 0
 
@@ -67,6 +76,11 @@ public:
 	{
 		if (pIndex >= count) return nullptr;
 		return items + pIndex;
+	}
+
+	T* AddItem()
+	{
+		return items + count++;
 	}
 
 	void InitializeWithArray(T* pItems, u32 pCount)

@@ -57,8 +57,8 @@ public:
 	void OnFocusGained()
 	{
 		Executable* rom = GetSelectedExecutable();
-		Application* emu = GetSelectedApplication();
-		overview = GetGameInformation(rom->platform, rom->name);
+		Platform* emu = GetSelectedApplication();
+		overview = rom->overview;
 
 		WrapText((char*)overview.c_str(), (u32)overview.size(), FONT_Normal, g_state.form->width * INFO_PANE_WIDTH - 20 * 2);
 	}
