@@ -6,7 +6,7 @@ public:
 
 	InfoPane() : UiControl(UI_Info) 
 	{ 
-		position = V2((float)g_state.form->width, 0.0F);
+		position = V2(g_state.form->width, 0.0F);
 	}
 
 	static void Render(RenderState* pState, UiRegion pRegion, InfoPane* pPane)
@@ -50,7 +50,7 @@ public:
 		}
 		else
 		{
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2((float)g_state.form->width, 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width, 0));
 		}
 	}
 

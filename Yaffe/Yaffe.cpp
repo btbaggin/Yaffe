@@ -2,6 +2,8 @@
 
 /*
 TODO
+Search for existing yaffe service
+change yaffe service so it can reconnect
 Don't hardcode emulator allocation count
 */
 
@@ -38,8 +40,8 @@ struct PlatformWorkQueue
 
 struct PlatformWindow
 {
-	u32 width;
-	u32 height;
+	float width;
+	float height;
 
 	HWND handle;
 	HGLRC rc;
@@ -69,6 +71,7 @@ Interface g_ui = {};
 #include "UiElements.cpp"
 #include "Modal.cpp"
 #include "ListModal.cpp"
+#include "AddPlatformModal.cpp"
 #include "Server.cpp"
 #include "Database.cpp"
 #include "Platform.cpp"
@@ -135,13 +138,18 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 
 	return files;
 }
-static void StartProgram(YaffeState* pState, Platform* pApplication, Executable* pRom)
+static void StartProgram(YaffeState* pState, Executable* pRom)
 {
 	Overlay* overlay = &pState->overlay;
 
 	STARTUPINFOA si = {};
-	overlay->process = new PlatformProcess();
-	if (!CreateProcessA(NULL, pRom->command_line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &overlay->process->info))
+	PROCESS_INFORMATION pi = {};
+	if (CreateProcessA(NULL, pRom->command_line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+	{
+		overlay->process = new PlatformProcess();
+		overlay->process->info = pi;
+	}
+	else
 	{
 		DWORD error = GetLastError();
 		switch (error)
@@ -160,10 +168,10 @@ static void ShowOverlay(Overlay* pOverlay)
 {
 	MONITORINFO mi = { sizeof(mi) };
 	GetMonitorInfo(MonitorFromWindow(pOverlay->form->handle, MONITOR_DEFAULTTONEAREST), &mi);
-	pOverlay->form->width = mi.rcMonitor.right - mi.rcMonitor.left;
-	pOverlay->form->height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+	pOverlay->form->width = (float)(mi.rcMonitor.right - mi.rcMonitor.left);
+	pOverlay->form->height = (float)(mi.rcMonitor.bottom - mi.rcMonitor.top);
 
-	SetWindowPos(pOverlay->form->handle, 0, mi.rcMonitor.left, mi.rcMonitor.top, pOverlay->form->width, pOverlay->form->height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	SetWindowPos(pOverlay->form->handle, 0, mi.rcMonitor.left, mi.rcMonitor.top, (int)pOverlay->form->width, (int)pOverlay->form->height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
 	ShowWindow(pOverlay->form->handle, SW_SHOW);
 	UpdateWindow(pOverlay->form->handle);
@@ -276,8 +284,8 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 	{
 		RECT rect = { 0L, 0L, (LONG)pWidth, (LONG)pHeight };
 		AdjustWindowRect(&rect, style, false);
-		pForm->width = (u32)(rect.right - rect.left);
-		pForm->height = (u32)(rect.bottom - rect.top);
+		pForm->width = (float)(rect.right - rect.left);
+		pForm->height = (float)(rect.bottom - rect.top);
 
 		RECT primaryDisplaySize;
 		SystemParametersInfo(SPI_GETWORKAREA, 0, &primaryDisplaySize, 0);	// system taskbar and application desktop toolbars not included
@@ -285,7 +293,7 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 		y = (u32)(primaryDisplaySize.bottom - pForm->height) / 2;
 	}
 
-	pForm->handle = CreateWindowW(WINDOW_CLASS, pTitle, style, x, y, pForm->width, pForm->height, NULL, NULL, hInstance, NULL);
+	pForm->handle = CreateWindowW(WINDOW_CLASS, pTitle, style, x, y, (int)pForm->width, (int)pForm->height, NULL, NULL, hInstance, NULL);
 	pForm->dc = GetDC(pForm->handle);
 
 	if (pFullscreen)
@@ -296,11 +304,11 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 		// not resize.
 		MONITORINFO mi = { sizeof(mi) };
 		GetMonitorInfo(MonitorFromWindow(pForm->handle, MONITOR_DEFAULTTONEAREST), &mi);
-		pForm->width = mi.rcMonitor.right - mi.rcMonitor.left;
-		pForm->height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+		pForm->width = (float)(mi.rcMonitor.right - mi.rcMonitor.left);
+		pForm->height = (float)(mi.rcMonitor.bottom - mi.rcMonitor.top);
 
 		SetWindowPos(pForm->handle, NULL, mi.rcMonitor.left, mi.rcMonitor.top,
-			pForm->width, pForm->height,
+			(int)pForm->width, (int)pForm->height,
 			SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	}
 
@@ -361,7 +369,7 @@ static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
 	RegisterClassW(&wcex);
 
 	// | WS_EX_LAYERED
-	pOverlay->form->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, pOverlay->form->width, pOverlay->form->height, NULL, NULL, hInstance, NULL);
+	pOverlay->form->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, (int)pOverlay->form->width, (int)pOverlay->form->height, NULL, NULL, hInstance, NULL);
 	pOverlay->form->dc = GetDC(pOverlay->form->handle);
 
 	DWM_BLURBEHIND bb = { 0 };
@@ -561,7 +569,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	g_state.service = new PlatformService();
 	InitYaffeService(g_state.service);
-	GetConfiguredEmulators(&g_state);
+	GetAllPlatforms(&g_state);
 
 	HINSTANCE xinput_dll;
 	char system_path[MAX_PATH];
@@ -608,7 +616,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		UpdateUI(&g_state, g_state.time.delta_time);
 
-		v2 size = V2((float)g_state.form->width, (float)g_state.form->height);
+		v2 size = V2(g_state.form->width, g_state.form->height);
 		ProcessTaskCallbacks(&g_state.callbacks);
 		BeginRenderPass(size, &render_state);
 		glClearColor(1, 1, 1, 1);
@@ -668,8 +676,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 		else
 		{
-			g_state.form->width = lParam & 0xFFFF;
-			g_state.form->height = (lParam >> 16) & 0xFFFF;
+			g_state.form->width = (float)(lParam & 0xFFFF);
+			g_state.form->height = (float)((lParam >> 16) & 0xFFFF);
 			if (g_state.is_running)
 			{
 				for (u32 i = 0; i < FONT_COUNT; i++)
@@ -679,7 +687,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			}
 		}
 
-		glViewport(0, 0, g_state.form->width, g_state.form->height);
+		glViewport(0, 0, (int)g_state.form->width, (int)g_state.form->height);
 		return 0;
 	}
 

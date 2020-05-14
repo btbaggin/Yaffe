@@ -1,7 +1,6 @@
 struct PlatformService
 {
-	HANDLE read;
-	HANDLE write;
+	HANDLE handle;
 	std::mutex mutex;
 };
 
@@ -13,24 +12,25 @@ enum MESSAGE_TYPES : u32
 };
 
 
-#include <json.hpp>
-using json = nlohmann::json;
+#include <stdio.h>
+#include <json.h>
+using json = picojson::value;
 static json CreateServiceMessage(MESSAGE_TYPES pType, const char* pName, s32 pPlatform)
 {
-	json j;
-	j["type"] = pType;
+	picojson::object j;
+	j["type"] = json((double)pType);
 	switch (pType)
 	{
 		case MESSAGE_TYPE_Game:
 		{
-			j["platform"] = pPlatform;
-			j["name"] = pName;
+			j["platform"] = json((double)pPlatform);
+			j["name"] = json(pName);
 		}
 		break;
 
 		case MESSAGE_TYPE_Platform:
 		{
-			j["name"] = pName;
+			j["name"] = json(pName);
 		}
 		break;
 
@@ -38,16 +38,42 @@ static json CreateServiceMessage(MESSAGE_TYPES pType, const char* pName, s32 pPl
 			break;
 	}
 
-	return j;
+	return json(j);
 }
-#include <stdio.h>
+
+#include <tchar.h>
+#include <TlHelp32.h>
+bool IsProcessRunning(const TCHAR* pExe) 
+{
+	PROCESSENTRY32 entry;
+	entry.dwSize = sizeof(PROCESSENTRY32);
+
+	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+	if (Process32First(snapshot, &entry))
+	{
+		do
+		{
+			if (_tcsicmp(entry.szExeFile, pExe) == 0) {
+				CloseHandle(snapshot);
+				return true;
+			}
+		} while (Process32Next(snapshot, &entry));
+	}
+	
+	CloseHandle(snapshot);
+	return false;
+}
+
 static void InitYaffeService(PlatformService* pService)
 {
-	STARTUPINFOA si = {};
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	si.wShowWindow = SW_MINIMIZE;
-	PROCESS_INFORMATION pi = {};
-	CreateProcessA("YaffeService.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+	if (!IsProcessRunning(L"YaffeService.exe"))
+	{
+		STARTUPINFOA si = {};
+		si.dwFlags = STARTF_USESHOWWINDOW;
+		si.wShowWindow = SW_MINIMIZE;
+		PROCESS_INFORMATION pi = {};
+		CreateProcessA("YaffeService.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+	}
 }
 
 static void OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
@@ -63,41 +89,37 @@ static void OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
 static bool SendServiceMessage(PlatformService* pService, json pRequest, json* pResponse)
 {
 	std::lock_guard<std::mutex> guard(pService->mutex);
-	OpenNamedPipe(&pService->read, "\\\\.\\pipe\\yaffe", GENERIC_READ);
-	OpenNamedPipe(&pService->write, "\\\\.\\pipe\\yaffeServer", GENERIC_WRITE);
+	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE);
 
 	const u32 size = Megabytes(2);
 	char* buf = new char[size];
 	ZeroMemory(buf, size);
 
-	std::string message = pRequest.dump();
-	WriteFile(pService->write, message.c_str(), message.length(), 0, NULL);
+	std::string message = pRequest.serialize();
+	WriteFile(pService->handle, message.c_str(), (DWORD)message.length(), 0, NULL);
 
 	do
 	{
-		if (ReadFile(pService->read, buf, size, 0, NULL))
+		if (ReadFile(pService->handle, buf, size, 0, NULL))
 		{
-			*pResponse = json::parse(buf);
+			picojson::parse(*pResponse, buf);
 			free(buf);
 			return true;
-		}
-		else if (GetLastError() != ERROR_MORE_DATA)
-		{
-			return false;
 		}
 	} while (GetLastError() == ERROR_MORE_DATA);
 
 	return false;
 }
 
-
-static void ShutdownYaffeService(PlatformService* pServer)
+static void ShutdownYaffeService(PlatformService* pService)
 {
-	json j;
-	j["type"] = MESSAGE_TYPE_Quit;
-	std::string message = j.dump();
-	WriteFile(pServer->write, message.c_str(), message.length(), 0, NULL);
+	picojson::object j;
+	j["type"] = json((double)MESSAGE_TYPE_Quit);
+	std::string message = json(j).serialize();
 
-	CloseHandle(pServer->read);
-	CloseHandle(pServer->write);
+	std::lock_guard<std::mutex> guard(pService->mutex);
+	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_WRITE);
+	WriteFile(pService->handle, message.c_str(), (DWORD)message.length(), 0, NULL);
+
+	CloseHandle(pService->handle);
 }

@@ -2,46 +2,46 @@ static MODAL_CLOSE(OnAddApplicationModalClose)
 {
 	if (pResult == MODAL_RESULT_Ok)
 	{
-		AddApplicationModal* add = (AddApplicationModal*)pContent;
+		AddPlatformModal* add = (AddPlatformModal*)pContent;
 		if (add->application.checked)
 		{
 			AddNewApplication(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
+			RefreshExecutables(&g_state, g_state.platforms.GetItem(g_state.platforms.count - 1));
 		}
 		else
 		{
 			InsertPlatform(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
 		}		
-		GetConfiguredEmulators(&g_state);
 	}
 }
 
-class EmulatorList : public UiControl
+class PlatformList : public UiControl
 {
 	static const u32 ICON_SIZE = 28.0F;
 public:
 	List<Platform>* applications;
 
-	static void PushGroupHeader(RenderState* pState, float* pY, v2 pSize, APPLICATION_TYPE pType)
+	static void PushGroupHeader(RenderState* pState, float* pY, v2 pSize, PLATFORM_TYPE pType)
 	{
 		Bitmap* b = nullptr;
 		switch (pType)
 		{
-		case APPLICATION_Emulator:
+		case PLATFORM_Emulator:
 			b = GetBitmap(g_assets, BITMAP_Emulator);
 			break;
-		case APPLICATION_App:
+		case PLATFORM_App:
 			b = GetBitmap(g_assets, BITMAP_App);
 			break;
 		}
 		*pY += UI_MARGIN;
 		float y = *pY + ICON_SIZE - UI_MARGIN;
-		PushSizedQuad(pState, V2(UI_MARGIN, *pY), V2(ICON_SIZE), b);
+		PushSizedQuad(pState, V2(UI_MARGIN, *pY), V2((float)ICON_SIZE), b);
 		PushLine(pState, V2(ICON_SIZE + UI_MARGIN * 2, y), V2(pSize.Width - UI_MARGIN, y), 1, V4(1));
 
 		*pY = y + UI_MARGIN * 2;
 	}
 
-	static void Render(RenderState* pRender, UiRegion pRegion, EmulatorList* pList)
+	static void Render(RenderState* pRender, UiRegion pRegion, PlatformList* pList)
 	{
 		v4 foreground = pList->IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
 		v4 font = GetFontColor(pList->IsFocused());
@@ -51,7 +51,7 @@ public:
 		PushText(pRender, FONT_Title, "Yaffe", pRegion.position + V2(UI_MARGIN), TEXT_FOCUSED);
 		
 		const float OFFSET = ICON_SIZE + UI_MARGIN * 2;
-		APPLICATION_TYPE type = APPLICATION_Emulator;
+		PLATFORM_TYPE type = PLATFORM_Emulator;
 		PushGroupHeader(pRender, &current_y, pRegion.size, type);
 
 		float item_size = GetFontSize(FONT_Normal) + UI_MARGIN * 2;
@@ -67,7 +67,7 @@ public:
 			}
 
 			v2 item_position = { pRegion.position.X + OFFSET, current_y};
-			if (i == g_state.selected_emulator)
+			if (i == g_state.selected_platform)
 			{
 				PushQuad(pRender, item_position, V2(pRegion.size.Width, item_position.Y + item_size), foreground);
 			}
@@ -87,19 +87,19 @@ public:
 		{
 			if (IsUpPressed())
 			{
-				--g_state.selected_emulator;
-				if (g_state.selected_emulator < 0) g_state.selected_emulator = applications->count - 1;
-				RefreshExecutables(&g_state, applications->GetItem(g_state.selected_emulator));
+				--g_state.selected_platform;
+				if (g_state.selected_platform < 0) g_state.selected_platform = applications->count - 1;
+				RefreshExecutables(&g_state, applications->GetItem(g_state.selected_platform));
 			}
 			else if (IsDownPressed())
 			{
-				g_state.selected_emulator = (g_state.selected_emulator + 1) % applications->count;
-				RefreshExecutables(&g_state, applications->GetItem(g_state.selected_emulator));
+				g_state.selected_platform = (g_state.selected_platform + 1) % applications->count;
+				RefreshExecutables(&g_state, applications->GetItem(g_state.selected_platform));
 			}
 
 			if (IsInfoPressed())
 			{
-				DisplayModalWindow(&g_state, "Add Emulator", new AddApplicationModal(), BITMAP_None, OnAddApplicationModalClose);
+				DisplayModalWindow(&g_state, "Add Platform", new AddPlatformModal(), BITMAP_None, OnAddApplicationModalClose);
 			}
 
 			if (IsEnterPressed())
@@ -109,8 +109,8 @@ public:
 		}
 	}
 
-	EmulatorList(YaffeState* pState) : UiControl(UI_Emulators)
+	PlatformList(YaffeState* pState) : UiControl(UI_Emulators)
 	{
-		applications = &pState->emulators;
+		applications = &pState->platforms;
 	}
 };

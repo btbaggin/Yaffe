@@ -382,9 +382,9 @@ void FreeAllAssets(YaffeState* pState, Assets* pAssets)
 	for (u32 i = 0; i < FONT_COUNT; i++)
 		FreeAsset(pAssets->fonts + i);
 
-	for (u32 i = 0; i < pState->emulators.count; i++)
+	for (u32 i = 0; i < pState->platforms.count; i++)
 	{
-		Platform* e = pState->emulators.GetItem(i);
+		Platform* e = pState->platforms.GetItem(i);
 		for (u32 j = 0; j < e->files.count; j++)
 		{
 			Executable* r = e->files.GetItem(j);

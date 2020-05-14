@@ -29,7 +29,34 @@ static void DownloadImage(const char* pUrl, std::string pSlot)
 }
 
 
-static void RefreshPlatformList(void* pData) { GetConfiguredEmulators(&g_state); }
+
+//
+// PLATFORM QUERIES
+//
+static void GetAllPlatforms(YaffeState* pState)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_GetAllPlatforms);
+
+	pState->platforms.Initialize(32);
+	while (ExecuteReader(stmt))
+	{
+		Platform* current = pState->platforms.AddItem();
+		current->type = PLATFORM_Emulator;
+		current->platform = GetIntColumn(stmt, 0);
+		strcpy(current->name, GetTextColumn(stmt, 1));
+
+		RefreshExecutables(pState, current);
+	}
+
+	Platform* applications = pState->platforms.AddItem();
+	applications->type = PLATFORM_App;
+	applications->platform = -1;
+	strcpy(applications->name, "Applications");
+
+	RefreshExecutables(pState, applications);
+}
+static void RefreshPlatformList(void* pData) { GetAllPlatforms(&g_state); }
 static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
 {
 	std::lock_guard<std::mutex> guard(db_mutex);
@@ -61,19 +88,19 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	json response;
 	Verify(SendServiceMessage(g_state.service, j, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
 
-	u32 count = response["count"].get<u32>();
+	u32 count = (u32)response.get("count").get<double>();
 
-	json games = response["platforms"];
+	picojson::array games = response.get("platforms").get<picojson::array>();
 	std::vector<PlatformInfo> items;
 	for (u32 i = 0; i < count; i++)
 	{
 		json game = games.at(i);
 		PlatformInfo pi;
-		pi.name = game["name"].get<std::string>();
+		pi.name = game.get("name").get<std::string>();
 		pi.args = work->args;
 		pi.folder = work->folder;
 		pi.path = work->path;
-		pi.id = game["id"].get<s32>();
+		pi.id = (s32)game.get("id").get<double>();
 		pi.display_name = work->name;
 		items.push_back(pi);
 	}
@@ -90,21 +117,14 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	}
 	
 }
-static void GetAllPlatforms(YaffeState* pState)
+static void InsertPlatform(std::string pName, std::string pPath, std::string pArgs, std::string pRom)
 {
-	DatabaseConnection con;
-	SqlStatement stmt(&con, qs_GetAllPlatforms);
-	
-	pState->emulators.InitializeWithArray(new Platform[32], 32);
-	while (ExecuteReader(stmt))
-	{
-		Platform* current = pState->emulators.GetItem(pState->emulators.count++);
-		current->type = APPLICATION_Emulator;
-		current->platform = GetIntColumn(stmt, 0);
-		strcpy(current->name, GetTextColumn(stmt, 1));
-
-		RefreshExecutables(pState, current);
-	}
+	PlatformInfoWork* work = new PlatformInfoWork();
+	work->name = pName;
+	work->path = pPath;
+	work->args = pArgs;
+	work->folder = pRom;
+	QueueUserWorkItem(g_state.queue, RetrievePossiblePlatforms, work);
 }
 static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* pRoms)
 {
@@ -117,16 +137,6 @@ static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* p
 	strcpy(pArgs, GetTextColumn(stmt, 1));
 	strcpy(pRoms, GetTextColumn(stmt, 2));
 }
-static void InsertPlatform(std::string pName, std::string pPath, std::string pArgs, std::string pRom)
-{
-	PlatformInfoWork* work = new PlatformInfoWork();
-	work->name = pName;
-	work->path = pPath;
-	work->args = pArgs;
-	work->folder = pRom;
-	QueueUserWorkItem(g_state.queue, RetrievePossiblePlatforms, work);
-}
-
 
 
 
@@ -150,42 +160,36 @@ static void AddNewApplication(std::string pName, std::string pPath, std::string 
 	Verify(CopyFileTo(pImage.c_str(), assets), "Unable to copy application image", ERROR_TYPE_Warning);
 }
 
-static void GetAllApplications(YaffeState* pState)
+static void BuildCommandLine(Executable* pExe, const char* pPath, const char* pArgs);
+static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 {
+	pPlat->files.Initialize(64);
+
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetAllApplications);
-
-	Platform* current = pState->emulators.GetItem(pState->emulators.count++);
-	current->type = APPLICATION_App;
-	current->platform = -1;
-	strcpy(current->name, "Applications");
-
-	//TODO don't hardcode
-	//TODO i could add an application per one, but one display one?
-	current->files.InitializeWithArray(new Executable[128], 128);
-
 	while (ExecuteReader(stmt))
 	{
-		//Executable* exe = current->files.GetItem(current->files.count++);
+		Executable* exe = pPlat->files.AddItem();
 
-		//strcpy(exe->name, GetTextColumn(stmt, 0));
-		////TODO start args???
+		strcpy(exe->name, GetTextColumn(stmt, 0));
 
-		//char rom_asset_path[MAX_PATH];
-		//GetAssetPath(rom_asset_path, current, exe);
+		char rom_asset_path[MAX_PATH];
+		GetAssetPath(rom_asset_path, pPlat, exe);
+		CombinePath(exe->boxart.load_path, rom_asset_path, "boxart.jpg");
+		exe->boxart.type = ASSET_TYPE_Bitmap;
 
-		//CombinePath(exe->boxart.load_path, rom_asset_path, "boxart.jpg");
-		//exe->boxart.type = ASSET_TYPE_Bitmap;
+		const char* path = GetTextColumn(stmt, 1);
+		const char* args = GetTextColumn(stmt, 2);
+		BuildCommandLine(exe, path, args);
 	}
-	std::sort(current->files.items, current->files.items + current->files.count, RomsSort);
 }
 
 
 
 
-
-
-
+//
+// GAME QUERIES
+//
 static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 {
 	std::lock_guard<std::mutex> guard(db_mutex);
@@ -200,17 +204,10 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 		BindTextParm(stmt, pOld.c_str());
 		Verify(ExecuteUpdate(stmt), "Unable to update additional game information", ERROR_TYPE_Warning);
 	}
-	
-	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
-	if(!pInfo->boxart.empty())
-	{
-		DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->boxart_load);
-	}
 
-	if(!pInfo->banner.empty())
-	{
-		DownloadImage((url_base + pInfo->banner).c_str(), pInfo->banner_load);
-	}
+	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
+	if(!pInfo->boxart.empty()) DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->boxart_load);
+	if(!pInfo->banner.empty()) DownloadImage((url_base + pInfo->banner).c_str(), pInfo->banner_load);
 }
 MODAL_CLOSE(WriteGameToDB)
 {
@@ -230,20 +227,20 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	json response;
 	Verify(SendServiceMessage(g_state.service, request, &response), "Unable to communicate to YaffeService", ERROR_TYPE_Error);
 
-	u32 count = response["count"].get<u32>();
-	json games = response["games"];
+	u32 count = (u32)response.get("count").get<double>();
+	picojson::array games = response.get("games").get<picojson::array>();
 	std::vector<GameInfo> items;
 	for (u32 i = 0; i < count; i++)
 	{
 		json game = games.at(i);
 		GameInfo pi;
-		pi.name = game["name"].get<std::string>();
-		pi.id = game["id"].get<s32>();
-		pi.overview = game["overview"].get<std::string>();
-		pi.players = game["players"].get<s32>();
+		pi.name = game.get("name").get<std::string>();
+		pi.id = (s32)game.get("id").get<double>();
+		pi.overview = game.get("overview").get<std::string>();
+		pi.players = (s32)game.get("players").get<double>();
 		pi.platform = work->platform;
-		pi.banner = game["banner"].get<std::string>();
-		pi.boxart = game["boxart"].get<std::string>();
+		pi.banner = game.get("banner").get<std::string>();
+		pi.boxart = game.get("boxart").get<std::string>();
 		pi.banner_load = work->banner;
 		pi.boxart_load = work->boxart;
 		items.push_back(pi);
@@ -270,6 +267,7 @@ static void GetGameInfo(Platform* pApp, Executable* pExe)
 	BindTextParm(stmt, pExe->name);
 	if(ExecuteReader(stmt))
 	{
+		strcpy(pExe->name, GetTextColumn(stmt, 1));
 		pExe->overview = GetTextColumn(stmt, 2);
 		pExe->players = GetIntColumn(stmt, 3);
 	}

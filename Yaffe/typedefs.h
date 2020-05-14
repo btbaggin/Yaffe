@@ -83,9 +83,10 @@ public:
 		return items + count++;
 	}
 
-	void InitializeWithArray(T* pItems, u32 pCount)
+	void Initialize(u32 pCount)
 	{
-		items = pItems;
+		if (items) delete[] items;
+		items = new T[pCount];
 		count = 0;
 		ZeroMemory(items, sizeof(T) * pCount);
 	}

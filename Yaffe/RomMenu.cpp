@@ -152,10 +152,10 @@ public:
 				Executable* r = GetSelectedExecutable();
 				if (r)
 				{
-					StartProgram(&g_state, e, r);
+					StartProgram(&g_state, r);
 				}
 			}
-			else if (e->type != APPLICATION_App && IsInfoPressed())
+			else if (e->type != PLATFORM_App && IsInfoPressed())
 			{
 				FocusElement(UI_Info);
 			}

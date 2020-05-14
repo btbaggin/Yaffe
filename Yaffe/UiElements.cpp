@@ -182,6 +182,8 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	{
 		int start_index = min(tc->state.select_start, tc->state.select_end);
 		int end_index = max(tc->state.select_start, tc->state.select_end);
+		start_index = min(start_index, tc->stringlen);
+		end_index = min(end_index, tc->stringlen);
 		if (end_index > 0)
 		{
 			StbFindState start = {};

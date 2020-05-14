@@ -46,6 +46,11 @@ static void RenderOverlayModal(RenderState* pState, const char* pMessage)
 	icon_position.X += ICON_SIZE;
 
 	PushText(pState, FONT_Normal, pMessage, icon_position, TEXT_FOCUSED);
+
+	char buffer[20];
+	GetTime(buffer, 20);
+	v2 position = V2(g_state.form->width, g_state.form->height) - V2(UI_MARGIN, GetFontSize(FONT_Title) + UI_MARGIN);
+	PushRightAlignedTextWithIcon(pState, &position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
 }
 
 static void RenderOverlay(YaffeState* pState, RenderState* pRender)
@@ -55,14 +60,12 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		//Render to overlay window
 		wglMakeCurrent(pState->overlay.form->dc, pState->form->rc);
 
-		float width = (float)pState->overlay.form->width;
-		float height = (float)pState->overlay.form->height;
-		v2 size = V2(width, height);
+		v2 size = V2(pState->overlay.form->width, pState->overlay.form->height);
 		BeginRenderPass(size, pRender);
 		glClearColor(1, 1, 1, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		PushQuad(pRender, V2(0.0F), V2(width, height), V4(0.0F, 0.0F, 0.0F, 0.9F));
+		PushQuad(pRender, V2(0.0F), size, V4(0.0F, 0.0F, 0.0F, 0.9F));
 
 		RenderOverlayModal(pRender, "Are you sure you wish to exit?");
 

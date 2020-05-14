@@ -6,10 +6,10 @@ enum EXECUTABLE_FLAGS : u8
 	EXECUTABLE_FLAG_Filtered = 1,
 };
 
-enum APPLICATION_TYPE : u8
+enum PLATFORM_TYPE : u8
 {
-	APPLICATION_Emulator,
-	APPLICATION_App,
+	PLATFORM_Emulator,
+	PLATFORM_App,
 };
 
 struct Executable
@@ -29,7 +29,7 @@ struct Executable
 struct Platform
 {
 	char name[35];
-	APPLICATION_TYPE type;
+	PLATFORM_TYPE type;
 	s32 platform;
 
 	List<Executable> files;
@@ -38,7 +38,6 @@ struct Platform
 
 static inline Platform* GetSelectedApplication();
 static void RefreshExecutables(YaffeState* pState, Platform* pEmulator);
-static void GetConfiguredEmulators(YaffeState* pState);
 bool RomsSort(Executable a, Executable b) { return strcmp(a.name, b.name) < 0; }
 
 static void GetAssetPath(char* pPath, Platform* pApp, Executable* pExe)

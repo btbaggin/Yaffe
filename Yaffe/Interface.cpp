@@ -54,7 +54,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
 	v2 window_position = V2((g_state.form->width - size.Width) / 2, (g_state.form->height - size.Height) / 2);
 	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
 	
-	PushQuad(pState, V2(0.0F), V2((float)g_state.form->width, (float)g_state.form->height), V4(0.0F, 0.0F, 0.0F, 0.4F));
+	PushQuad(pState, V2(0.0F), V2(g_state.form->width, g_state.form->height), V4(0.0F, 0.0F, 0.0F, 0.4F));
 
 	//Window
 	PushSizedQuad(pState, window_position, size, MODAL_BACKGROUND);
@@ -175,7 +175,7 @@ static UiRegion CreateRegion()
 {
 	UiRegion region;
 	region.position = V2(0);
-	region.size = V2((float)g_state.form->width, (float)g_state.form->height);
+	region.size = V2(g_state.form->width, g_state.form->height);
 
 	return region;
 }
@@ -189,7 +189,7 @@ static UiRegion CreateRegion(UiRegion pRegion, v2 pSize)
 	return region;
 }
 
-#include "EmulatorList.cpp"
+#include "PlatformList.cpp"
 #include "RomMenu.cpp"
 #include "FilterBar.cpp"
 #include "InfoPane.cpp"
@@ -201,7 +201,7 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	PushQuad(pRender, main.position, main.size, b);
 
 	UiRegion list_region = CreateRegion(main, V2(EMU_MENU_PERCENT, 1));
-	RenderElement(EmulatorList, UI_Emulators, list_region);
+	RenderElement(PlatformList, UI_Emulators, list_region);
 
 	UiRegion menu_region = CreateRegion(main, V2(1 - EMU_MENU_PERCENT, 1)); 
 	menu_region.position.X += list_region.size.Width;
@@ -247,7 +247,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 
 static void InitializeUI(YaffeState* pState)
 {
-	g_ui.elements[UI_Emulators] = new EmulatorList(pState);
+	g_ui.elements[UI_Emulators] = new PlatformList(pState);
 	g_ui.elements[UI_Roms] = new RomMenu(pState);
 	g_ui.elements[UI_Info] = new InfoPane();
 	g_ui.elements[UI_Search] = new FilterBar();

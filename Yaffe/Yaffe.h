@@ -63,8 +63,8 @@ struct YaffeState
 	PlatformWindow* form;
 	Overlay overlay;
 
-	List<Platform> emulators;
-	s32 selected_emulator;
+	List<Platform> platforms;
+	s32 selected_platform;
 	s32 selected_rom;
 
 	const char* errors[MAX_ERROR_COUNT];
