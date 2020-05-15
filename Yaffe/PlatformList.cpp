@@ -32,6 +32,9 @@ public:
 		case PLATFORM_App:
 			b = GetBitmap(g_assets, BITMAP_App);
 			break;
+		case PLATFORM_Recents:
+			b = GetBitmap(g_assets, BITMAP_Recent);
+			break;
 		}
 		*pY += UI_MARGIN;
 		float y = *pY + ICON_SIZE - UI_MARGIN;
@@ -51,8 +54,7 @@ public:
 		PushText(pRender, FONT_Title, "Yaffe", pRegion.position + V2(UI_MARGIN), TEXT_FOCUSED);
 		
 		const float OFFSET = ICON_SIZE + UI_MARGIN * 2;
-		PLATFORM_TYPE type = PLATFORM_Emulator;
-		PushGroupHeader(pRender, &current_y, pRegion.size, type);
+		PLATFORM_TYPE type = PLATFORM_Invalid;
 
 		float item_size = GetFontSize(FONT_Normal) + UI_MARGIN * 2;
 		for (u32 i = 0; i < pList->applications->count; i++)
@@ -60,6 +62,7 @@ public:
 			Platform* app = pList->applications->GetItem(i);
 			char* item = app->name;
 
+			//Push header when type changes
 			if (app->type != type)
 			{
 				PushGroupHeader(pRender, &current_y, pRegion.size, app->type);
@@ -71,12 +74,16 @@ public:
 			{
 				PushQuad(pRender, item_position, V2(pRegion.size.Width, item_position.Y + item_size), foreground);
 			}
-
 			PushText(pRender, FONT_Normal, (char*)item, item_position, font);
-			char count[5]; sprintf(count, "%d", app->files.count);
-			float size = MeasureString(FONT_Subtext, count).Width;
-			PushText(pRender, FONT_Subtext, count, item_position + V2(pRegion.size.Width - size - OFFSET - UI_MARGIN, 0), font);
 
+			//Add count of number of files
+			if (app->type != PLATFORM_Recents)
+			{
+				char count[5]; sprintf(count, "%d", app->files.count);
+				float size = MeasureString(FONT_Subtext, count).Width;
+				PushText(pRender, FONT_Subtext, count, item_position + V2(pRegion.size.Width - size - OFFSET - UI_MARGIN, 0), font);
+			}
+			
 			current_y += item_size;
 		}
 	}

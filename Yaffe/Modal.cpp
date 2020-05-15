@@ -34,6 +34,7 @@ class StringModal : public ModalContent
 public:
 	StringModal(std::string pMessage)
 	{
+		size = MeasureString(FONT_Normal, message.c_str());
 		message = pMessage;
 		size = MeasureString(FONT_Normal, message.c_str());
 	}

@@ -2,8 +2,10 @@
 
 /*
 TODO
-Search for existing yaffe service
-change yaffe service so it can reconnect
+memory leak when we re-retriev applications and recents
+Don't re-retrieve recent and applications everytime
+Update last run when launching from recents
+View platform details
 Don't hardcode emulator allocation count
 */
 
@@ -469,13 +471,6 @@ DWORD WINAPI ThreadProc(LPVOID pParameter)
 	}
 }
 
-inline void Tick(YaffeTime* pTime)
-{
-	auto current_time = clock();
-	pTime->delta_time = (current_time - pTime->current_time) / (float)CLOCKS_PER_SEC;
-	pTime->current_time = current_time;
-}
-
 void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 {
 	memcpy(pInput->previous_keyboard_state, pInput->current_keyboard_state, 256);
@@ -494,8 +489,8 @@ void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 	if (result == ERROR_SUCCESS)
 	{
 		pInput->current_controller_buttons = state.wButtons;
-		pInput->left_stick = { (float)state.sThumbLX, (float)state.sThumbLY };
-		pInput->right_stick = { (float)state.sThumbRX, (float)state.sThumbRY };
+		pInput->left_stick = V2((float)state.sThumbLX, (float)state.sThumbLY);
+		pInput->right_stick = V2((float)state.sThumbRX, (float)state.sThumbRY);
 
 		float length = HMM_LengthSquaredVec2(pInput->left_stick);
 		if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE * XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
@@ -566,6 +561,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	InitializeRenderer(&render_state);
 	g_assets = LoadAssets(asset_memory, Megabytes(6));
 	InitializeUI(&g_state);
+	InitailizeDatbase(&g_state);
 
 	g_state.service = new PlatformService();
 	InitYaffeService(g_state.service);
@@ -644,7 +640,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	ShutdownYaffeService(g_state.service);
-
 	FreeAllAssets(&g_state, g_assets);
 	DisposeRenderState(&render_state);
 	DestroyGlWindow(g_state.form);
