@@ -123,3 +123,26 @@ static void ShutdownYaffeService(PlatformService* pService)
 
 	CloseHandle(pService->handle);
 }
+
+#pragma comment(lib, "urlmon.lib")
+#include <urlmon.h>
+static void DownloadImage(const char* pUrl, std::string pSlot)
+{
+	IStream* stream;
+	//Also works with https URL's - unsure about the extent of SSL support though.
+	HRESULT result = URLOpenBlockingStreamA(0, pUrl, &stream, 0, 0);
+	Verify(result == 0, "Unable to retrieve image", ERROR_TYPE_Warning);
+
+	static const u32 READ_AMOUNT = 100;
+	HANDLE file = CreateFileA(pSlot.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+	char buffer[READ_AMOUNT];
+	unsigned long bytesRead;
+	stream->Read(buffer, READ_AMOUNT, &bytesRead);
+	while (bytesRead > 0U)
+	{
+		WriteFile(file, buffer, READ_AMOUNT, NULL, NULL);
+		stream->Read(buffer, READ_AMOUNT, &bytesRead);
+	}
+	stream->Release();
+	CloseHandle(file);
+}

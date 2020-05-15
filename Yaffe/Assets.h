@@ -34,6 +34,7 @@ enum BITMAPS : u8
 	BITMAP_ButtonY,
 	BITMAP_App,
 	BITMAP_Emulator,
+	BITMAP_Recent,
 
 	BITMAP_COUNT
 };
@@ -86,6 +87,8 @@ struct Assets
 	AssetSlot fonts[FONT_COUNT];
 	AssetSlot bitmaps[BITMAP_COUNT];
 	u32 blank_texture;
+
+	//std::map<char*, AssetSlot> assets;
 
 	MemoryPool* memory;
 };

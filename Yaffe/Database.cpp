@@ -5,27 +5,29 @@
 #define BindIntParm(pStatement, pValue) sqlite3_bind_int(pStatement.stmt, pStatement.parm_index++, pValue)
 #define BindTextParm(pStatement, pValue) sqlite3_bind_text(pStatement.stmt, pStatement.parm_index++, pValue, -1, nullptr)
 
-#pragma comment(lib, "urlmon.lib")
-#include <urlmon.h>
-static void DownloadImage(const char* pUrl, std::string pSlot)
+//
+// GENERAL DATABASE
+//
+static void InitailizeDatbase(YaffeState* pState)
 {
-	IStream* stream;
-	//Also works with https URL's - unsure about the extent of SSL support though.
-	HRESULT result = URLOpenBlockingStreamA(0, pUrl, &stream, 0, 0);
-	Verify(result == 0, "Unable to retrieve image", ERROR_TYPE_Warning);
-
-	static const u32 READ_AMOUNT = 100;
-	HANDLE file = CreateFileA(pSlot.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-	char buffer[READ_AMOUNT];
-	unsigned long bytesRead;
-	stream->Read(buffer, READ_AMOUNT, &bytesRead);
-	while (bytesRead > 0U)
+	char path[MAX_PATH];
+	GetFullPath(".\\Yaffe.db", path);
+	if (!FileExists(path))
 	{
-		WriteFile(file, buffer, READ_AMOUNT, NULL, NULL);
-		stream->Read(buffer, READ_AMOUNT, &bytesRead);
+		DatabaseConnection con;
+		{
+			SqlStatement stmt(&con, qs_CreateApplicationTable);
+			ExecuteUpdate(stmt);
+		}
+		{
+			SqlStatement stmt(&con, qs_CreateGamesTable);
+			ExecuteUpdate(stmt);
+		}
+		{
+			SqlStatement stmt(&con, qs_CreatePlatformsTable);
+			ExecuteUpdate(stmt);
+		}
 	}
-	stream->Release();
-	CloseHandle(file);
 }
 
 
@@ -39,27 +41,31 @@ static void GetAllPlatforms(YaffeState* pState)
 	SqlStatement stmt(&con, qs_GetAllPlatforms);
 
 	pState->platforms.Initialize(32);
+
+	Platform* recents = pState->platforms.AddItem();
+	recents->type = PLATFORM_Recents;
+	recents->id = -1;
+	strcpy(recents->name, "Recent");
+	RefreshExecutables(pState, recents);
+
 	while (ExecuteReader(stmt))
 	{
 		Platform* current = pState->platforms.AddItem();
 		current->type = PLATFORM_Emulator;
-		current->platform = GetIntColumn(stmt, 0);
+		current->id = GetIntColumn(stmt, 0);
 		strcpy(current->name, GetTextColumn(stmt, 1));
-
 		RefreshExecutables(pState, current);
 	}
 
 	Platform* applications = pState->platforms.AddItem();
 	applications->type = PLATFORM_App;
-	applications->platform = -1;
+	applications->id = -1;
 	strcpy(applications->name, "Applications");
-
 	RefreshExecutables(pState, applications);
 }
 static void RefreshPlatformList(void* pData) { GetAllPlatforms(&g_state); }
 static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
 {
-	std::lock_guard<std::mutex> guard(db_mutex);
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_AddPlatform);
 	BindIntParm(stmt, pInfo->id);
@@ -67,6 +73,8 @@ static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
 	BindTextParm(stmt, pInfo->path.c_str());
 	BindTextParm(stmt, pInfo->args.c_str());
 	BindTextParm(stmt, pInfo->folder.c_str());
+
+	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to add new platform", ERROR_TYPE_Error);
 	AddTaskCallback(&g_state.callbacks, RefreshPlatformList, nullptr);
 }
@@ -130,7 +138,7 @@ static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* p
 {
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetPlatform);
-	BindIntParm(stmt, Application->platform);
+	BindIntParm(stmt, Application->id);
 	Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
 
 	strcpy(pPath, GetTextColumn(stmt, 0));
@@ -140,15 +148,12 @@ static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* p
 
 
 
+
+//
+// APPLICATION QUERIES
+//
 static void AddNewApplication(std::string pName, std::string pPath, std::string pArgs, std::string pImage)
 {
-	DatabaseConnection con;
-	SqlStatement stmt(&con, qs_AddApplication);
-	BindTextParm(stmt, pName.c_str());
-	BindTextParm(stmt, pPath.c_str());
-	BindTextParm(stmt, pArgs.c_str());
-	Verify(ExecuteUpdate(stmt), "Unable to add new application", ERROR_TYPE_Error);
-
 	char assets[MAX_PATH];
 	GetFullPath(".\\Assets\\Applications", assets);
 	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
@@ -158,9 +163,17 @@ static void AddNewApplication(std::string pName, std::string pPath, std::string 
 
 	CombinePath(assets, assets, "boxart.jpg");
 	Verify(CopyFileTo(pImage.c_str(), assets), "Unable to copy application image", ERROR_TYPE_Warning);
+
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_AddApplication);
+	BindTextParm(stmt, pName.c_str());
+	BindTextParm(stmt, pPath.c_str());
+	BindTextParm(stmt, pArgs.c_str());
+
+	std::lock_guard<std::mutex> guard(g_state.db_mutex);
+	Verify(ExecuteUpdate(stmt), "Unable to add new application", ERROR_TYPE_Error);
 }
 
-static void BuildCommandLine(Executable* pExe, const char* pPath, const char* pArgs);
 static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 {
 	pPlat->files.Initialize(64);
@@ -171,12 +184,10 @@ static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 	{
 		Executable* exe = pPlat->files.AddItem();
 
-		strcpy(exe->name, GetTextColumn(stmt, 0));
+		strcpy(exe->file, GetTextColumn(stmt, 0));
+		strcpy(exe->display_name, exe->file);
 
-		char rom_asset_path[MAX_PATH];
-		GetAssetPath(rom_asset_path, pPlat, exe);
-		CombinePath(exe->boxart.load_path, rom_asset_path, "boxart.jpg");
-		exe->boxart.type = ASSET_TYPE_Bitmap;
+		SetAssetPaths(pPlat->name, exe);
 
 		const char* path = GetTextColumn(stmt, 1);
 		const char* args = GetTextColumn(stmt, 2);
@@ -190,24 +201,61 @@ static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 //
 // GAME QUERIES
 //
+static void GetRecentGames(Platform* pPlat)
+{
+	pPlat->files.Initialize(64);
+
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_GetRecentGames);
+	while (ExecuteReader(stmt))
+	{
+		Executable* exe = pPlat->files.AddItem();
+
+		strcpy(exe->display_name, GetTextColumn(stmt, 0));
+		exe->overview = GetTextColumn(stmt, 1);
+		exe->players = GetIntColumn(stmt, 2);
+		strcpy(exe->file, GetTextColumn(stmt, 3));
+
+		BuildCommandLine(exe, GetTextColumn(stmt, 4), GetTextColumn(stmt, 6), GetTextColumn(stmt, 5));
+
+		SetAssetPaths(GetTextColumn(stmt, 7), exe);
+	}
+}
+static void UpdateGameLastRun(Executable* pGame, s32 pPlatform)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_UpdateGameLastRun);
+	BindIntParm(stmt, pPlatform);
+	BindTextParm(stmt, pGame->file);
+	ExecuteUpdate(stmt);
+}
+
 static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 {
-	std::lock_guard<std::mutex> guard(db_mutex);
-	DatabaseConnection con;
+	//We now know exactly what game we wanted, write the values we didn't know
+	strcpy(pInfo->exe->display_name, pInfo->name.c_str());
+	SetAssetPaths(pInfo->platform_name, pInfo->exe);
+
+	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
+	if (!pInfo->boxart.empty()) DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->exe->boxart.load_path);
+	if (!pInfo->banner.empty()) DownloadImage((url_base + pInfo->banner).c_str(), pInfo->exe->banner.load_path);
+
 	{
+		DatabaseConnection con;
 		SqlStatement stmt(&con, qs_AddGame);
 		BindIntParm(stmt, pInfo->id);
 		BindIntParm(stmt, pInfo->platform);
-		BindTextParm(stmt, pInfo->name.c_str());
+		BindTextParm(stmt, pInfo->exe->display_name);
 		BindTextParm(stmt, pInfo->overview.c_str());
 		BindIntParm(stmt, pInfo->players);
 		BindTextParm(stmt, pOld.c_str());
-		Verify(ExecuteUpdate(stmt), "Unable to update additional game information", ERROR_TYPE_Warning);
-	}
 
-	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
-	if(!pInfo->boxart.empty()) DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->boxart_load);
-	if(!pInfo->banner.empty()) DownloadImage((url_base + pInfo->banner).c_str(), pInfo->banner_load);
+		std::lock_guard<std::mutex> guard(g_state.db_mutex);
+		if (!ExecuteUpdate(stmt))
+		{
+			DisplayErrorMessage("Unable to update additional game information", ERROR_TYPE_Error);
+		}
+	}
 }
 MODAL_CLOSE(WriteGameToDB)
 {
@@ -234,15 +282,17 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	{
 		json game = games.at(i);
 		GameInfo pi;
+		pi.exe = work->exe;
 		pi.name = game.get("name").get<std::string>();
 		pi.id = (s32)game.get("id").get<double>();
 		pi.overview = game.get("overview").get<std::string>();
 		pi.players = (s32)game.get("players").get<double>();
 		pi.platform = work->platform;
+		strcpy(pi.platform_name, work->platform_name);
+
+
 		pi.banner = game.get("banner").get<std::string>();
 		pi.boxart = game.get("boxart").get<std::string>();
-		pi.banner_load = work->banner;
-		pi.boxart_load = work->boxart;
 		items.push_back(pi);
 	}
 
@@ -250,34 +300,38 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	{
 		char title[200];
 		sprintf(title, "Found %d results for game '%s'", count, work->name.c_str());
-		DisplayModalWindow(&g_state, "Select Game", new ListModal<GameInfo>(items, work->name.c_str(), title), BITMAP_None, WriteGameToDB);
+		DisplayModalWindow(&g_state, "Select Game", new ListModal<GameInfo>(items, work->exe->file, title), BITMAP_None, WriteGameToDB);
 	}
 	else if(count == 1)
 	{
-		WriteGameToDB(&items[0], (char*)work->name.c_str());
+		WriteGameToDB(&items[0], work->exe->file);
 	}
 	
 	delete work;
 }
-static void GetGameInfo(Platform* pApp, Executable* pExe)
+static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 {
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetGame);
-	BindIntParm(stmt, pApp->platform);
-	BindTextParm(stmt, pExe->name);
+	BindIntParm(stmt, pApp->id);
+	BindTextParm(stmt, pExe->file);
 	if(ExecuteReader(stmt))
 	{
-		strcpy(pExe->name, GetTextColumn(stmt, 1));
+		strcpy(pExe->display_name, GetTextColumn(stmt, 1));
 		pExe->overview = GetTextColumn(stmt, 2);
 		pExe->players = GetIntColumn(stmt, 3);
+
+		SetAssetPaths(pApp->name, pExe);
 	}
 	else
 	{
+		//Taking a pointer to the exe here could cause an invalid reference when we try to write to it in WriteGameToDB
+		//However, it seems unlikely due to the circumstances that would need to occur
 		GameInfoWork* work = new GameInfoWork();
-		work->name = pExe->name;
-		work->banner = pExe->banner.load_path;
-		work->boxart = pExe->boxart.load_path;
-		work->platform = pApp->platform;
+		work->exe = pExe;
+		work->name = pName;
+		work->platform = pApp->id;
+		strcpy(work->platform_name, pApp->name);
 		QueueUserWorkItem(g_state.queue, RetrievePossibleGames, work);
 	}
 }

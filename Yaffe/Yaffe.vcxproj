@@ -237,7 +237,6 @@
     <ClInclude Include="Interface.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="YaffePlatform.h" />
-    <ClInclude Include="Queries.h" />
     <ClInclude Include="Render.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="shaders.h" />

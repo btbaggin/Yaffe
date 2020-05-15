@@ -81,7 +81,16 @@ struct YaffeState
 	YaffeTime time;
 
 	PlatformService* service;
+
+	std::mutex db_mutex;
 };
+
+inline void Tick(YaffeTime* pTime)
+{
+	auto current_time = clock();
+	pTime->delta_time = (current_time - pTime->current_time) / (float)CLOCKS_PER_SEC;
+	pTime->current_time = current_time;
+}
 
 void DisplayErrorMessage(const char* pError, ERROR_TYPE pType);
 #define Verify(condition, message, type) if (!condition) { DisplayErrorMessage(message, type); return; }

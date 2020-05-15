@@ -186,7 +186,7 @@ public:
 			switch (mode)
 			{
 				case FILTER_MODE_Name:
-					filter = (toupper(rom->name[0]) == c);
+					filter = (toupper(rom->file[0]) == c);
 					break;
 
 				case FILTER_MODE_Players:
@@ -222,7 +222,7 @@ public:
 			switch (mode)
 			{
 			case FILTER_MODE_Name:
-				index = toupper(rom->name[0]) - 'A';
+				index = toupper(rom->file[0]) - 'A';
 				break;
 			case FILTER_MODE_Players:
 				index = rom->players - 1;

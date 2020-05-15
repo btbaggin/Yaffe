@@ -351,7 +351,7 @@ static void PushRightAlignedTextWithIcon(RenderState* pState, v2* pRight, BITMAP
 		PushSizedQuad(pState, V2(pRight->X, pRight->Y + text_size.Height - pIconSize + 2), V2(pIconSize), V4(1, 1, 1, pTextColor.A), GetBitmap(g_assets, pIcon));
 	}
 
-	pRight->X -= 15;
+	pRight->X -= UI_MARGIN;
 }
 
 static void DisposeRenderState(RenderState* pState)

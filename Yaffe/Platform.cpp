@@ -9,10 +9,10 @@ static inline Executable* GetSelectedExecutable()
 	return app->files.GetItem(g_state.selected_rom);
 }
 
-static void BuildCommandLine(Executable* pExe, char* pEmuPath, char* pPath, char* pFile, char* pArgs)
+static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs)
 {
 	char exe_path[MAX_PATH];
-	CombinePath(exe_path, pPath, pFile);
+	CombinePath(exe_path, pPath, pExe->file);
 
 	sprintf(pExe->command_line, "\"%s\" %s \"%s\"", pEmuPath, pArgs, exe_path);
 
@@ -92,30 +92,32 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 
 		for (u32 j = 0; j < files.size(); j++)
 		{
-			char* file_name = (char*)files[j].c_str();
 			Executable* exe = pApp->files.AddItem();
 
-			BuildCommandLine(exe, path, roms, file_name, args);
+			char file_name[MAX_PATH];
+			strcpy(file_name, files[j].c_str());
+			strcpy(exe->file, files[j].c_str());
 
 			PathRemoveExtensionA(file_name);
-			CleanFileName(file_name, exe->name);
+			CleanFileName(file_name, file_name);
 
-			char rom_asset_path[MAX_PATH];
-			GetAssetPath(rom_asset_path, pApp, exe);
+			BuildCommandLine(exe, path, roms, args);
 
-			CombinePath(exe->boxart.load_path, rom_asset_path, "boxart.jpg");
-			exe->boxart.type = ASSET_TYPE_Bitmap;
-
-			CombinePath(exe->banner.load_path, rom_asset_path, "banner.jpg");
-			exe->banner.type = ASSET_TYPE_Bitmap;
-
-			GetGameInfo(pApp, exe);
+			GetGameInfo(pApp, exe, file_name);
 		}
 	}
+	//TODO don't reretriev everytime?
 	else if (pApp->type == PLATFORM_App)
 	{
 		GetAllApplications(pState, pApp);
 	}
+	else if (pApp->type == PLATFORM_Recents)
+	{
+		GetRecentGames(pApp);
+	}
 
-	std::sort(pApp->files.items, pApp->files.items + pApp->files.count, RomsSort);
+	if (pApp->type != PLATFORM_Recents)
+	{
+		std::sort(pApp->files.items, pApp->files.items + pApp->files.count, RomsSort);
+	}
 }

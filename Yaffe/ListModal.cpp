@@ -16,14 +16,11 @@ class ListModal : public ModalContent
 {
 	s32 index;
 	std::vector<T> items;
-	v2 content_size;
 	char title[200];
 	bool has_title;
 
 	MODAL_RESULTS Update(float pDeltaTime)
 	{
-		size = content_size;
-
 		if (IsDownPressed())
 		{
 			index++;
@@ -62,20 +59,20 @@ class ListModal : public ModalContent
 
 	void CalculateSize()
 	{
-		content_size = {};
+		size = {};
 		v2 font_size = MeasureString(FONT_Normal, title);
 		if (has_title)
 		{
-			content_size = font_size;
-			content_size.Height += UI_MARGIN;
+			size = font_size;
+			size.Height += UI_MARGIN;
 		}
 
-		content_size.Height += items.size() * (font_size.Height + UI_MARGIN * 2);
+		size.Height += items.size() * (font_size.Height + UI_MARGIN * 2);
 		for (u32 i = 0; i < items.size(); i++)
 		{
 			std::string text = GetDisplayString(items.data() + i);
 			v2 font_width = MeasureString(FONT_Normal, text.c_str());
-			content_size.Width = max(font_width.Width + UI_MARGIN * 2, content_size.Width);
+			size.Width = max(font_width.Width + UI_MARGIN * 2, size.Width);
 		}
 	}
 

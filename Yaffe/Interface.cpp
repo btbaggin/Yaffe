@@ -136,22 +136,22 @@ static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
 
 	char buffer[20];
 	GetTime(buffer, 20);
-	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
+	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED); menu_position.X -= UI_MARGIN;
 
 	menu_position.Y += (title - GetFontSize(FONT_Normal));
 	switch (GetFocusedElement())
 	{
 		case UI_Roms:
 		{
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter");
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back");
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter"); menu_position.X -= UI_MARGIN;
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back"); menu_position.X -= UI_MARGIN;
 		}
 		break;
 
 		case UI_Emulators:
 		{
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add");
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select");
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add"); menu_position.X -= UI_MARGIN;
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select"); menu_position.X -= UI_MARGIN;
 		}
 		break;
 	}
