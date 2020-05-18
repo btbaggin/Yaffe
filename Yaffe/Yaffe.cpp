@@ -19,12 +19,12 @@ Don't hardcode emulator allocation count
 #include <shlobj.h>
 
 #include "Yaffe.h"
+#include "Memory.h"
 #include "Assets.h"
 #include "Input.h"
 #include "Interface.h"
 #include "Platform.h"
 #include "Render.h"
-#include "Memory.h"
 #include "Database.h"
 
 struct PlatformWorkQueue
@@ -552,12 +552,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	glewInit();
 
 	//Initialization
-	void* asset_memory = malloc(Megabytes(6));
-	ZeroMemory(asset_memory, Megabytes(6));
+	u32 asset_size = Megabytes(6);
+	void* asset_memory = malloc(asset_size);
+	ZeroMemory(asset_memory, asset_size);
 
 	RenderState render_state = {};
 	InitializeRenderer(&render_state);
-	g_assets = LoadAssets(asset_memory, Megabytes(6));
+	g_assets = LoadAssets(asset_memory, asset_size);
 	InitializeUI(&g_state);
 	InitailizeDatbase(&g_state);
 
