@@ -54,12 +54,12 @@ static GLProgram CreateProgram(GLuint pVertex, GLuint pFragment)
 #define Megabytes(size) size * 1024 * 1024
 static void InitializeRenderer(RenderState* pState)
 {
-	void* render = malloc(Megabytes(8));
-	pState->arena = CreateMemoryStack(render, Megabytes(8));
+	void* render = malloc(Megabytes(6));
+	pState->arena = CreateMemoryStack(render, Megabytes(6));
 	pState->index_count = 0;
 	pState->vertex_count = 0;
-	pState->vertices = CreateSubStack(pState->arena, Megabytes(5));
-	pState->indices = CreateSubStack(pState->arena, Megabytes(2) - sizeof(MemoryStack));
+	pState->vertices = CreateSubStack(pState->arena, Megabytes(4));
+	pState->indices = CreateSubStack(pState->arena, Megabytes(1) - sizeof(MemoryStack));
 
 	glGenVertexArrays(1, &pState->VAO);
 	glBindVertexArray(pState->VAO);

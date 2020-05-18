@@ -11,35 +11,12 @@ enum MESSAGE_TYPES : u32
 	MESSAGE_TYPE_Quit,
 };
 
-
-#include <stdio.h>
-#include <json.h>
-using json = picojson::value;
-static json CreateServiceMessage(MESSAGE_TYPES pType, const char* pName, s32 pPlatform)
+struct YaffeMessage
 {
-	picojson::object j;
-	j["type"] = json((double)pType);
-	switch (pType)
-	{
-		case MESSAGE_TYPE_Game:
-		{
-			j["platform"] = json((double)pPlatform);
-			j["name"] = json(pName);
-		}
-		break;
-
-		case MESSAGE_TYPE_Platform:
-		{
-			j["name"] = json(pName);
-		}
-		break;
-
-		case MESSAGE_TYPE_Quit:
-			break;
-	}
-
-	return json(j);
-}
+	MESSAGE_TYPES type;
+	s32 platform;
+	const char* name;
+};
 
 #include <tchar.h>
 #include <TlHelp32.h>
@@ -86,17 +63,43 @@ static void OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
 		}
 	}
 }
-static bool SendServiceMessage(PlatformService* pService, json pRequest, json* pResponse)
+
+#include <stdio.h>
+#include <json.h>
+using json = picojson::value;
+static void CreateServiceMessage(YaffeMessage* pArgs, char* pBuffer)
+{
+	switch (pArgs->type)
+	{
+		case MESSAGE_TYPE_Game:
+			sprintf(pBuffer, R"({"type":%d,"platform":%d,"name":"%s"})", pArgs->type, pArgs->platform, pArgs->name);
+			break;
+
+		case MESSAGE_TYPE_Platform:
+			sprintf(pBuffer, R"({"type":%d,"name":"%s"})", pArgs->type, pArgs->name);
+			break;
+
+		case MESSAGE_TYPE_Quit:
+			break;
+
+		default:
+			assert(false);
+	}
+}
+
+static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage, json* pResponse)
 {
 	const u32 size = Megabytes(2);
 	char* buf = new char[size];
 	ZeroMemory(buf, size);
 
 	{
+		char message[4048];
+		CreateServiceMessage(pMessage, message);
+
 		std::lock_guard<std::mutex> guard(pService->mutex);
-		std::string message = pRequest.serialize();
 		OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE);
-		WriteFile(pService->handle, message.c_str(), (DWORD)message.length(), 0, NULL);
+		WriteFile(pService->handle, message, strlen(message), 0, NULL);
 	}
 
 	do
@@ -110,18 +113,20 @@ static bool SendServiceMessage(PlatformService* pService, json pRequest, json* p
 		}
 	} while (GetLastError() == ERROR_MORE_DATA);
 
+	free(buf);
 	return false;
 }
 
 static void ShutdownYaffeService(PlatformService* pService)
 {
-	picojson::object j;
-	j["type"] = json((double)MESSAGE_TYPE_Quit);
-	std::string message = json(j).serialize();
+	char message[4048];
+	YaffeMessage m;
+	m.type = MESSAGE_TYPE_Quit;
+	CreateServiceMessage(&m, message);
 
 	std::lock_guard<std::mutex> guard(pService->mutex);
 	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_WRITE);
-	WriteFile(pService->handle, message.c_str(), (DWORD)message.length(), 0, NULL);
+	WriteFile(pService->handle, message, strlen(message), 0, NULL);
 
 	CloseHandle(pService->handle);
 }

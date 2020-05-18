@@ -36,6 +36,7 @@ static void SendTextureToGraphicsCard(void* pData)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		stbi_image_free(b->data);
+		b->data = nullptr;
 	}
 }
 
@@ -51,6 +52,9 @@ static void SendFontToGraphicsCard(void* pData)
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, font->atlasWidth, font->atlasHeight, 0, GL_RED, GL_UNSIGNED_BYTE, font->data);
 		glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST);
 		glGenerateMipmap(GL_TEXTURE_2D);
+
+		delete font->data;
+		font->data = nullptr;
 	}
 }
 
@@ -72,14 +76,14 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 	const u32 ATLAS_SIZE = 1024;
 
 	//Alloc in one big block so we can free in one big block
-	void* data = Alloc(pAssets, (ATLAS_SIZE * ATLAS_SIZE) + (sizeof(stbtt_packedchar) * charCount) + sizeof(FontInfo));
+	void* data = Alloc(pAssets, (sizeof(stbtt_packedchar) * charCount) + sizeof(FontInfo));
 
 	FontInfo* font = (FontInfo*)data;
 	font->size = (pSize / 1000) * g_state.form->height;
 	font->atlasWidth = ATLAS_SIZE;
 	font->atlasHeight = ATLAS_SIZE;
 	font->charInfo = (stbtt_packedchar*)((char*)data + sizeof(FontInfo));
-	font->data = (u8*)((char*)font->charInfo + (sizeof(stbtt_packedchar) * charCount));
+	font->data = new u8[ATLAS_SIZE * ATLAS_SIZE];//(u8*)((char*)font->charInfo + (sizeof(stbtt_packedchar) * charCount));
 
 	std::ifstream file(pPath, std::ios::binary | std::ios::ate);
 	if (!file.is_open())
@@ -110,6 +114,7 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 
 	stbtt_PackEnd(&context);
 	Free(bytes);
+	file.close();
 
 	return font;
 }
@@ -364,13 +369,11 @@ void FreeAsset(AssetSlot* pSlot)
 			case ASSET_TYPE_Bitmap:
 				Free(pSlot->bitmap);
 				glDeleteTextures(1, &pSlot->bitmap->texture);
-				pSlot->bitmap = nullptr;
 				break;
 
 			case ASSET_TYPE_Font:
 				Free(pSlot->font);
 				glDeleteTextures(1, &pSlot->font->texture);
-				pSlot->font = nullptr;
 				break;
 		}
 		pSlot->last_requested = 0;
@@ -426,29 +429,31 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe)
 
 	char boxart[MAX_PATH];
 	CombinePath(boxart, rom_asset_path, "boxart.jpg");
-	auto find = g_assets->display_images.find(std::string(boxart));
+	std::string boxart_string = std::string(boxart);
+	auto find = g_assets->display_images.find(boxart_string);
 	if (find == g_assets->display_images.end())
 	{
 		AssetSlot slot = {};
 		slot.type = ASSET_TYPE_Bitmap;
 		strcpy(slot.load_path, boxart);
-		g_assets->display_images.emplace(std::make_pair(std::string(boxart), slot));
+		g_assets->display_images.emplace(std::make_pair(boxart_string, slot));
 	}
-	find = g_assets->display_images.find(std::string(boxart));
+	find = g_assets->display_images.find(boxart_string);
 	assert(find != g_assets->display_images.end());
 	pExe->boxart = &find->second;
 
 	char banner[MAX_PATH];
 	CombinePath(banner, rom_asset_path, "banner.jpg");
-	find = g_assets->display_images.find(std::string(banner));
+	std::string banner_string = std::string(banner);
+	find = g_assets->display_images.find(banner_string);
 	if (find == g_assets->display_images.end())
 	{
 		AssetSlot slot = {};
 		slot.type = ASSET_TYPE_Bitmap;
 		strcpy(slot.load_path, banner);
-		g_assets->display_images.emplace(std::make_pair(std::string(banner), slot));
+		g_assets->display_images.emplace(std::make_pair(banner_string, slot));
 	}
-	find = g_assets->display_images.find(std::string(banner));
+	find = g_assets->display_images.find(banner_string);
 	assert(find != g_assets->display_images.end());
 	pExe->banner = &find->second;
 }

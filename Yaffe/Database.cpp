@@ -92,9 +92,12 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 {
 	PlatformInfoWork* work = (PlatformInfoWork*)pData;
 
-	json j = CreateServiceMessage(MESSAGE_TYPE_Platform, work->name.c_str(), 0);
+	//json j = CreateServiceMessage(MESSAGE_TYPE_Platform, work->name.c_str(), 0);
 	json response;
-	Verify(SendServiceMessage(g_state.service, j, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
+	YaffeMessage args;
+	args.type = MESSAGE_TYPE_Platform;
+	args.name = work->name.c_str();
+	Verify(SendServiceMessage(g_state.service, &args, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
 
 	u32 count = (u32)response.get("count").get<double>();
 
@@ -123,7 +126,7 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	{
 		WritePlatformToDB(&items[0], work->name.c_str());
 	}
-	
+	delete work;
 }
 static void InsertPlatform(std::string pName, std::string pPath, std::string pArgs, std::string pRom)
 {
@@ -176,7 +179,7 @@ static void AddNewApplication(std::string pName, std::string pPath, std::string 
 
 static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 {
-	pPlat->files.Initialize(64);
+	pPlat->files.Initialize(16);
 
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetAllApplications);
@@ -203,7 +206,7 @@ static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 //
 static void GetRecentGames(Platform* pPlat)
 {
-	pPlat->files.Initialize(64);
+	pPlat->files.Initialize(10);
 
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetRecentGames);
@@ -271,9 +274,13 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 {
 	GameInfoWork* work = (GameInfoWork*)pData;
 
-	json request = CreateServiceMessage(MESSAGE_TYPE_Game, work->name.c_str(), work->platform);
+	//json request = CreateServiceMessage(MESSAGE_TYPE_Game, work->name.c_str(), work->platform);
 	json response;
-	Verify(SendServiceMessage(g_state.service, request, &response), "Unable to communicate to YaffeService", ERROR_TYPE_Error);
+	YaffeMessage args;
+	args.type = MESSAGE_TYPE_Game;
+	args.name = work->name.c_str();
+	args.platform = work->platform;
+	Verify(SendServiceMessage(g_state.service, &args, &response), "Unable to communicate to YaffeService", ERROR_TYPE_Error);
 
 	u32 count = (u32)response.get("count").get<double>();
 	picojson::array games = response.get("games").get<picojson::array>();

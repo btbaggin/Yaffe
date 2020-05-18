@@ -18,7 +18,7 @@ enum PLATFORM_TYPE : u8
 struct Executable
 {
 	char file[100];
-	char display_name[100];
+	char display_name[80];
 	char command_line[600];
 	std::string overview;
 	AssetSlot* boxart;
