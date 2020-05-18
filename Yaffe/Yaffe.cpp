@@ -2,10 +2,8 @@
 
 /*
 TODO
-memory leak when we re-retriev applications and recents
-Don't re-retrieve recent and applications everytime
 Update last run when launching from recents
-View platform details
+View platform details/delete/change platform
 Don't hardcode emulator allocation count
 */
 
@@ -640,7 +638,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	ShutdownYaffeService(g_state.service);
-	FreeAllAssets(&g_state, g_assets);
+	FreeAllAssets(g_assets);
 	DisposeRenderState(&render_state);
 	DestroyGlWindow(g_state.form);
 	CloseHandle(queue.Semaphore);
