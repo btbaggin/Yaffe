@@ -23,12 +23,12 @@ public:
 		for (s32 i = 0; i < pMenu->tiles_x * pMenu->tiles_y; i++)
 		{
 			u32 absolute_index = pMenu->first_visible + i;
-			if (absolute_index >= roms.count)  break;
+			if (absolute_index >= roms.count) break;
 
 			Executable* rom = roms.GetItem(absolute_index);
 			if (!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 			{
-				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
+				Bitmap* b = GetBitmap(g_assets, rom->boxart);
 				if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
 				u32 x = effective_i % pMenu->tiles_x;
@@ -55,7 +55,7 @@ public:
 				}
 
 				//Calculate the ideal rom spot
-				v2 rom_position = roms_display_start + (tile_size * V2((float)x, (float)y)) + offset;
+				v2 rom_position = roms_display_start + (pMenu->tile_size * V2((float)x, (float)y)) + offset;
 				if (absolute_index == g_state.selected_rom && pMenu->IsFocused())
 				{
 					//Selected rom needs to move a little bit to account for the size increase
@@ -78,7 +78,7 @@ public:
 		Executable* rom = GetSelectedExecutable();
 		if (rom && !HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 		{
-			Bitmap* b = GetBitmap(g_assets, &rom->boxart);
+			Bitmap* b = GetBitmap(g_assets, rom->boxart);
 			if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
 			//If we aren't focused we want to render everything the same size
@@ -180,7 +180,7 @@ public:
 				}
 				StartProgram(&g_state, r);
 			}
-			else if (e->type != PLATFORM_App && IsInfoPressed())
+			else if (IsInfoPressed())
 			{
 				FocusElement(UI_Info);
 			}
@@ -218,7 +218,7 @@ public:
 				//Try to find a bitmap actually loaded so we get proper sizes.
 				//Should be the first one most times
 				Executable* rom = pRoms->GetItem(i);
-				Bitmap* b = GetBitmap(g_assets, &rom->boxart);
+				Bitmap* b = GetBitmap(g_assets, rom->boxart);
 				if (b && b->width > max_width)
 				{
 					bitmap = b;

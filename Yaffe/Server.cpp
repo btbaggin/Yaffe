@@ -88,18 +88,20 @@ static void OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
 }
 static bool SendServiceMessage(PlatformService* pService, json pRequest, json* pResponse)
 {
-	std::lock_guard<std::mutex> guard(pService->mutex);
-	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE);
-
 	const u32 size = Megabytes(2);
 	char* buf = new char[size];
 	ZeroMemory(buf, size);
 
-	std::string message = pRequest.serialize();
-	WriteFile(pService->handle, message.c_str(), (DWORD)message.length(), 0, NULL);
+	{
+		std::lock_guard<std::mutex> guard(pService->mutex);
+		std::string message = pRequest.serialize();
+		OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE);
+		WriteFile(pService->handle, message.c_str(), (DWORD)message.length(), 0, NULL);
+	}
 
 	do
 	{
+		std::lock_guard<std::mutex> guard(pService->mutex);
 		if (ReadFile(pService->handle, buf, size, 0, NULL))
 		{
 			picojson::parse(*pResponse, buf);

@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <vector>
+#include <map>
 #include <assert.h>
 #include "time.h"
 
@@ -10,7 +11,7 @@
 #include "sqlite/sqlite3.h"
 
 const u32 QUEUE_ENTRIES = 256;
-const u32 MAX_ERROR_COUNT = 8;
+const u32 MAX_ERROR_COUNT = 16;
 const s32 MAX_MODAL_COUNT = 8;
 const u32 UPDATE_FREQUENCY = 30;
 const float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;

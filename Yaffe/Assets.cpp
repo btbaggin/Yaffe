@@ -178,12 +178,16 @@ static void LoadAsset(Assets* pAssets, AssetSlot* pSlot)
 
 static Bitmap* GetBitmap(Assets* pAssets, AssetSlot* pSlot)
 {
-	pSlot->last_requested = __rdtsc();
-	if (pSlot->state == ASSET_STATE_Unloaded && FileExists(pSlot->load_path))
+	if (pSlot)
 	{
-		LoadAsset(pAssets, pSlot);
+		pSlot->last_requested = __rdtsc();
+		if (pSlot->state == ASSET_STATE_Unloaded && FileExists(pSlot->load_path))
+		{
+			LoadAsset(pAssets, pSlot);
+		}
+		return pSlot->bitmap;
 	}
-	return pSlot->bitmap;
+	return nullptr;
 }
 
 static Bitmap* GetBitmap(Assets* pAssets, BITMAPS pAsset)
@@ -320,10 +324,8 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 		return nullptr;
 	}
 
-	Assets* assets = (Assets*)pStack;
-	void* AssetMemory = (char*)pStack + sizeof(Assets);
-	ZeroMemory(assets, sizeof(Assets));
-	assets->memory = CreateMemoryPool(AssetMemory, pSize);
+	Assets* assets = new Assets();
+	assets->memory = CreateMemoryPool(pStack, pSize);
 	
 	AddFontAsset(assets, FONT_Subtext, "./Assets/roboto-regular.ttf", 20);
 	AddFontAsset(assets, FONT_Normal, "./Assets/roboto-regular.ttf", 25);
@@ -376,37 +378,77 @@ void FreeAsset(AssetSlot* pSlot)
 	}
 }
 
-void FreeAllAssets(YaffeState* pState, Assets* pAssets)
+void FreeAllAssets(Assets* pAssets)
 {
 	for (u32 i = 0; i < BITMAP_COUNT; i++)
 		FreeAsset(pAssets->bitmaps + i);
 	for (u32 i = 0; i < FONT_COUNT; i++)
 		FreeAsset(pAssets->fonts + i);
 
-	for (u32 i = 0; i < pState->platforms.count; i++)
+	for (auto it = pAssets->display_images.begin(); it != pAssets->display_images.end(); it++)
 	{
-		Platform* e = pState->platforms.GetItem(i);
-		for (u32 j = 0; j < e->files.count; j++)
-		{
-			Executable* r = e->files.GetItem(j);
-			FreeAsset(&r->banner);
-			FreeAsset(&r->boxart);
-		}
+		FreeAsset(&it->second);
 	}
 }
 
-void EvictOldestAsset(AssetSlot* pAssets, u32 pAssetCount)
+void EvictOldestAsset(Assets* pAssets)
 {
 	AssetSlot* slot = nullptr;
 	u64 request = __rdtsc();
-	for (u32 i = 0; i < pAssetCount; i++)
+
+	//Don't bother looking through pAssets->bitmaps
+	//Those are very small and UI elements so they are frequency requested
+
+	for (auto it = pAssets->display_images.begin(); it != pAssets->display_images.end(); it++)
 	{
-		AssetSlot* asset = pAssets + i;
+		AssetSlot* asset = &it->second;
 		if (asset->state == ASSET_STATE_Loaded && asset->last_requested < request)
 		{
 			request = asset->last_requested;
 			slot = asset;
 		}
 	}
+
+	pAssets->display_images.erase(std::string(slot->load_path));
 	FreeAsset(slot);
+}
+
+
+static void SetAssetPaths(const char* pPlatName, Executable* pExe)
+{
+	char rom_asset_path[MAX_PATH];
+	GetFullPath(".\\Assets", rom_asset_path);
+	CombinePath(rom_asset_path, rom_asset_path, pPlatName);
+	CreateDirectoryIfNotExists(rom_asset_path);
+
+	CombinePath(rom_asset_path, rom_asset_path, pExe->display_name);
+	CreateDirectoryIfNotExists(rom_asset_path);
+
+	char boxart[MAX_PATH];
+	CombinePath(boxart, rom_asset_path, "boxart.jpg");
+	auto find = g_assets->display_images.find(std::string(boxart));
+	if (find == g_assets->display_images.end())
+	{
+		AssetSlot slot = {};
+		slot.type = ASSET_TYPE_Bitmap;
+		strcpy(slot.load_path, boxart);
+		g_assets->display_images.emplace(std::make_pair(std::string(boxart), slot));
+	}
+	find = g_assets->display_images.find(std::string(boxart));
+	assert(find != g_assets->display_images.end());
+	pExe->boxart = &find->second;
+
+	char banner[MAX_PATH];
+	CombinePath(banner, rom_asset_path, "banner.jpg");
+	find = g_assets->display_images.find(std::string(banner));
+	if (find == g_assets->display_images.end())
+	{
+		AssetSlot slot = {};
+		slot.type = ASSET_TYPE_Bitmap;
+		strcpy(slot.load_path, banner);
+		g_assets->display_images.emplace(std::make_pair(std::string(banner), slot));
+	}
+	find = g_assets->display_images.find(std::string(banner));
+	assert(find != g_assets->display_images.end());
+	pExe->banner = &find->second;
 }

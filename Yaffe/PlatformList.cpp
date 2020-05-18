@@ -17,11 +17,10 @@ static MODAL_CLOSE(OnAddApplicationModalClose)
 
 class PlatformList : public UiControl
 {
-	static const u32 ICON_SIZE = 28.0F;
 public:
 	List<Platform>* applications;
 
-	static void PushGroupHeader(RenderState* pState, float* pY, v2 pSize, PLATFORM_TYPE pType)
+	static void PushGroupHeader(RenderState* pState, float* pY, v2 pSize, PLATFORM_TYPE pType, float pIconSize)
 	{
 		Bitmap* b = nullptr;
 		switch (pType)
@@ -37,15 +36,17 @@ public:
 			break;
 		}
 		*pY += UI_MARGIN;
-		float y = *pY + ICON_SIZE - UI_MARGIN;
-		PushSizedQuad(pState, V2(UI_MARGIN, *pY), V2((float)ICON_SIZE), b);
-		PushLine(pState, V2(ICON_SIZE + UI_MARGIN * 2, y), V2(pSize.Width - UI_MARGIN, y), 1, V4(1));
+		float y = *pY + pIconSize - UI_MARGIN;
+		PushSizedQuad(pState, V2(UI_MARGIN, *pY), V2(pIconSize), b);
+		PushLine(pState, V2(pIconSize + UI_MARGIN * 2, y), V2(pSize.Width - UI_MARGIN, y), 1, V4(1));
 
 		*pY = y + UI_MARGIN * 2;
 	}
 
 	static void Render(RenderState* pRender, UiRegion pRegion, PlatformList* pList)
 	{
+		const float ICON_SIZE = 28.0F;
+
 		v4 foreground = pList->IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
 		v4 font = GetFontColor(pList->IsFocused());
 		float current_y = GetFontSize(FONT_Title) + UI_MARGIN * 3 + pRegion.position.Y;
@@ -65,7 +66,7 @@ public:
 			//Push header when type changes
 			if (app->type != type)
 			{
-				PushGroupHeader(pRender, &current_y, pRegion.size, app->type);
+				PushGroupHeader(pRender, &current_y, pRegion.size, app->type, ICON_SIZE);
 				type = app->type;
 			}
 

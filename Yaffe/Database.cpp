@@ -237,8 +237,8 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 	SetAssetPaths(pInfo->platform_name, pInfo->exe);
 
 	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
-	if (!pInfo->boxart.empty()) DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->exe->boxart.load_path);
-	if (!pInfo->banner.empty()) DownloadImage((url_base + pInfo->banner).c_str(), pInfo->exe->banner.load_path);
+	if (!pInfo->boxart.empty()) DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->exe->boxart->load_path);
+	if (!pInfo->banner.empty()) DownloadImage((url_base + pInfo->banner).c_str(), pInfo->exe->banner->load_path);
 
 	{
 		DatabaseConnection con;

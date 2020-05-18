@@ -20,7 +20,7 @@ public:
 			
 			//Calculate correct height based on bitmap size
 			float height = 0;
-			Bitmap* b = GetBitmap(g_assets, &rom->banner);
+			Bitmap* b = GetBitmap(g_assets, rom->banner);
 			if (b)
 			{
 				//Banner
@@ -59,6 +59,7 @@ public:
 		Executable* rom = GetSelectedExecutable();
 		Platform* emu = GetSelectedApplication();
 		overview = rom->overview;
+		if (overview.empty()) overview = "No information available";
 
 		WrapText((char*)overview.c_str(), (u32)overview.size(), FONT_Normal, g_state.form->width * INFO_PANE_WIDTH - 20 * 2);
 	}
