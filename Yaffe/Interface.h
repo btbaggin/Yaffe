@@ -39,7 +39,7 @@ enum UI_ELEMENT_TYPE : u8
 };
 
 class ModalContent;
-#define MODAL_CLOSE(name) void name(MODAL_RESULTS pResult, ModalContent* pContent)
+#define MODAL_CLOSE(name) void name(YaffeState* pState, MODAL_RESULTS pResult, ModalContent* pContent)
 typedef MODAL_CLOSE(modal_window_close);
 struct ModalWindow
 {
@@ -71,7 +71,7 @@ public:
 		tag = pTag;
 	}
 
-	virtual void Update(float pDeltaTime) = 0;
+	virtual void Update(YaffeState* pState, float pDeltaTime) = 0;
 	virtual void OnFocusGained() {}
 
 	bool IsFocused()
@@ -94,6 +94,7 @@ struct Textbox
 	int stringlen;
 	FONTS font;
 	bool focused;
+	bool enabled;
 	float width;
 	float font_x;
 	STB_TexteditState state;
@@ -102,6 +103,7 @@ struct Textbox
 struct Checkbox 
 {
 	bool checked;
+	bool enabled;
 };
 
 const v4 MENU_BACKGROUND = { 0.25F, 0.25F, 0.25F, 0.5F };
@@ -113,5 +115,10 @@ const v4 MODAL_TITLE = { 0.6F, 0.6F, 0.6F, 1 };
 
 const v4 ACCENT_COLOR = V4(0.25F, 0.3F, 1, 1);
 const v4 ACCENT_UNFOCUSED = V4(0.2F, 0.25F, 0.75F, 1);
+
+const v4 OVERLAY_COLOR = V4(0.0F, 0.0F, 0.0F, 0.9F);
+
+const v4 ELEMENT_BACKGROUND = V4(0.5F);
+const v4 ELEMENT_BACKGROUND_NOT_ENABLED = V4(0.2F, 0.2F, 0.2F, 0.5F);
 
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose);

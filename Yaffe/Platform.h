@@ -39,7 +39,7 @@ struct Platform
 };
 
 
-static inline Platform* GetSelectedApplication();
+static inline Platform* GetSelectedPlatform();
 static void RefreshExecutables(YaffeState* pState, Platform* pEmulator);
 static void BuildCommandLine(Executable* pExe, const char* pPath, const char* pArgs);
 static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs);

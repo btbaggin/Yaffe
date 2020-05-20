@@ -1,12 +1,15 @@
-static inline Platform* GetSelectedApplication()
+static inline Platform* GetSelectedPlatform()
 {
-	return g_state.platforms.GetItem(g_state.selected_platform);
+	if(g_state.selected_platform >= 0) return g_state.platforms.GetItem(g_state.selected_platform);
+	return nullptr;
 }
 
 static inline Executable* GetSelectedExecutable()
 {
-	Platform* app = GetSelectedApplication();
-	return app->files.GetItem(g_state.selected_rom);
+	Platform* app = GetSelectedPlatform();
+
+	if (app) return app->files.GetItem(g_state.selected_rom);
+	return nullptr;
 }
 
 static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs)
@@ -83,7 +86,7 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 		char path[MAX_PATH];
 		char args[100];
 		char roms[MAX_PATH];
-		GetPlatform(pApp, path, args, roms);
+		GetPlatformInfo(pApp, path, args, roms);
 
 		std::vector<std::string> files = GetFilesInDirectory(roms);
 		if (pApp->files.count == files.size()) return;
@@ -96,17 +99,17 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 
 			char file_name[MAX_PATH];
 			strcpy(file_name, files[j].c_str());
-			strcpy(exe->file, files[j].c_str());
+			strcpy(exe->file, file_name);
 
 			PathRemoveExtensionA(file_name);
 			CleanFileName(file_name, file_name);
+			strcpy(exe->display_name, file_name);
 
 			BuildCommandLine(exe, path, roms, args);
 
 			GetGameInfo(pApp, exe, file_name);
 		}
 	}
-	//TODO don't reretriev everytime?
 	else if (pApp->type == PLATFORM_App)
 	{
 		GetAllApplications(pState, pApp);

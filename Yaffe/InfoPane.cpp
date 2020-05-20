@@ -38,11 +38,11 @@ public:
 		}
 	}
 
-	void Update(float pDeltaTime) 
+	void Update(YaffeState* pState, float pDeltaTime) 
 	{ 
 		if (IsFocused())
 		{
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width * (1 - INFO_PANE_WIDTH), 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width * (1 - INFO_PANE_WIDTH), 0));
 			if (IsEscPressed())
 			{
 				RevertFocus();
@@ -50,14 +50,14 @@ public:
 		}
 		else
 		{
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width, 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width, 0));
 		}
 	}
 
 	void OnFocusGained()
 	{
 		Executable* rom = GetSelectedExecutable();
-		Platform* emu = GetSelectedApplication();
+		Platform* emu = GetSelectedPlatform();
 		overview = rom->overview;
 		if (overview.empty()) overview = "No information available";
 

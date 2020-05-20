@@ -27,11 +27,6 @@ struct GameInfoWork
 {
 	std::string name;
 	Executable* exe;
-	//std::string name;
-	//std::string file;
-	//std::string asset_path;
-	//std::string banner;
-	//std::string boxart;
 	s32 platform;
 	char platform_name[100];
 };
@@ -77,6 +72,7 @@ struct SqlStatement
 const char* qs_GetPlatform = "SELECT Path, Args, Roms FROM Platforms WHERE ID = @ID";
 const char* qs_GetAllPlatforms = "SELECT ID, Platform FROM Platforms";
 const char* qs_AddPlatform = "INSERT INTO Platforms ( ID, Platform, Path, Args, Roms ) VALUES ( @PlatformId, @Platform, @Path, @Args, @Roms )";
+const char* qs_UpdatePlatform = "UPDATE Platforms SET Path = @Path, Args = @Args, Roms = @Roms WHERE ID = @ID";
 
 const char* qs_GetGame = "SELECT ID, Name, Overview, Players, FileName FROM Games WHERE Platform = @Platform AND FileName = @Game";
 const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.FileName, p.Path, p.Args, p.Roms, p.Platform FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT 10";
@@ -85,6 +81,7 @@ const char* qs_UpdateGameLastRun = "UPDATE Games SET LastRun = strftime('%s', 'n
 
 const char* qs_GetAllApplications = "SELECT Name, Path, Args FROM Applications";
 const char* qs_AddApplication = "INSERT INTO Applications ( Name, Path, Args ) VALUES ( @Name, @Path, @Args )";
+const char* qs_UpdateApplication = "UPDATE Applications Set Path = @Path, Args = @Args WHERE Name = @Name";
 
 const char* qs_CreateApplicationTable = "CREATE TABLE \"Applications\" ( \"Name\" TEXT, \"Path\" TEXT, \"Args\"	TEXT )";
 const char* qs_CreateGamesTable = "CREATE TABLE \"Games\" ( \"ID\" INTEGER, \"Platform\" INTEGER, \"Name\" TEXT, \"Overview\" TEXT, \"Players\" INTEGER, \"FileName\" TEXT, \"LastRun\" INTEGER )";

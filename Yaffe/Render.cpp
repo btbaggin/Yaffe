@@ -204,7 +204,6 @@ GlyphQuad GetGlyph(FontInfo* pFont, u32 pChar, v4 pColor, float* pX, float* pY)
 	int index = pChar - ' ';
 	if (index < 0 || index > '~' - ' ') index = 0;
 
-	//pFont->info.numGlyphs
 	stbtt_GetPackedQuad(pFont->charInfo, pFont->atlasWidth, pFont->atlasHeight, index, pX, pY, &quad, 1);
 
 	float x_min = quad.x0;
@@ -236,6 +235,7 @@ static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pP
 		m2->index_count = 0;
 		m2->texture = font->texture;
 		m2->flags = 0;
+
 		if (pClipMin.X > 0) m2->flags |= RENDER_TEXT_FLAG_Clip;
 		m2->clip_min = pClipMin;
 		m2->clip_max = pClipMax;

@@ -101,7 +101,7 @@ public:
 		}
 	}
 
-	void Update(float pDeltaTime) 
+	void Update(YaffeState* pState, float pDeltaTime) 
 	{
 		if (IsFocused())
 		{
@@ -147,17 +147,17 @@ public:
 				}
 			}
 
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width * EMU_MENU_PERCENT, 0));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width * EMU_MENU_PERCENT, 0));
 		}
 		else if(!is_active)
 		{
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(g_state.form->width * EMU_MENU_PERCENT, -100));
+			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width * EMU_MENU_PERCENT, -100));
 		}
 	}
 
 	void ResetRoms()
 	{
-		List<Executable> roms = GetSelectedApplication()->files;
+		List<Executable> roms = GetSelectedPlatform()->files;
 		for (u32 i = 0; i < roms.count; i++)
 		{
 			Executable* rom = roms.GetItem(i);
@@ -176,25 +176,26 @@ public:
 
 		//Hide roms that don't match our particular filter item
 		bool index_set = false;
-		char c = selected_index + start;
-		List<Executable> roms = GetSelectedApplication()->files;
+		char filter_char = selected_index + start;
+		List<Executable> roms = GetSelectedPlatform()->files;
 
 		for (u32 i = 0; i < roms.count; i++)
 		{
 			Executable* rom = roms.GetItem(i);
-			bool filter = true;
+			bool display = true;
 			switch (mode)
 			{
-				case FILTER_MODE_Name:
-					filter = (toupper(rom->file[0]) == c);
+				case FILTER_MODE_None:
 					break;
-
+				case FILTER_MODE_Name:
+					display = (toupper(rom->display_name[0]) == filter_char);
+					break;
 				case FILTER_MODE_Players:
-					filter = rom->players >= (u8)selected_index + 1;
+					display = rom->players >= (u8)selected_index + 1;
 					break;
 			}
 
-			if (filter)
+			if (display)
 			{
 				rom->flags = EXECUTABLE_FLAG_None;
 				if (!index_set)
@@ -214,19 +215,23 @@ public:
 	{
 		//Set if a particular filter item exists for our set of roms
 		for (u32 i = 0; i < ArrayCount(exists); i++) exists[i] = false;
-		List<Executable> roms = GetSelectedApplication()->files;
+		List<Executable> roms = GetSelectedPlatform()->files;
 		for (u32 i = 0; i < roms.count; i++)
 		{
 			Executable* rom = roms.GetItem(i);
 			s32 index = 0;
 			switch (mode)
 			{
-			case FILTER_MODE_Name:
-				index = toupper(rom->file[0]) - 'A';
-				break;
-			case FILTER_MODE_Players:
-				index = rom->players - 1;
-				break;
+				case FILTER_MODE_None:
+					break;
+				case FILTER_MODE_Name:
+					index = toupper(rom->file[0]) - 'A';
+					break;
+				case FILTER_MODE_Players:
+					index = rom->players - 1;
+					break;
+				default:
+					assert(false);
 			}
 			assert(index < ArrayCount(exists));
 			exists[index] = true;

@@ -96,6 +96,7 @@ static Textbox CreateTextbox(float pWidth, FONTS pFont)
 	tc.width = pWidth;
 	tc.font = pFont;
 	tc.focused = false;
+	tc.enabled = true;
 	tc.font_x = 0;
 	stb_textedit_initialize_state(&tc.state, true);
 	return tc;
@@ -126,42 +127,45 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	//
 	// HANDLE INPUT
 	//
-	if (IsButtonPressed(BUTTON_Left))
+	if (tc->enabled)
 	{
-		//Toggle focus
-		tc->focused = (pos.X > 0 && pos.Y > 0 && pos < V2(tc->width, font_size));
+		if (IsButtonPressed(BUTTON_Left))
+		{
+			//Toggle focus
+			tc->focused = (pos.X > 0 && pos.Y > 0 && pos < V2(tc->width, font_size));
+			if (tc->focused)
+			{
+				//Cursor placement
+				stb_textedit_click(tc, &tc->state, pos.X, pos.Y);
+			}
+		}
+		else if (IsButtonDown(BUTTON_Left) && tc->focused)
+		{
+			//Text selection
+			stb_textedit_drag(tc, &tc->state, pos.X, pos.Y);
+		}
+
+		//Handle keyboard input
 		if (tc->focused)
 		{
-			//Cursor placement
-			stb_textedit_click(tc, &tc->state, pos.X, pos.Y);
-		}
-	}
-	else if (IsButtonDown(BUTTON_Left) && tc->focused)
-	{
-		//Text selection
-		stb_textedit_drag(tc, &tc->state, pos.X, pos.Y);
-	}
+			bool shift = IsKeyDown(KEY_Shift);
+			bool control = IsKeyDown(KEY_Control);
 
-	//Handle keyboard input
-	if (tc->focused)
-	{
-		bool shift = IsKeyDown(KEY_Shift);
-		bool control = IsKeyDown(KEY_Control);
-
-		if (control && IsKeyPressed(KEY_V, false))
-		{
-			char* text = GetClipboardText();
-			if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
-		}
-
-		for (int i = KEY_Backspace; i < KEY_Quote; i++)
-		{
-			int key = i;
-			if (IsKeyPressed((KEYS)key, false))
+			if (control && IsKeyPressed(KEY_V, false))
 			{
-				if (shift) key |= STB_TEXTEDIT_K_SHIFT;
-				if (control) key |= STB_TEXTEDIT_K_CONTROL;
-				stb_textedit_key(tc, &tc->state, key);
+				char* text = GetClipboardText();
+				if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
+			}
+
+			for (int i = KEY_Backspace; i < KEY_Quote; i++)
+			{
+				int key = i;
+				if (IsKeyPressed((KEYS)key, false))
+				{
+					if (shift) key |= STB_TEXTEDIT_K_SHIFT;
+					if (control) key |= STB_TEXTEDIT_K_CONTROL;
+					stb_textedit_key(tc, &tc->state, key);
+				}
 			}
 		}
 	}
@@ -175,7 +179,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 		PushQuad(pState, pPosition - V2(2), pPosition + V2(tc->width, font_size) + V2(2), ACCENT_COLOR);
 	}
 	//Background
-	PushSizedQuad(pState, pPosition, V2(tc->width, font_size), V4(0.5F));
+	PushSizedQuad(pState, pPosition, V2(tc->width, font_size), tc->enabled ? ELEMENT_BACKGROUND : ELEMENT_BACKGROUND_NOT_ENABLED);
 
 	//Selection
 	if (tc->focused)
@@ -223,6 +227,18 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	}
 }
 
+static char* GetTextboxText(Textbox* pTextbox)
+{
+	return pTextbox->string;
+}
+
+static void SetTextboxText(Textbox* pTextbox, char* pText)
+{
+	pTextbox->stringlen = (int)strlen(pText);
+	pTextbox->string = (char*)realloc(pTextbox->string, pTextbox->stringlen);
+	strcpy(pTextbox->string, pText);
+}
+
 
 //
 // CHECKBOX
@@ -231,21 +247,27 @@ static Checkbox CreateCheckbox()
 {
 	Checkbox box;
 	box.checked = false;
+	box.enabled = true;
 	return box;
 }
 
 static void RenderCheckbox(RenderState* pState, Checkbox* pCheck, v2 pPosition)
 {
-	v2 pos = GetMousePosition() - pPosition;
-	if (pos > V2(0) && pos < V2(24))
+	const float SIZE = 24.0F;
+
+	if (pCheck->enabled)
 	{
-		if (IsButtonPressed(BUTTON_Left)) pCheck->checked = !pCheck->checked;
+		v2 pos = GetMousePosition() - pPosition;
+		if (pos > V2(0) && pos < V2(SIZE))
+		{
+			if (IsButtonPressed(BUTTON_Left)) pCheck->checked = !pCheck->checked;
+		}
 	}
 
-	PushQuad(pState, pPosition, pPosition + V2(24), V4(0.5F));
+	PushSizedQuad(pState, pPosition, V2(SIZE), pCheck->enabled ? ELEMENT_BACKGROUND : ELEMENT_BACKGROUND_NOT_ENABLED);
 	if (pCheck->checked)
 	{
-		PushQuad(pState, pPosition + V2(3), pPosition + V2(21), ACCENT_COLOR);
+		PushSizedQuad(pState, pPosition + V2(3), V2(18), ACCENT_COLOR);
 	}
 }
 

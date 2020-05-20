@@ -92,7 +92,6 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 {
 	PlatformInfoWork* work = (PlatformInfoWork*)pData;
 
-	//json j = CreateServiceMessage(MESSAGE_TYPE_Platform, work->name.c_str(), 0);
 	json response;
 	YaffeMessage args;
 	args.type = MESSAGE_TYPE_Platform;
@@ -100,7 +99,7 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	Verify(SendServiceMessage(g_state.service, &args, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
 
 	u32 count = (u32)response.get("count").get<double>();
-
+	bool exact = response.get("exact").get<bool>();
 	picojson::array games = response.get("platforms").get<picojson::array>();
 	std::vector<PlatformInfo> items;
 	for (u32 i = 0; i < count; i++)
@@ -116,19 +115,19 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 		items.push_back(pi);
 	}
 
-	if (count > 1)
+	if (exact)
+	{
+		WritePlatformToDB(&items[0], work->name.c_str());
+	}
+	else
 	{
 		char title[200];
 		sprintf(title, "Found %d results for platform '%s'", count, work->name.c_str());
 		DisplayModalWindow(&g_state, "Select Emulator", new ListModal<PlatformInfo>(items, work->name.c_str(), title), BITMAP_None, WritePlatformToDB);
 	}
-	else if(count == 1)
-	{
-		WritePlatformToDB(&items[0], work->name.c_str());
-	}
 	delete work;
 }
-static void InsertPlatform(std::string pName, std::string pPath, std::string pArgs, std::string pRom)
+static void InsertPlatform(char* pName, char* pPath, char* pArgs, char* pRom)
 {
 	PlatformInfoWork* work = new PlatformInfoWork();
 	work->name = pName;
@@ -137,7 +136,17 @@ static void InsertPlatform(std::string pName, std::string pPath, std::string pAr
 	work->folder = pRom;
 	QueueUserWorkItem(g_state.queue, RetrievePossiblePlatforms, work);
 }
-static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* pRoms)
+static void UpdatePlatform(s32 pPlatform, char* pName, char* pPath, char* pArgs, char* pRom)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_UpdatePlatform);
+	BindTextParm(stmt, pPath);
+	BindTextParm(stmt, pArgs);
+	BindTextParm(stmt, pRom);
+	BindIntParm(stmt, pPlatform);
+	Verify(ExecuteUpdate(stmt), "Unable to update platform information", ERROR_TYPE_Warning);
+}
+static void GetPlatformInfo(Platform* Application, char* pPath, char* pArgs, char* pRoms)
 {
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetPlatform);
@@ -155,26 +164,36 @@ static void GetPlatform(Platform* Application, char* pPath, char* pArgs, char* p
 //
 // APPLICATION QUERIES
 //
-static void AddNewApplication(std::string pName, std::string pPath, std::string pArgs, std::string pImage)
+static void AddNewApplication(char* pName, char* pPath, char* pArgs, char* pImage)
 {
 	char assets[MAX_PATH];
 	GetFullPath(".\\Assets\\Applications", assets);
 	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
 
-	CombinePath(assets, assets, pName.c_str());
+	CombinePath(assets, assets, pName);
 	Verify(CreateDirectoryIfNotExists(assets), "Unable to create applications asset folder", ERROR_TYPE_Warning);
 
 	CombinePath(assets, assets, "boxart.jpg");
-	Verify(CopyFileTo(pImage.c_str(), assets), "Unable to copy application image", ERROR_TYPE_Warning);
+	Verify(CopyFileTo(pImage, assets), "Unable to copy application image", ERROR_TYPE_Warning);
 
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_AddApplication);
-	BindTextParm(stmt, pName.c_str());
-	BindTextParm(stmt, pPath.c_str());
-	BindTextParm(stmt, pArgs.c_str());
+	BindTextParm(stmt, pName);
+	BindTextParm(stmt, pPath);
+	BindTextParm(stmt, pArgs);
 
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to add new application", ERROR_TYPE_Error);
+}
+
+static void UpdateApplication(char* pName, char* pPath, char* pArgs, char* pImage)
+{
+	DatabaseConnection con;
+	SqlStatement stmt(&con, qs_UpdateApplication);
+	BindTextParm(stmt, pPath);
+	BindTextParm(stmt, pArgs);
+	BindTextParm(stmt, pName); 
+	Verify(ExecuteUpdate(stmt), "Unable to update application", ERROR_TYPE_Error);
 }
 
 static void GetAllApplications(YaffeState* pState, Platform* pPlat)
@@ -274,7 +293,6 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 {
 	GameInfoWork* work = (GameInfoWork*)pData;
 
-	//json request = CreateServiceMessage(MESSAGE_TYPE_Game, work->name.c_str(), work->platform);
 	json response;
 	YaffeMessage args;
 	args.type = MESSAGE_TYPE_Game;
@@ -283,6 +301,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	Verify(SendServiceMessage(g_state.service, &args, &response), "Unable to communicate to YaffeService", ERROR_TYPE_Error);
 
 	u32 count = (u32)response.get("count").get<double>();
+	u32 exact = response.get("exact").get<bool>();
 	picojson::array games = response.get("games").get<picojson::array>();
 	std::vector<GameInfo> items;
 	for (u32 i = 0; i < count; i++)
@@ -303,15 +322,15 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 		items.push_back(pi);
 	}
 
-	if (count > 1)
+	if (exact)
+	{
+		WriteGameToDB(&items[0], work->exe->file);
+	}
+	else
 	{
 		char title[200];
 		sprintf(title, "Found %d results for game '%s'", count, work->name.c_str());
 		DisplayModalWindow(&g_state, "Select Game", new ListModal<GameInfo>(items, work->exe->file, title), BITMAP_None, WriteGameToDB);
-	}
-	else if(count == 1)
-	{
-		WriteGameToDB(&items[0], work->exe->file);
 	}
 	
 	delete work;

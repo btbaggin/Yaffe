@@ -99,7 +99,7 @@ static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage
 
 		std::lock_guard<std::mutex> guard(pService->mutex);
 		OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE);
-		WriteFile(pService->handle, message, strlen(message), 0, NULL);
+		WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
 	}
 
 	do
@@ -126,7 +126,7 @@ static void ShutdownYaffeService(PlatformService* pService)
 
 	std::lock_guard<std::mutex> guard(pService->mutex);
 	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_WRITE);
-	WriteFile(pService->handle, message, strlen(message), 0, NULL);
+	WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
 
 	CloseHandle(pService->handle);
 }

@@ -85,6 +85,7 @@ public:
 		has_title = false;
 		CalculateSize();
 	}
+
 	ListModal(std::vector<T> pItems, std::string pData, const char* pTitle)
 	{
 		items = pItems;

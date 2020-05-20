@@ -3,20 +3,20 @@
 /*
 TODO
 Update last run when launching from recents
-View platform details/delete/change platform
+Text for overlay thingy can overlap for narrow boxart
 Don't hardcode emulator allocation count
 */
 
 #define GLEW_STATIC
-#include <glew\glew.h>
+#include <glew/glew.h>
 #include <gl/GL.h>
 #include "gl/wglext.h"
 #include <Shlwapi.h>
 #include <dwmapi.h>
 #include <mmreg.h>
 #include "intrin.h"
-#include <windows.h>
-#include <shlobj.h>
+#include <Windows.h>
+#include <ShlObj.h>
 
 #include "Yaffe.h"
 #include "Memory.h"
@@ -71,7 +71,7 @@ Interface g_ui = {};
 #include "UiElements.cpp"
 #include "Modal.cpp"
 #include "ListModal.cpp"
-#include "AddPlatformModal.cpp"
+#include "PlatformDetailModal.cpp"
 #include "Server.cpp"
 #include "Database.cpp"
 #include "Platform.cpp"

@@ -95,7 +95,7 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::stri
 	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose);
 }
 
-MODAL_CLOSE(ErrorModalClose) { if (g_state.error_is_critical) g_state.is_running = false; }
+MODAL_CLOSE(ErrorModalClose) { if (pState->error_is_critical) pState->is_running = false; }
 MODAL_CLOSE(ExitModalClose)
 { 
 	if (pResult == MODAL_RESULT_Ok)
@@ -103,7 +103,7 @@ MODAL_CLOSE(ExitModalClose)
 		ListModal<std::string>* content = (ListModal<std::string>*)pContent;
 		if (content->GetSelected() == "Quit")
 		{
-			g_state.is_running = false;
+			pState->is_running = false;
 		}
 		else
 		{
@@ -115,13 +115,14 @@ MODAL_CLOSE(ExitModalClose)
 static void DisplayApplicationErrors(YaffeState* pState)
 {
 	//Check for and display any errors
-	if (pState->error_count > 0)
+	u32 errors = pState->error_count;
+	if (errors > 0)
 	{
 		std::string message;
-		for (u32 i = 0; i < pState->error_count; i++)
+		for (u32 i = 0; i < errors; i++)
 		{
 			message += std::string(pState->errors[i]);
-			if (i < pState->error_count - 1) message += '\n';
+			if (i < errors - 1) message += '\n';
 		}
 
 		DisplayModalWindow(pState, "Error", message, BITMAP_Error, ErrorModalClose);
@@ -150,7 +151,11 @@ static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
 
 		case UI_Emulators:
 		{
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add"); menu_position.X -= UI_MARGIN;
+			Platform* plat = GetSelectedPlatform();
+			if (plat && plat->type != PLATFORM_Recents)
+			{
+				PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Info"); menu_position.X -= UI_MARGIN;
+			}
 			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select"); menu_position.X -= UI_MARGIN;
 		}
 		break;
@@ -231,7 +236,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		MODAL_RESULTS result = modal->content->Update(pDeltaTime);
 		if (result != MODAL_RESULT_None)
 		{
-			if(modal->on_close) modal->on_close(result, modal->content);
+			if(modal->on_close) modal->on_close(pState, result, modal->content);
 			InterlockedDecrement(&pState->current_modal);
 			delete modal->content;
 			delete modal;
@@ -241,14 +246,14 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 
 	for (u32 i = 0; i < UI_COUNT; i++)
 	{
-		g_ui.elements[i]->Update(pDeltaTime);
+		g_ui.elements[i]->Update(pState, pDeltaTime);
 	}
 }
 
 static void InitializeUI(YaffeState* pState)
 {
 	g_ui.elements[UI_Emulators] = new PlatformList(pState);
-	g_ui.elements[UI_Roms] = new RomMenu(pState);
+	g_ui.elements[UI_Roms] = new RomMenu();
 	g_ui.elements[UI_Info] = new InfoPane();
 	g_ui.elements[UI_Search] = new FilterBar();
 
