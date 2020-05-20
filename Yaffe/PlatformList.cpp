@@ -2,16 +2,34 @@ static MODAL_CLOSE(OnAddApplicationModalClose)
 {
 	if (pResult == MODAL_RESULT_Ok)
 	{
-		AddPlatformModal* add = (AddPlatformModal*)pContent;
+		PlatformDetailModal* add = (PlatformDetailModal*)pContent;
 		if (add->application.checked)
 		{
 			AddNewApplication(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
-			RefreshExecutables(&g_state, g_state.platforms.GetItem(g_state.platforms.count - 1));
+			RefreshExecutables(pState, pState->platforms.GetItem(pState->platforms.count - 1));
 		}
 		else
 		{
 			InsertPlatform(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
+			//RefreshExecutables gets called once we have determined the real platform through YaffeService
 		}		
+	}
+}
+
+static MODAL_CLOSE(OnUpdateApplicationModalClose)
+{
+	if (pResult == MODAL_RESULT_Ok)
+	{
+		PlatformDetailModal* add = (PlatformDetailModal*)pContent;
+		if (add->application.checked)
+		{
+			UpdateApplication(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
+		}
+		else
+		{
+			UpdatePlatform(add->id, add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
+		}
+		RefreshExecutables(pState, GetSelectedPlatform());
 	}
 }
 
@@ -25,15 +43,15 @@ public:
 		Bitmap* b = nullptr;
 		switch (pType)
 		{
-		case PLATFORM_Emulator:
-			b = GetBitmap(g_assets, BITMAP_Emulator);
-			break;
-		case PLATFORM_App:
-			b = GetBitmap(g_assets, BITMAP_App);
-			break;
-		case PLATFORM_Recents:
-			b = GetBitmap(g_assets, BITMAP_Recent);
-			break;
+			case PLATFORM_Emulator:
+				b = GetBitmap(g_assets, BITMAP_Emulator);
+				break;
+			case PLATFORM_App:
+				b = GetBitmap(g_assets, BITMAP_App);
+				break;
+			case PLATFORM_Recents:
+				b = GetBitmap(g_assets, BITMAP_Recent);
+				break;
 		}
 		*pY += UI_MARGIN;
 		float y = *pY + pIconSize - UI_MARGIN;
@@ -50,10 +68,21 @@ public:
 		v4 foreground = pList->IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
 		v4 font = GetFontColor(pList->IsFocused());
 		float current_y = GetFontSize(FONT_Title) + UI_MARGIN * 3 + pRegion.position.Y;
-
+		
+		//Title
 		PushQuad(pRender, pRegion.position, pRegion.size, MENU_BACKGROUND);
 		PushText(pRender, FONT_Title, "Yaffe", pRegion.position + V2(UI_MARGIN), TEXT_FOCUSED);
+
+		//Add link
+		v2 add_size = MeasureString(FONT_Subtext, "Add");
+		float add_x = pRegion.position.X + pRegion.size.Width - add_size.Width - UI_MARGIN;
+		if (g_state.selected_platform == -1)
+		{
+			PushSizedQuad(pRender, V2(add_x, current_y), add_size, foreground);
+		}
+		PushText(pRender, FONT_Subtext, "Add", V2(add_x, current_y), font);
 		
+		//List of platforms
 		const float OFFSET = ICON_SIZE + UI_MARGIN * 2;
 		PLATFORM_TYPE type = PLATFORM_Invalid;
 
@@ -89,30 +118,36 @@ public:
 		}
 	}
 
-	void Update(float pDeltaTime)
+	void Update(YaffeState* pState, float pDeltaTime)
 	{
 		if (IsFocused())
 		{
 			if (IsUpPressed())
 			{
-				--g_state.selected_platform;
-				if (g_state.selected_platform < 0) g_state.selected_platform = applications->count - 1;
-				RefreshExecutables(&g_state, applications->GetItem(g_state.selected_platform));
+				pState->selected_platform--;
+				if (pState->selected_platform < -1) pState->selected_platform = -1;
+				if (pState->selected_platform > -1) RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
 			}
 			else if (IsDownPressed())
 			{
-				g_state.selected_platform = (g_state.selected_platform + 1) % applications->count;
-				RefreshExecutables(&g_state, applications->GetItem(g_state.selected_platform));
+				if (pState->selected_platform < (s32)applications->count - 1)
+				{
+					pState->selected_platform++;
+					RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
+				}
 			}
 
-			if (IsInfoPressed())
+			if (pState->selected_platform == -1 && IsEnterPressed())
 			{
-				DisplayModalWindow(&g_state, "Add Platform", new AddPlatformModal(), BITMAP_None, OnAddApplicationModalClose);
+				DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr), BITMAP_None, OnAddApplicationModalClose);
 			}
-
-			if (IsEnterPressed())
+			else
 			{
-				FocusElement(UI_Roms);
+				if (IsEnterPressed()) FocusElement(UI_Roms);
+				else if (IsInfoPressed() && GetSelectedPlatform()->type != PLATFORM_Recents)
+				{
+					DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose);
+				}
 			}
 		}
 	}

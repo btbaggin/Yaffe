@@ -172,10 +172,5 @@ void* Alloc(Assets* pAssets, u64 pSize)
 
 	return result;
 }
-void* Resize(Assets* pAssets, void* pMemory, u32 pSize)
-{
-	if (pMemory) Free(pMemory);
-	return Alloc(pAssets, pSize);
-}
 
 #define AllocStruct(pPool, pType) (pType*)Alloc(pPool, sizeof(pType))
