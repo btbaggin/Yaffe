@@ -61,12 +61,12 @@ public:
 		*pY = y + UI_MARGIN * 2;
 	}
 
-	static void Render(RenderState* pRender, UiRegion pRegion, PlatformList* pList)
+	void Render(RenderState* pRender, UiRegion pRegion)
 	{
 		const float ICON_SIZE = 28.0F;
 
-		v4 foreground = pList->IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
-		v4 font = GetFontColor(pList->IsFocused());
+		v4 foreground = IsFocused() ? ACCENT_COLOR : ACCENT_UNFOCUSED;
+		v4 font = GetFontColor(IsFocused());
 		float current_y = GetFontSize(FONT_Title) + UI_MARGIN * 3 + pRegion.position.Y;
 		
 		//Title
@@ -87,9 +87,9 @@ public:
 		PLATFORM_TYPE type = PLATFORM_Invalid;
 
 		float item_size = GetFontSize(FONT_Normal) + UI_MARGIN * 2;
-		for (u32 i = 0; i < pList->applications->count; i++)
+		for (u32 i = 0; i < applications->count; i++)
 		{
-			Platform* app = pList->applications->GetItem(i);
+			Platform* app = applications->GetItem(i);
 			char* item = app->name;
 
 			//Push header when type changes
@@ -120,34 +120,31 @@ public:
 
 	void Update(YaffeState* pState, float pDeltaTime)
 	{
-		if (IsFocused())
+		if (IsUpPressed())
 		{
-			if (IsUpPressed())
+			pState->selected_platform--;
+			if (pState->selected_platform < -1) pState->selected_platform = -1;
+			if (pState->selected_platform > -1) RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
+		}
+		else if (IsDownPressed())
+		{
+			if (pState->selected_platform < (s32)applications->count - 1)
 			{
-				pState->selected_platform--;
-				if (pState->selected_platform < -1) pState->selected_platform = -1;
-				if (pState->selected_platform > -1) RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
+				pState->selected_platform++;
+				RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
 			}
-			else if (IsDownPressed())
-			{
-				if (pState->selected_platform < (s32)applications->count - 1)
-				{
-					pState->selected_platform++;
-					RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
-				}
-			}
+		}
 
-			if (pState->selected_platform == -1 && IsEnterPressed())
+		if (pState->selected_platform == -1 && IsEnterPressed())
+		{
+			DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr), BITMAP_None, OnAddApplicationModalClose);
+		}
+		else
+		{
+			if (IsEnterPressed()) FocusElement(UI_Roms);
+			else if (IsInfoPressed() && GetSelectedPlatform()->type != PLATFORM_Recents)
 			{
-				DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr), BITMAP_None, OnAddApplicationModalClose);
-			}
-			else
-			{
-				if (IsEnterPressed()) FocusElement(UI_Roms);
-				else if (IsInfoPressed() && GetSelectedPlatform()->type != PLATFORM_Recents)
-				{
-					DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose);
-				}
+				DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose);
 			}
 		}
 	}

@@ -45,7 +45,7 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		modal.icon = BITMAP_Question;
 		modal.content = new StringModal("Are you sure you wish to exit?");
 
-		RenderModalWindow(pRender, &modal);
+		RenderModalWindow(pRender, &modal, overlay);
 		delete modal.content;
 
 		char buffer[20];

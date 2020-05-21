@@ -1,8 +1,7 @@
 inline static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 {
 	v2 size = MeasureString(pFont, pText);
-
-	return V2((pBounds.Width - size.Width) / 2.0F, (pBounds.Height - size.Height - (size.Height / 2.0F)) / 2.0F);
+	return (pBounds - size) / 2.0F;
 }
 
 inline static v4 GetFontColor(bool pFocused)
@@ -26,11 +25,6 @@ inline static UI_NAMES GetFocusedElement()
 	return g_ui.focus[g_ui.focus_index - 1];
 }
 
-inline static UiControl* GetControl(UI_NAMES pName)
-{
-	return g_ui.elements[pName];
-}
-
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 {
 	assert(g_state.error_count < MAX_ERROR_COUNT);
@@ -39,39 +33,39 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 	if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
 }
 
-static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
+static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, PlatformWindow* pWindow)
 {
 	const float TITLEBAR_SIZE = 32.0F;
 	const float ICON_SIZE = 32.0F;
 	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
-	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pWindow->content->size;
-	if (pWindow->icon != BITMAP_None)
+	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pModal->content->size;
+	if (pModal->icon != BITMAP_None)
 	{
 		size.Height = max(ICON_SIZE_WITH_MARGIN, size.Height);
 		size.Width += ICON_SIZE_WITH_MARGIN;
 	}
 
-	v2 window_position = V2((g_state.form->width - size.Width) / 2, (g_state.form->height - size.Height) / 2);
+	v2 window_position = V2((pWindow->width - size.Width) / 2, (pWindow->height - size.Height) / 2);
 	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
 	
-	PushQuad(pState, V2(0.0F), V2(g_state.form->width, g_state.form->height), V4(0.0F, 0.0F, 0.0F, 0.4F));
+	PushQuad(pState, V2(0.0F), V2(pWindow->width, pWindow->height), MODAL_OVERLAY_COLOR);
 
 	//Window
 	PushSizedQuad(pState, window_position, size, MODAL_BACKGROUND);
 	//Tilebar
 	PushSizedQuad(pState, window_position, V2(size.Width, TITLEBAR_SIZE), MODAL_TITLE);
-	PushText(pState, FONT_Subtext, pWindow->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
+	PushText(pState, FONT_Subtext, pModal->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
 
 	//Sidebar highlight
 	PushSizedQuad(pState, window_position + V2(0, TITLEBAR_SIZE), V2(UI_MARGIN, size.Height - TITLEBAR_SIZE), ACCENT_COLOR);
 
-	if (pWindow->icon != BITMAP_None)
+	if (pModal->icon != BITMAP_None)
 	{
-		Bitmap* image = GetBitmap(g_assets, pWindow->icon);
+		Bitmap* image = GetBitmap(g_assets, pModal->icon);
 		PushSizedQuad(pState, icon_position, V2(ICON_SIZE), image);
 		icon_position.X += ICON_SIZE;
 	}
-	pWindow->content->Render(pState, icon_position);
+	pModal->content->Render(pState, icon_position);
 }
 
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose)
@@ -95,8 +89,8 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::stri
 	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose);
 }
 
-MODAL_CLOSE(ErrorModalClose) { if (pState->error_is_critical) pState->is_running = false; }
-MODAL_CLOSE(ExitModalClose)
+static MODAL_CLOSE(ErrorModalClose) { if (pState->error_is_critical) pState->is_running = false; }
+static MODAL_CLOSE(ExitModalClose)
 { 
 	if (pResult == MODAL_RESULT_Ok)
 	{
@@ -206,21 +200,21 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	PushQuad(pRender, main.position, main.size, b);
 
 	UiRegion list_region = CreateRegion(main, V2(EMU_MENU_PERCENT, 1));
-	RenderElement(PlatformList, UI_Emulators, list_region);
+	RenderElement(UI_Emulators, list_region);
 
 	UiRegion menu_region = CreateRegion(main, V2(1 - EMU_MENU_PERCENT, 1)); 
 	menu_region.position.X += list_region.size.Width;
-	RenderElement(RomMenu, UI_Roms, menu_region);
+	RenderElement(UI_Roms, menu_region);
 
 	UiRegion filter_region = CreateRegion(menu_region, V2(1, 0.05F));
-	RenderElement(FilterBar, UI_Search, filter_region);
+	RenderElement(UI_Search, filter_region);
 
-	RenderElement(InfoPane, UI_Info, main);
+	RenderElement(UI_Info, main);
 
 	DisplayToolbar(main, pRender);
 	if (pState->current_modal >= 0)
 	{
-		RenderModalWindow(pRender, pState->modals[pState->current_modal]);
+		RenderModalWindow(pRender, pState->modals[pState->current_modal], pState->form);
 	}
 }
 
@@ -244,9 +238,15 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		return;
 	}
 
-	for (u32 i = 0; i < UI_COUNT; i++)
+	UI_NAMES focused = GetFocusedElement();
+	for (u32 i = 0; i < focused; i++)
 	{
-		g_ui.elements[i]->Update(pState, pDeltaTime);
+		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
+	}
+	g_ui.elements[focused]->Update(pState, pDeltaTime);
+	for (u32 i = focused + 1; i < UI_COUNT; i++)
+	{
+		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
 	}
 }
 

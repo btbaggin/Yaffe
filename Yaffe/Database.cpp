@@ -5,6 +5,7 @@
 #define BindIntParm(pStatement, pValue) sqlite3_bind_int(pStatement.stmt, pStatement.parm_index++, pValue)
 #define BindTextParm(pStatement, pValue) sqlite3_bind_text(pStatement.stmt, pStatement.parm_index++, pValue, -1, nullptr)
 
+
 //
 // GENERAL DATABASE
 //
@@ -17,14 +18,17 @@ static void InitailizeDatbase(YaffeState* pState)
 		DatabaseConnection con;
 		{
 			SqlStatement stmt(&con, qs_CreateApplicationTable);
+			std::lock_guard<std::mutex> guard(g_state.db_mutex);
 			ExecuteUpdate(stmt);
 		}
 		{
 			SqlStatement stmt(&con, qs_CreateGamesTable);
+			std::lock_guard<std::mutex> guard(g_state.db_mutex);
 			ExecuteUpdate(stmt);
 		}
 		{
 			SqlStatement stmt(&con, qs_CreatePlatformsTable);
+			std::lock_guard<std::mutex> guard(g_state.db_mutex);
 			ExecuteUpdate(stmt);
 		}
 	}
@@ -78,7 +82,7 @@ static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
 	Verify(ExecuteUpdate(stmt), "Unable to add new platform", ERROR_TYPE_Error);
 	AddTaskCallback(&g_state.callbacks, RefreshPlatformList, nullptr);
 }
-MODAL_CLOSE(WritePlatformToDB)
+static MODAL_CLOSE(WritePlatformToDB)
 {
 	if (pResult == MODAL_RESULT_Ok)
 	{
@@ -88,7 +92,7 @@ MODAL_CLOSE(WritePlatformToDB)
 		WritePlatformToDB(&alias, content->old_value);
 	}
 }
-WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
+static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 {
 	PlatformInfoWork* work = (PlatformInfoWork*)pData;
 
@@ -107,10 +111,10 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 		json game = games.at(i);
 		PlatformInfo pi;
 		pi.name = game.get("name").get<std::string>();
+		pi.id = (s32)game.get("id").get<double>();
 		pi.args = work->args;
 		pi.folder = work->folder;
 		pi.path = work->path;
-		pi.id = (s32)game.get("id").get<double>();
 		pi.display_name = work->name;
 		items.push_back(pi);
 	}
@@ -119,7 +123,7 @@ WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	{
 		WritePlatformToDB(&items[0], work->name.c_str());
 	}
-	else
+	else if(count > 0)
 	{
 		char title[200];
 		sprintf(title, "Found %d results for platform '%s'", count, work->name.c_str());
@@ -144,6 +148,8 @@ static void UpdatePlatform(s32 pPlatform, char* pName, char* pPath, char* pArgs,
 	BindTextParm(stmt, pArgs);
 	BindTextParm(stmt, pRom);
 	BindIntParm(stmt, pPlatform);
+
+	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to update platform information", ERROR_TYPE_Warning);
 }
 static void GetPlatformInfo(Platform* Application, char* pPath, char* pArgs, char* pRoms)
@@ -185,7 +191,6 @@ static void AddNewApplication(char* pName, char* pPath, char* pArgs, char* pImag
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to add new application", ERROR_TYPE_Error);
 }
-
 static void UpdateApplication(char* pName, char* pPath, char* pArgs, char* pImage)
 {
 	DatabaseConnection con;
@@ -193,9 +198,10 @@ static void UpdateApplication(char* pName, char* pPath, char* pArgs, char* pImag
 	BindTextParm(stmt, pPath);
 	BindTextParm(stmt, pArgs);
 	BindTextParm(stmt, pName); 
+
+	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to update application", ERROR_TYPE_Error);
 }
-
 static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 {
 	pPlat->files.Initialize(16);
@@ -208,6 +214,7 @@ static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 
 		strcpy(exe->file, GetTextColumn(stmt, 0));
 		strcpy(exe->display_name, exe->file);
+		exe->platform = pPlat->id;
 
 		SetAssetPaths(pPlat->name, exe);
 
@@ -237,6 +244,7 @@ static void GetRecentGames(Platform* pPlat)
 		exe->overview = GetTextColumn(stmt, 1);
 		exe->players = GetIntColumn(stmt, 2);
 		strcpy(exe->file, GetTextColumn(stmt, 3));
+		exe->platform = GetIntColumn(stmt, 8);
 
 		BuildCommandLine(exe, GetTextColumn(stmt, 4), GetTextColumn(stmt, 6), GetTextColumn(stmt, 5));
 
@@ -249,9 +257,10 @@ static void UpdateGameLastRun(Executable* pGame, s32 pPlatform)
 	SqlStatement stmt(&con, qs_UpdateGameLastRun);
 	BindIntParm(stmt, pPlatform);
 	BindTextParm(stmt, pGame->file);
+
+	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	ExecuteUpdate(stmt);
 }
-
 static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 {
 	//We now know exactly what game we wanted, write the values we didn't know
@@ -273,10 +282,7 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 		BindTextParm(stmt, pOld.c_str());
 
 		std::lock_guard<std::mutex> guard(g_state.db_mutex);
-		if (!ExecuteUpdate(stmt))
-		{
-			DisplayErrorMessage("Unable to update additional game information", ERROR_TYPE_Error);
-		}
+		Verify(ExecuteUpdate(stmt), "Unable to update additional game information", ERROR_TYPE_Error);
 	}
 }
 MODAL_CLOSE(WriteGameToDB)
@@ -308,17 +314,15 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	{
 		json game = games.at(i);
 		GameInfo pi;
-		pi.exe = work->exe;
 		pi.name = game.get("name").get<std::string>();
 		pi.id = (s32)game.get("id").get<double>();
 		pi.overview = game.get("overview").get<std::string>();
 		pi.players = (s32)game.get("players").get<double>();
-		pi.platform = work->platform;
-		strcpy(pi.platform_name, work->platform_name);
-
-
 		pi.banner = game.get("banner").get<std::string>();
 		pi.boxart = game.get("boxart").get<std::string>();
+		pi.exe = work->exe;
+		pi.platform = work->platform;
+		strcpy(pi.platform_name, work->platform_name);
 		items.push_back(pi);
 	}
 
@@ -326,7 +330,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	{
 		WriteGameToDB(&items[0], work->exe->file);
 	}
-	else
+	else if(count > 0)
 	{
 		char title[200];
 		sprintf(title, "Found %d results for game '%s'", count, work->name.c_str());

@@ -83,7 +83,7 @@ static FontInfo* LoadFontAsset(Assets* pAssets, const char* pPath, float pSize)
 	font->atlasWidth = ATLAS_SIZE;
 	font->atlasHeight = ATLAS_SIZE;
 	font->charInfo = (stbtt_packedchar*)((char*)data + sizeof(FontInfo));
-	font->data = new u8[ATLAS_SIZE * ATLAS_SIZE];//(u8*)((char*)font->charInfo + (sizeof(stbtt_packedchar) * charCount));
+	font->data = new u8[ATLAS_SIZE * ATLAS_SIZE];
 
 	std::ifstream file(pPath, std::ios::binary | std::ios::ate);
 	if (!file.is_open())
@@ -332,22 +332,22 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	Assets* assets = new Assets();
 	assets->memory = CreateMemoryPool(pStack, pSize);
 	
-	AddFontAsset(assets, FONT_Subtext, "./Assets/roboto-regular.ttf", 20);
-	AddFontAsset(assets, FONT_Normal, "./Assets/roboto-regular.ttf", 25);
-	AddFontAsset(assets, FONT_Title, "./Assets/roboto-black.ttf", 36);
-	AddBitmapAsset(assets, BITMAP_Background, "./Assets/background.jpg");
-	AddBitmapAsset(assets, BITMAP_Placeholder, "./Assets/placeholder.jpg");
-	AddBitmapAsset(assets, BITMAP_Error, "./Assets/error.png");
-	AddBitmapAsset(assets, BITMAP_Question, "./Assets/question.png");
-	AddBitmapAsset(assets, BITMAP_ArrowUp, "./Assets/arrow_up.png");
-	AddBitmapAsset(assets, BITMAP_ArrowDown, "./Assets/arrow_down.png");
-	AddBitmapAsset(assets, BITMAP_ButtonA, "./Assets/button_a.png");
-	AddBitmapAsset(assets, BITMAP_ButtonB, "./Assets/button_b.png");
-	AddBitmapAsset(assets, BITMAP_ButtonX, "./Assets/button_x.png");
-	AddBitmapAsset(assets, BITMAP_ButtonY, "./Assets/button_y.png");
-	AddBitmapAsset(assets, BITMAP_App, "./Assets/apps.png");
-	AddBitmapAsset(assets, BITMAP_Emulator, "./Assets/emulator.png");
-	AddBitmapAsset(assets, BITMAP_Recent, "./Assets/recents.png");
+	AddFontAsset(assets, FONT_Subtext, ".\\Assets\\roboto-regular.ttf", 20);
+	AddFontAsset(assets, FONT_Normal, ".\\Assets\\roboto-regular.ttf", 25);
+	AddFontAsset(assets, FONT_Title, ".\\Assets\\roboto-black.ttf", 36);
+	AddBitmapAsset(assets, BITMAP_Background, ".\\Assets\\background.jpg");
+	AddBitmapAsset(assets, BITMAP_Placeholder, ".\\Assets\\placeholder.jpg");
+	AddBitmapAsset(assets, BITMAP_Error, ".\\Assets\\error.png");
+	AddBitmapAsset(assets, BITMAP_Question, ".\\Assets\\question.png");
+	AddBitmapAsset(assets, BITMAP_ArrowUp, ".\\Assets\\arrow_up.png");
+	AddBitmapAsset(assets, BITMAP_ArrowDown, ".\\Assets\\arrow_down.png");
+	AddBitmapAsset(assets, BITMAP_ButtonA, ".\\Assets\\button_a.png");
+	AddBitmapAsset(assets, BITMAP_ButtonB, ".\\Assets\\button_b.png");
+	AddBitmapAsset(assets, BITMAP_ButtonX, ".\\Assets\\button_x.png");
+	AddBitmapAsset(assets, BITMAP_ButtonY, ".\\Assets\\button_y.png");
+	AddBitmapAsset(assets, BITMAP_App, ".\\Assets\\apps.png");
+	AddBitmapAsset(assets, BITMAP_Emulator, ".\\Assets\\emulator.png");
+	AddBitmapAsset(assets, BITMAP_Recent, ".\\Assets\\recents.png");
 
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };

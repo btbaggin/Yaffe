@@ -75,7 +75,7 @@ const char* qs_AddPlatform = "INSERT INTO Platforms ( ID, Platform, Path, Args, 
 const char* qs_UpdatePlatform = "UPDATE Platforms SET Path = @Path, Args = @Args, Roms = @Roms WHERE ID = @ID";
 
 const char* qs_GetGame = "SELECT ID, Name, Overview, Players, FileName FROM Games WHERE Platform = @Platform AND FileName = @Game";
-const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.FileName, p.Path, p.Args, p.Roms, p.Platform FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT 10";
+const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.FileName, p.Path, p.Args, p.Roms, p.Platform, p.ID FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT 10";
 const char* qs_AddGame = "INSERT INTO Games (ID, Platform, Name, Overview, Players, FileName) VALUES ( @GameId, @Platform, @Name, @Overview, @Players, @FileName )";
 const char* qs_UpdateGameLastRun = "UPDATE Games SET LastRun = strftime('%s', 'now', 'localtime') WHERE Platform = @Platform AND FileName = @Game";
 

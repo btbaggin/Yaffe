@@ -31,6 +31,10 @@ static v4 V4(float x, float y, float z, float w)
 {
 	return { x, y, z, w };
 }
+static v4 V4(v4 xyz, float w)
+{
+	return { xyz.X, xyz.Y, xyz.Z, w };
+}
 static v4 V4(float xyzw)
 {
 	return { xyzw, xyzw, xyzw, xyzw };

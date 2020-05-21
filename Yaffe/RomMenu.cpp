@@ -8,22 +8,21 @@ public:
 	s32 tiles_x;
 	s32 tiles_y;
 
-	static void Render(RenderState* pState, UiRegion pRegion, RomMenu* pMenu)
+	void Render(RenderState* pState, UiRegion pRegion)
 	{
 		Platform* plat = GetSelectedPlatform();
 
 		if (plat)
 		{
 			List<Executable> roms = plat->files;
-			pMenu->GetTileSize(&roms, pRegion, plat->type == PLATFORM_Recents);
+			GetTileSize(&roms, pRegion, plat->type == PLATFORM_Recents);
 
 			v2 roms_display_start = pRegion.position + (pRegion.size * ROM_PAGE_PADDING);
 
 			s32 effective_i = 0;
-			v2 selected_size = pMenu->selected_size;
-			for (s32 i = 0; i < pMenu->tiles_x * pMenu->tiles_y; i++)
+			for (s32 i = 0; i < tiles_x * tiles_y; i++)
 			{
-				u32 absolute_index = pMenu->first_visible + i;
+				u32 absolute_index = first_visible + i;
 				if (absolute_index >= roms.count) break;
 
 				Executable* rom = roms.GetItem(absolute_index);
@@ -32,44 +31,45 @@ public:
 					Bitmap* b = GetBitmap(g_assets, rom->boxart);
 					if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
-					u32 x = effective_i % pMenu->tiles_x;
-					u32 y = effective_i / pMenu->tiles_x;
+					u32 x = effective_i % tiles_x;
+					u32 y = effective_i / tiles_x;
 
 					v2 offset = {};
-					v2 tile_size = pMenu->tile_size;
+					v2 actual_size = tile_size;
 					if (b)
 					{
 						//By default on the recents menu it chooses the widest game boxart (see pFindMax in GetTileSize)
 						//We wouldn't want vertical boxart to stretch to the horizontal dimensions
 						//This will scale boxart that is different aspect to fit within the tile_size.Height
 						float real_aspect = (float)b->width / (float)b->height;
-						float tile_aspect = tile_size.Width / tile_size.Height;
+						float tile_aspect = actual_size.Width / actual_size.Height;
 
 						//If an aspect is wider than it is tall, it is > 1
 						//If the two aspect ratios are on other sides of one, it means we need to scale
 						if (signbit(real_aspect - 1) != signbit(tile_aspect - 1))
 						{
-							tile_size.Width = tile_size.Height * real_aspect;
-							offset.X += tile_size.Height * real_aspect / 2.0F;
+							actual_size.Width = actual_size.Height * real_aspect;
+							offset.X += actual_size.Height * real_aspect / 2.0F;
 							if(absolute_index == g_state.selected_rom) selected_size.Width = selected_size.Height * real_aspect;
 						}
 					}
 
 					//Calculate the ideal rom spot
-					v2 rom_position = roms_display_start + (pMenu->tile_size * V2((float)x, (float)y)) + offset;
-					if (absolute_index == g_state.selected_rom && pMenu->IsFocused())
+					v2 rom_position = roms_display_start + (tile_size * V2((float)x, (float)y)) + offset;
+					if (absolute_index == g_state.selected_rom && IsFocused())
 					{
 						//Selected rom needs to move a little bit to account for the size increase
-						rom_position -= tile_size * (SELECTED_ROM_SIZE / 2.0F);
+						rom_position -= actual_size * (SELECTED_ROM_SIZE / 2.0F);
 					}
 
 					//This is to prevent roms from sliding in from 0,0 when the application is first started
 					if (rom->position.X == 0 && rom->position.Y == 0) rom->position = rom_position;
-					rom->position = Lerp(rom->position, g_state.time.delta_time * 5, rom_position); 
+					rom->position = Lerp(rom->position, g_state.time.delta_time * ANIMATION_SPEED, rom_position); 
+
 
 					if (absolute_index != g_state.selected_rom) //We are going to draw selected item last
 					{
-						PushSizedQuad(pState, rom->position, tile_size, b);
+						PushSizedQuad(pState, rom->position, actual_size, b);
 					}
 					effective_i++;
 				}
@@ -83,23 +83,31 @@ public:
 				if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
 				//If we aren't focused we want to render everything the same size
-				if(!pMenu->IsFocused()) pMenu->selected_size = pMenu->tile_size;
+				if(!IsFocused()) selected_size = tile_size;
 				else
 				{
 					//Have alpha fade in as the item grows to full size
 					//It is important we use Y here instead of X since X can scale in the recents platform if image sizes differ
-					float alpha = (1 - ((pMenu->tile_size.Y * SELECTED_ROM_SIZE) - (selected_size.Y - pMenu->tile_size.Y)));
+					float alpha = (1 - ((tile_size.Y * SELECTED_ROM_SIZE) - (selected_size.Y - tile_size.Y)));
 
 					float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
 					v2 menu_position = rom->position + selected_size;
+
+					//Check if we need to push the buttons below the text due to overlap
+					float text_width = MeasureString(FONT_Subtext, rom->display_name).Width + MeasureString(FONT_Subtext, "InfoRun").Width + 40;
+					if (text_width > selected_size.Width)
+					{
+						menu_position.Y += height;
+						height *= 2;
+					}
 
 					//Selected background
 					PushSizedQuad(pState,
 						rom->position - V2(ROM_OUTLINE_SIZE),
 						selected_size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height),
-						V4(MODAL_BACKGROUND.R, MODAL_BACKGROUND.G, MODAL_BACKGROUND.B, alpha * 0.94F));
+						V4(MODAL_BACKGROUND, alpha * 0.94F));
 					//Name
-					PushText(pState, FONT_Subtext, rom->display_name, rom->position + V2(0, selected_size.Height), V4(TEXT_FOCUSED.R, TEXT_FOCUSED.G, TEXT_FOCUSED.B, alpha));
+					PushText(pState, FONT_Subtext, rom->display_name, rom->position + V2(0, selected_size.Height), V4(TEXT_FOCUSED, alpha));
 
 					//Help
 					PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
@@ -154,50 +162,47 @@ public:
 	void Update(YaffeState* pState, float pDeltaTime)
 	{
 		Platform* e = GetSelectedPlatform();
-		if (IsFocused())
+		if (IsLeftPressed())
 		{
-			if (IsLeftPressed())
-			{
-				IncrementIndex(&pState->selected_rom, 1, false, e);
-			}
-			else if (IsRightPressed())
-			{
-				IncrementIndex(&pState->selected_rom, 1, true, e);
-			}
-			else if (IsUpPressed())
-			{
-				IncrementIndex(&pState->selected_rom, tiles_x, false, e);
-			}
-			else if (IsDownPressed())
-			{
-				IncrementIndex(&pState->selected_rom, tiles_x, true, e);
-			}
-
-			if (IsEnterPressed())
-			{
-				Executable* r = GetSelectedExecutable();
-				if (e->type == PLATFORM_Emulator)
-				{
-					UpdateGameLastRun(r, e->id);
-				}
-				StartProgram(&g_state, r);
-			}
-			else if (IsInfoPressed())
-			{
-				FocusElement(UI_Info);
-			}
-			else if (IsFilterPressed())
-			{
-				FocusElement(UI_Search);
-			}
-
-			if (IsEscPressed())
-			{
-				RevertFocus();
-			}
-
-			selected_size = Lerp(selected_size, pDeltaTime * ANIMATION_SPEED, tile_size * (1.0F + SELECTED_ROM_SIZE));
+			IncrementIndex(&pState->selected_rom, 1, false, e);
 		}
+		else if (IsRightPressed())
+		{
+			IncrementIndex(&pState->selected_rom, 1, true, e);
+		}
+		else if (IsUpPressed())
+		{
+			IncrementIndex(&pState->selected_rom, tiles_x, false, e);
+		}
+		else if (IsDownPressed())
+		{
+			IncrementIndex(&pState->selected_rom, tiles_x, true, e);
+		}
+
+		if (IsEnterPressed())
+		{
+			Executable* r = GetSelectedExecutable();
+			if (r->platform > -1)
+			{
+				UpdateGameLastRun(r, r->platform);
+			}
+			StartProgram(&g_state, r);
+		}
+		else if (IsInfoPressed())
+		{
+			FocusElement(UI_Info);
+		}
+		else if (IsFilterPressed())
+		{
+			FocusElement(UI_Search);
+		}
+
+		if (IsEscPressed())
+		{
+			RevertFocus();
+		}
+
+		selected_size = Lerp(selected_size, pDeltaTime * ANIMATION_SPEED, tile_size * (1.0F + SELECTED_ROM_SIZE));
 	}
 
 	float GetDefaultItemSize(float pDimension, float pAmount)

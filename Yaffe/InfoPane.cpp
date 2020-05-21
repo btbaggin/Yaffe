@@ -9,14 +9,14 @@ public:
 		position = V2(g_state.form->width, 0.0F);
 	}
 
-	static void Render(RenderState* pState, UiRegion pRegion, InfoPane* pPane)
+	void Render(RenderState* pState, UiRegion pRegion)
 	{
 		const float PADDING = 20.0F;
 		Executable* rom = GetSelectedExecutable();
-		if (rom && pPane->position.X < pRegion.size.Width)
+		if (rom && position.X < pRegion.size.Width)
 		{
 			float width = pRegion.size.Width * INFO_PANE_WIDTH;
-			PushSizedQuad(pState, pPane->position, V2(width, pRegion.size.Height), MODAL_BACKGROUND);
+			PushSizedQuad(pState, position, V2(width, pRegion.size.Height), MODAL_BACKGROUND);
 			
 			//Calculate correct height based on bitmap size
 			float height = 0;
@@ -25,33 +25,31 @@ public:
 			{
 				//Banner
 				height = (width / b->width) * pRegion.size.Height;
-				PushQuad(pState, pPane->position, V2(pPane->position.X + width, height), b);
+				PushQuad(pState, position, V2(position.X + width, height), b);
 			}
 			//Accent bar
-			PushSizedQuad(pState, pPane->position + V2(0, height), V2(UI_MARGIN, pRegion.size.Height - height), ACCENT_COLOR);
+			PushSizedQuad(pState, position + V2(0, height), V2(UI_MARGIN, pRegion.size.Height - height), ACCENT_COLOR);
 
 			//Description
-			if (!pPane->overview.empty())
+			if (!overview.empty())
 			{
-				PushText(pState, FONT_Normal, pPane->overview.c_str(), pPane->position + V2(PADDING, height + PADDING), TEXT_FOCUSED);
+				PushText(pState, FONT_Normal, overview.c_str(), position + V2(PADDING, height + PADDING), TEXT_FOCUSED);
 			}
 		}
 	}
 
 	void Update(YaffeState* pState, float pDeltaTime) 
 	{ 
-		if (IsFocused())
+		position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width * (1 - INFO_PANE_WIDTH), 0));
+		if (IsEscPressed())
 		{
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width * (1 - INFO_PANE_WIDTH), 0));
-			if (IsEscPressed())
-			{
-				RevertFocus();
-			}
+			RevertFocus();
 		}
-		else
-		{
-			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width, 0));
-		}
+	}
+
+	void UnfocusedUpdate(YaffeState* pState, float pDeltaTime)
+	{
+		position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width, 0));
 	}
 
 	void OnFocusGained()

@@ -18,37 +18,11 @@ static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char*
 	CombinePath(exe_path, pPath, pExe->file);
 
 	sprintf(pExe->command_line, "\"%s\" %s \"%s\"", pEmuPath, pArgs, exe_path);
-
 }
 
 static void BuildCommandLine(Executable* pExe, const char* pPath, const char* pArgs)
 {
 	sprintf(pExe->command_line, "\"%s\" %s", pPath, pArgs);
-}
-
-static bool GetNextLine(FILE* pFile, std::string* pLine, bool pSkipBlankLines = true)
-{
-	char l[256];
-	if (fgets(l, 256, pFile))
-	{
-		do
-		{
-			std::string line(l);
-			//Trim beginning spaces
-			line.erase(line.begin(), std::find_if(line.begin(), line.end(), [](int ch) {
-				return !std::isspace(ch);
-			}));
-
-			if (line[0] != '#' && (line.length() > 0 || !pSkipBlankLines))
-			{
-				std::replace(line.begin(), line.end(), '\n', '\0');
-				*pLine = line;
-				return true;
-			}
-		} while (fgets(l, 256, pFile));
-	}
-
-	return false;
 }
 
 static void CleanFileName(char* pName, char* pDest)
@@ -100,6 +74,7 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 			char file_name[MAX_PATH];
 			strcpy(file_name, files[j].c_str());
 			strcpy(exe->file, file_name);
+			exe->platform = pApp->id;
 
 			PathRemoveExtensionA(file_name);
 			CleanFileName(file_name, file_name);

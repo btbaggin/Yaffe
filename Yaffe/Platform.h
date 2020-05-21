@@ -17,17 +17,24 @@ enum PLATFORM_TYPE : u8
 
 struct Executable
 {
-	char file[100];
+	char file[100]; //TODO can I get rid of this
 	char display_name[80];
-	char command_line[600];
 	std::string overview;
 	AssetSlot* boxart;
 	AssetSlot* banner;
 	u8 players;
+	s32 platform; //Duplicated from Platform so we always know it, even if launching from recents
 
 	u8 flags;
 	v2 position;
+	char command_line[600];
 };
+
+//struct ExecutableDisplay
+//{
+//	v2 position;
+//	u8 flags;
+//};
 
 struct Platform
 {
@@ -36,6 +43,7 @@ struct Platform
 	s32 id;
 
 	List<Executable> files;
+	//List<ExecutableDisplay> file_display;
 };
 
 
@@ -43,4 +51,4 @@ static inline Platform* GetSelectedPlatform();
 static void RefreshExecutables(YaffeState* pState, Platform* pEmulator);
 static void BuildCommandLine(Executable* pExe, const char* pPath, const char* pArgs);
 static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs);
-bool RomsSort(Executable a, Executable b) { return strcmp(a.file, b.file) < 0; }
+bool RomsSort(Executable a, Executable b) { return strcmp(a.display_name, b.display_name) < 0; }

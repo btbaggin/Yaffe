@@ -18,6 +18,7 @@ struct YaffeMessage
 	const char* name;
 };
 
+#include <stdio.h>
 #include <tchar.h>
 #include <TlHelp32.h>
 bool IsProcessRunning(const TCHAR* pExe) 
@@ -64,9 +65,6 @@ static void OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
 	}
 }
 
-#include <stdio.h>
-#include <json.h>
-using json = picojson::value;
 static void CreateServiceMessage(YaffeMessage* pArgs, char* pBuffer)
 {
 	switch (pArgs->type)
