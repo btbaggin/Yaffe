@@ -2,8 +2,7 @@
 
 /*
 TODO
-Update last run when launching from recents
-Text for overlay thingy can overlap for narrow boxart
+Allow changing applications
 Don't hardcode emulator allocation count
 */
 
@@ -22,10 +21,12 @@ Don't hardcode emulator allocation count
 #include "Memory.h"
 #include "Assets.h"
 #include "Input.h"
+#include "Render.h"
 #include "Interface.h"
 #include "Platform.h"
-#include "Render.h"
 #include "Database.h"
+#include <json.h>
+using json = picojson::value;
 
 struct PlatformWorkQueue
 {
