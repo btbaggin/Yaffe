@@ -5,6 +5,7 @@ static MODAL_CLOSE(OnAddApplicationModalClose)
 		PlatformDetailModal* add = (PlatformDetailModal*)pContent;
 		if (add->application.checked)
 		{
+
 			AddNewApplication(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
 			RefreshExecutables(pState, pState->platforms.GetItem(pState->platforms.count - 1));
 		}

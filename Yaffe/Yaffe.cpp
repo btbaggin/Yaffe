@@ -139,13 +139,13 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 
 	return files;
 }
-static void StartProgram(YaffeState* pState, Executable* pRom)
+static void StartProgram(YaffeState* pState, char* pCommand)
 {
 	Overlay* overlay = &pState->overlay;
 
 	STARTUPINFOA si = {};
 	PROCESS_INFORMATION pi = {};
-	if (CreateProcessA(NULL, pRom->command_line, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+	if (CreateProcessA(NULL, pCommand, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 	{
 		overlay->process = new PlatformProcess();
 		overlay->process->info = pi;
@@ -153,16 +153,14 @@ static void StartProgram(YaffeState* pState, Executable* pRom)
 	else
 	{
 		DWORD error = GetLastError();
-		switch (error)
+		if (error == ERROR_ELEVATION_REQUIRED)
 		{
-			case 740:
-				DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
-				break;
-			default:
-				DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
-				break;
+			DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
 		}
-		return;
+		else
+		{
+			DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
+		}
 	}
 }
 static void ShowOverlay(Overlay* pOverlay)
@@ -530,20 +528,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	//Set up work queue
 	const u32 THREAD_COUNT = 8;
 	win32_thread_info threads[THREAD_COUNT];
-	PlatformWorkQueue queue = {};
-	HANDLE sem = CreateSemaphoreEx(0, 0, THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
-	queue.Semaphore = sem;
+	PlatformWorkQueue work_queue = {};
+	work_queue.Semaphore = CreateSemaphoreEx(0, 0, THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
 	for (u32 i = 0; i < THREAD_COUNT; i++)
 	{
 		win32_thread_info* thread = threads + i;
-		thread->queue = &queue;
 		thread->ThreadIndex = i;
+		thread->queue = &work_queue;
 
 		DWORD id;
 		HANDLE t = CreateThread(0, 0, ThreadProc, thread, 0, &id);
 		CloseHandle(t);
 	}
-	g_state.queue = &queue;
+	g_state.work_queue = &work_queue;
 
 	LARGE_INTEGER i;
 	QueryPerformanceFrequency(&i);
@@ -591,6 +588,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	g_input.XInputGetState = (get_gamepad_ex)lpfnGetProcessID;
 	g_input.layout = GetKeyboardLayout(0);
 
+	YaffeTime time = {};
+
 	//Game loop
 	MSG msg;
 	g_state.is_running = true;
@@ -608,9 +607,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
 
 		Win32GetInput(&g_input, g_state.form->handle);
-		Tick(&g_state.time);
+		Tick(&time);
 
-		UpdateUI(&g_state, g_state.time.delta_time);
+		UpdateUI(&g_state, time.delta_time);
 
 		v2 size = V2(g_state.form->width, g_state.form->height);
 		ProcessTaskCallbacks(&g_state.callbacks);
@@ -643,7 +642,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	FreeAllAssets(g_assets);
 	DisposeRenderState(&render_state);
 	DestroyGlWindow(g_state.form);
-	CloseHandle(queue.Semaphore);
+	CloseHandle(work_queue.Semaphore);
 	UnregisterClassW(WINDOW_CLASS, hInstance);
 	UnregisterClassW(OVERLAY_CLASS, hInstance);
 
