@@ -239,7 +239,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 	}
 
 	UI_NAMES focused = GetFocusedElement();
-	for (u32 i = 0; i < focused; i++)
+	for (u32 i = 0; i < (u32)focused; i++)
 	{
 		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
 	}

@@ -75,11 +75,10 @@ struct YaffeState
 	ModalWindow* modals[MAX_MODAL_COUNT];
 	volatile LONG current_modal;
 
-	PlatformWorkQueue* queue;
+	PlatformWorkQueue* work_queue;
 	TaskCallbackQueue callbacks;
 
 	bool is_running;
-	YaffeTime time;
 
 	PlatformService* service;
 

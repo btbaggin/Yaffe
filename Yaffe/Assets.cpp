@@ -17,17 +17,16 @@ static void SendTextureToGraphicsCard(void* pData)
 {
 	if (pData)
 	{
-		Bitmap* b = (Bitmap*)pData;
+		Bitmap* bitmap = (Bitmap*)pData;
 
 		GLenum format;
-		if (b->channels == 1) format = GL_RED;
-		else if (b->channels == 3) format = GL_RGB;
-		else if (b->channels == 4) format = GL_RGBA;
+		if (bitmap->channels == 1) format = GL_RED;
+		else if (bitmap->channels == 3) format = GL_RGB;
+		else if (bitmap->channels == 4) format = GL_RGBA;
 
-		glGenTextures(1, &b->texture);
-
-		glBindTexture(GL_TEXTURE_2D, b->texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, format, b->width, b->height, 0, format, GL_UNSIGNED_BYTE, b->data);
+		glGenTextures(1, &bitmap->texture);
+		glBindTexture(GL_TEXTURE_2D, bitmap->texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bitmap->width, bitmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bitmap->data);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -35,8 +34,8 @@ static void SendTextureToGraphicsCard(void* pData)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		stbi_image_free(b->data);
-		b->data = nullptr;
+		stbi_image_free(bitmap->data);
+		bitmap->data = nullptr;
 	}
 }
 
@@ -62,7 +61,7 @@ static Bitmap* LoadBitmapAsset(Assets* pAssets, const char* pPath)
 {
 	Bitmap* bitmap = AllocStruct(pAssets, Bitmap);
 
-	bitmap->data = stbi_load(pPath, &bitmap->width, &bitmap->height, &bitmap->channels, 0);
+	bitmap->data = stbi_load(pPath, &bitmap->width, &bitmap->height, &bitmap->channels, STBI_rgb_alpha);
 	if (!bitmap->data) return nullptr;
 
 	return bitmap;
@@ -177,7 +176,7 @@ static void LoadAsset(Assets* pAssets, AssetSlot* pSlot)
 		work->slot = pSlot;
 		work->assets = pAssets;
 		work->queue = &g_state.callbacks;
-		QueueUserWorkItem(g_state.queue, LoadAssetBackground, work);
+		QueueUserWorkItem(g_state.work_queue, LoadAssetBackground, work);
 	}
 }
 
@@ -417,7 +416,7 @@ void EvictOldestAsset(Assets* pAssets)
 }
 
 
-static void SetAssetPaths(const char* pPlatName, Executable* pExe)
+static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** pBanner, AssetSlot** pBoxart)
 {
 	char rom_asset_path[MAX_PATH];
 	GetFullPath(".\\Assets", rom_asset_path);
@@ -440,7 +439,7 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe)
 	}
 	find = g_assets->display_images.find(boxart_string);
 	assert(find != g_assets->display_images.end());
-	pExe->boxart = &find->second;
+	*pBoxart = &find->second;
 
 	char banner[MAX_PATH];
 	CombinePath(banner, rom_asset_path, "banner.jpg");
@@ -455,5 +454,5 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe)
 	}
 	find = g_assets->display_images.find(banner_string);
 	assert(find != g_assets->display_images.end());
-	pExe->banner = &find->second;
+	*pBanner = &find->second;
 }

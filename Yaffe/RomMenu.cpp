@@ -2,11 +2,18 @@ class RomMenu : public UiControl
 {
 public:
 	s32 first_visible;
-	v2 selected_size;
 
-	v2 tile_size;
+	v2 ideal_tile_size = {};
 	s32 tiles_x;
 	s32 tiles_y;
+
+	float GetDefaultItemSize(float pDimension, float pAmount)
+	{
+		return (pDimension - pDimension * ROM_PAGE_PADDING * 2) / pAmount;
+	}
+
+	inline s32 GetFirstVisibleTile() { return first_visible - tiles_x; }
+	inline s32 GetLastVisibleTile() { return first_visible + (tiles_x * tiles_y) + tiles_x; }
 
 	void Render(RenderState* pState, UiRegion pRegion)
 	{
@@ -14,88 +21,44 @@ public:
 
 		if (plat)
 		{
-			List<Executable> roms = plat->files;
-			GetTileSize(&roms, pRegion, plat->type == PLATFORM_Recents);
-
-			v2 roms_display_start = pRegion.position + (pRegion.size * ROM_PAGE_PADDING);
-
-			s32 effective_i = 0;
-			for (s32 i = 0; i < tiles_x * tiles_y; i++)
+			List<ExecutableDisplay> roms = plat->file_display;
+			for (s32 i = max(0, GetFirstVisibleTile()); i < GetLastVisibleTile(); i++)
 			{
-				u32 absolute_index = first_visible + i;
-				if (absolute_index >= roms.count) break;
+				if (i >= (s32)roms.count) break;
 
-				Executable* rom = roms.GetItem(absolute_index);
+				ExecutableDisplay* rom = roms.GetItem(i);
 				if (!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 				{
 					Bitmap* b = GetBitmap(g_assets, rom->boxart);
 					if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
-					u32 x = effective_i % tiles_x;
-					u32 y = effective_i / tiles_x;
-
-					v2 offset = {};
-					v2 actual_size = tile_size;
-					if (b)
+					if (i != g_state.selected_rom) //We are going to draw selected item last
 					{
-						//By default on the recents menu it chooses the widest game boxart (see pFindMax in GetTileSize)
-						//We wouldn't want vertical boxart to stretch to the horizontal dimensions
-						//This will scale boxart that is different aspect to fit within the tile_size.Height
-						float real_aspect = (float)b->width / (float)b->height;
-						float tile_aspect = actual_size.Width / actual_size.Height;
-
-						//If an aspect is wider than it is tall, it is > 1
-						//If the two aspect ratios are on other sides of one, it means we need to scale
-						if (signbit(real_aspect - 1) != signbit(tile_aspect - 1))
-						{
-							actual_size.Width = actual_size.Height * real_aspect;
-							offset.X += actual_size.Height * real_aspect / 2.0F;
-							if(absolute_index == g_state.selected_rom) selected_size.Width = selected_size.Height * real_aspect;
-						}
+						PushSizedQuad(pState, rom->position, rom->size, b);
 					}
-
-					//Calculate the ideal rom spot
-					v2 rom_position = roms_display_start + (tile_size * V2((float)x, (float)y)) + offset;
-					if (absolute_index == g_state.selected_rom && IsFocused())
-					{
-						//Selected rom needs to move a little bit to account for the size increase
-						rom_position -= actual_size * (SELECTED_ROM_SIZE / 2.0F);
-					}
-
-					//This is to prevent roms from sliding in from 0,0 when the application is first started
-					if (rom->position.X == 0 && rom->position.Y == 0) rom->position = rom_position;
-					rom->position = Lerp(rom->position, g_state.time.delta_time * ANIMATION_SPEED, rom_position); 
-
-
-					if (absolute_index != g_state.selected_rom) //We are going to draw selected item last
-					{
-						PushSizedQuad(pState, rom->position, actual_size, b);
-					}
-					effective_i++;
 				}
 			}
 
 			//Render selected rom last so it's on top of everything else
-			Executable* rom = GetSelectedExecutable();
+			ExecutableDisplay* rom = g_state.platforms.GetItem(g_state.selected_platform)->file_display.GetItem(g_state.selected_rom);
+			Executable* rom2 = GetSelectedExecutable();
 			if (rom && !HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 			{
 				Bitmap* b = GetBitmap(g_assets, rom->boxart);
 				if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
-				//If we aren't focused we want to render everything the same size
-				if(!IsFocused()) selected_size = tile_size;
-				else
+				if (IsFocused())
 				{
 					//Have alpha fade in as the item grows to full size
 					//It is important we use Y here instead of X since X can scale in the recents platform if image sizes differ
-					float alpha = (1 - ((tile_size.Y * SELECTED_ROM_SIZE) - (selected_size.Y - tile_size.Y)));
+					float alpha = (1 - (rom->target_size.Y - rom->size.Y) / 2.0F);
 
 					float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
-					v2 menu_position = rom->position + selected_size;
+					v2 menu_position = rom->position + rom->size;
 
 					//Check if we need to push the buttons below the text due to overlap
-					float text_width = MeasureString(FONT_Subtext, rom->display_name).Width + MeasureString(FONT_Subtext, "InfoRun").Width + 40;
-					if (text_width > selected_size.Width)
+					float text_width = MeasureString(FONT_Subtext, rom2->display_name).Width + MeasureString(FONT_Subtext, "InfoRun").Width + 40;
+					if (text_width > rom->target_size.Width)
 					{
 						menu_position.Y += height;
 						height *= 2;
@@ -104,17 +67,17 @@ public:
 					//Selected background
 					PushSizedQuad(pState,
 						rom->position - V2(ROM_OUTLINE_SIZE),
-						selected_size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height),
+						rom->size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height),
 						V4(MODAL_BACKGROUND, alpha * 0.94F));
 					//Name
-					PushText(pState, FONT_Subtext, rom->display_name, rom->position + V2(0, selected_size.Height), V4(TEXT_FOCUSED, alpha));
+					PushText(pState, FONT_Subtext, rom2->display_name, rom->position + V2(0, rom->size.Height), V4(TEXT_FOCUSED, alpha));
 
 					//Help
 					PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
 					PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", V4(1, 1, 1, alpha));
 				}
 
-				PushSizedQuad(pState, rom->position, selected_size, b);
+				PushSizedQuad(pState, rom->position, rom->size, b);
 			}
 		}
 	}
@@ -123,7 +86,7 @@ public:
 	{
 		s32 old_index = *pIndex;
 		s32 one = pForward ? 1 : -1;
-		List<Executable> files = pEmulator->files;
+		List<ExecutableDisplay> files = pEmulator->file_display;
 		s32 i = 0;
 		//Since certain roms could be filtered out,
 		//we will loop until we have incremented the proper amount of times
@@ -155,8 +118,6 @@ public:
 		while (*pIndex > first_visible + (tiles_x * tiles_y) - 1) first_visible += tiles_x;
 		assert(first_visible >= 0);
 		assert(*pIndex >= 0);
-
-		selected_size = tile_size;
 	}
 
 	void Update(YaffeState* pState, float pDeltaTime)
@@ -181,12 +142,15 @@ public:
 
 		if (IsEnterPressed())
 		{
-			Executable* r = GetSelectedExecutable();
-			if (r->platform > -1)
-			{
-				UpdateGameLastRun(r, r->platform);
-			}
-			StartProgram(&g_state, r);
+			Executable* exe = GetSelectedExecutable();
+			if (exe->platform > 0) UpdateGameLastRun(exe);
+
+			char path[MAX_PATH], args[100], roms[MAX_PATH];
+			GetPlatformInfo(exe->platform, path, args, roms);
+
+			char buffer[1000];
+			BuildCommandLine(buffer, exe, path, roms, args);
+			StartProgram(&g_state, buffer);
 		}
 		else if (IsInfoPressed())
 		{
@@ -202,15 +166,59 @@ public:
 			RevertFocus();
 		}
 
-		selected_size = Lerp(selected_size, pDeltaTime * ANIMATION_SPEED, tile_size * (1.0F + SELECTED_ROM_SIZE));
+		UpdateTiles(pState, pDeltaTime);
 	}
 
-	float GetDefaultItemSize(float pDimension, float pAmount)
+	void UnfocusedUpdate(YaffeState* pState, float pDeltaTime)
 	{
-		return (pDimension - pDimension * ROM_PAGE_PADDING * 2) / pAmount;
+		UpdateTiles(pState, pDeltaTime);
 	}
 
-	void GetTileSize(List<Executable>* pRoms, UiRegion pRegion, bool pFindMax)
+	void UpdateTiles(YaffeState* pState, float pDeltaTime)
+	{
+		Platform* plat = GetSelectedPlatform();
+
+		if (plat)
+		{
+			UiRegion region;
+			region.position = V2(pState->form->width * EMU_MENU_PERCENT, 0);
+			region.size = V2(pState->form->width, pState->form->height) - region.position;
+
+			List<ExecutableDisplay> roms = plat->file_display;
+			GetTileSize(&roms, region, plat->type != PLATFORM_Emulator);
+			s32 effective_i = 0;
+			for (s32 i = 0; i < (s32)roms.count; i++)
+			{
+				ExecutableDisplay* rom = roms.GetItem(i);
+				v2 rom_display_start = region.position + (region.size * ROM_PAGE_PADDING);
+
+				s32 x = (effective_i % tiles_x);
+				s32 y = (effective_i / tiles_x) - (first_visible / tiles_x);
+
+				v2 offset = (ideal_tile_size - rom->size) / 2.0F;
+
+				//Calculate the ideal rom spot
+				v2 rom_position = rom_display_start
+					+ (ideal_tile_size * V2((float)x, (float)y)) //Get tile in position
+					+ offset //Account for different sized images
+					- ((rom->target_size - rom->size) / 2.0F); //Account for growing/shrinking
+
+				rom->size = Lerp(rom->size, pDeltaTime * ANIMATION_SPEED, rom->target_size);
+
+				//This is to prevent roms from sliding in from 0,0 when the application is first started
+				if (rom->position.X == 0 && rom->position.Y == 0) rom->position = rom_position;
+				rom->position = Lerp(rom->position, pDeltaTime * ANIMATION_SPEED, rom_position);
+
+				if (i >= GetFirstVisibleTile() && i <= GetLastVisibleTile() &&
+					!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
+				{
+					effective_i++;
+				}
+			}
+		}
+	}
+
+	void GetTileSize(List<ExecutableDisplay>* pRoms, UiRegion pRegion, bool pFindMax)
 	{
 		float width = 0;
 		float height = 0;
@@ -218,48 +226,79 @@ public:
 		tiles_y = 1;
 		if (pRoms->count > 0)
 		{
-			float max_width = 0;
-			Bitmap* bitmap = nullptr;
+			s32 max_width = 0;
+			Bitmap* b = nullptr;
 			for (u32 i = 0; i < pRoms->count; i++)
 			{
 				//Try to find a bitmap actually loaded so we get proper sizes.
 				//Should be the first one most times
-				Executable* rom = pRoms->GetItem(i);
-				Bitmap* b = GetBitmap(g_assets, rom->boxart);
-				if (b && b->width > max_width)
+				ExecutableDisplay* rom = pRoms->GetItem(i);
+				Bitmap* bitmap = GetBitmap(g_assets, rom->boxart);
+				if (bitmap && bitmap->width > max_width)
 				{
-					bitmap = b;
-					if(!pFindMax) break;
+					b = bitmap;
+					max_width = bitmap->width;
+					if (!pFindMax) break;
 				}
 			}
 
-			if (!bitmap) bitmap = GetBitmap(g_assets, BITMAP_Placeholder);
-			if (!bitmap) return;
+			if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
+			if (!b) return;
 
 			v2 menu_size = pRegion.size;
 			//Scale based on the larger dimension
-			if (bitmap->width > bitmap->height)
+			if (b->width > b->height)
 			{
-				float aspect = (float)bitmap->height / (float)bitmap->width;
+				float aspect = (float)b->height / (float)b->width;
 				width = GetDefaultItemSize(menu_size.Width, 4);
 				height = aspect * width;
 			}
 			else
 			{
-				float aspect = (float)bitmap->width / (float)bitmap->height;
+				float aspect = (float)b->width / (float)b->height;
 				height = GetDefaultItemSize(menu_size.Height, 3);
 				width = aspect * height;
 			}
-
-			tile_size = V2(width, height);
+			ideal_tile_size = V2(width, height);
 			tiles_x = (s32)(menu_size.Width / width);
 			tiles_y = (s32)(menu_size.Height / height);
+
+			for (s32 i = max(0, GetFirstVisibleTile()); i < GetLastVisibleTile(); i++)
+			{
+				if (i >= (s32)pRoms->count) return;
+
+				//Try to find a bitmap actually loaded so we get proper sizes.
+				//Should be the first one most times
+				ExecutableDisplay* rom = pRoms->GetItem(i);
+				Bitmap* bitmap = GetBitmap(g_assets, rom->boxart);
+				if (!bitmap) bitmap = GetBitmap(g_assets, BITMAP_Placeholder);
+				if (!bitmap) continue;
+
+				rom->target_size = ideal_tile_size;
+				//By default on the recents menu it chooses the widest game boxart (see pFindMax in GetTileSize)
+				//We wouldn't want vertical boxart to stretch to the horizontal dimensions
+				//This will scale boxart that is different aspect to fit within the tile_size.Height
+				float real_aspect = (float)bitmap->width / (float)bitmap->height;
+				float tile_aspect = ideal_tile_size.Width / ideal_tile_size.Height;
+
+				//If an aspect is wider than it is tall, it is > 1
+				//If the two aspect ratios are on other sides of one, it means we need to scale
+				if (signbit(real_aspect - 1) != signbit(tile_aspect - 1))
+				{
+					rom->target_size.Width = rom->target_size.Height * real_aspect;
+				}
+
+				if (i == g_state.selected_rom && IsFocused())
+				{
+					rom->target_size = rom->target_size * (1 + SELECTED_ROM_SIZE);
+				}
+				if (rom->size.X == 0 && rom->size.Y == 0) rom->size = rom->target_size;
+			}
 		}
 	}
 
 	RomMenu() : UiControl(UI_Roms)
 	{
-		selected_size = tile_size;
 		first_visible = 0;
 	}
 };

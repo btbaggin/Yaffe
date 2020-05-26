@@ -1,4 +1,3 @@
-static void GetPlatformInfo(Platform* Application, char* pPath, char* pArgs, char* pRoms);
 class PlatformDetailModal : public ModalContent
 {
 	const float WIDTH = 720;
@@ -37,10 +36,8 @@ public:
 
 		if (pPlatform)
 		{
-			char path[MAX_PATH];
-			char args[100];
-			char roms[MAX_PATH];
-			GetPlatformInfo(pPlatform, path, args, roms);
+			char path[MAX_PATH], args[100], roms[MAX_PATH];
+			GetPlatformInfo(pPlatform->id, path, args, roms);
 			SetTextboxText(&fields[0], pPlatform->name);
 			SetTextboxText(&fields[1], path);
 			SetTextboxText(&fields[2], args);

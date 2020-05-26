@@ -159,10 +159,10 @@ public:
 
 	void ResetRoms()
 	{
-		List<Executable> roms = GetSelectedPlatform()->files;
+		List<ExecutableDisplay> roms = GetSelectedPlatform()->file_display;
 		for (u32 i = 0; i < roms.count; i++)
 		{
-			Executable* rom = roms.GetItem(i);
+			ExecutableDisplay* rom = roms.GetItem(i);
 			rom->flags = EXECUTABLE_FLAG_None;
 		}
 	}
@@ -179,7 +179,8 @@ public:
 		//Hide roms that don't match our particular filter item
 		bool index_set = false;
 		char filter_char = selected_index + start;
-		List<Executable> roms = GetSelectedPlatform()->files;
+		Platform* platform = GetSelectedPlatform();
+		List<Executable> roms = platform->files;
 
 		for (u32 i = 0; i < roms.count; i++)
 		{
@@ -197,9 +198,10 @@ public:
 					break;
 			}
 
+			ExecutableDisplay* exe_display = platform->file_display.GetItem(i);
 			if (display)
 			{
-				rom->flags = EXECUTABLE_FLAG_None;
+				exe_display->flags = EXECUTABLE_FLAG_None;
 				if (!index_set)
 				{
 					g_state.selected_rom = i;
@@ -208,7 +210,7 @@ public:
 			}
 			else
 			{
-				rom->flags |= EXECUTABLE_FLAG_Filtered;
+				exe_display->flags |= EXECUTABLE_FLAG_Filtered;
 			}
 		}
 	}

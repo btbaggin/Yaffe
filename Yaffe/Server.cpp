@@ -78,6 +78,7 @@ static void CreateServiceMessage(YaffeMessage* pArgs, char* pBuffer)
 			break;
 
 		case MESSAGE_TYPE_Quit:
+			sprintf(pBuffer, R"({"type":%d})", pArgs->type);
 			break;
 
 		default:
@@ -122,7 +123,6 @@ static void ShutdownYaffeService(PlatformService* pService)
 	m.type = MESSAGE_TYPE_Quit;
 	CreateServiceMessage(&m, message);
 
-	std::lock_guard<std::mutex> guard(pService->mutex);
 	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_WRITE);
 	WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
 
@@ -131,7 +131,7 @@ static void ShutdownYaffeService(PlatformService* pService)
 
 #pragma comment(lib, "urlmon.lib")
 #include <urlmon.h>
-static void DownloadImage(const char* pUrl, std::string pSlot)
+static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
 {
 	IStream* stream;
 	//Also works with https URL's - unsure about the extent of SSL support though.
@@ -139,7 +139,7 @@ static void DownloadImage(const char* pUrl, std::string pSlot)
 	Verify(result == 0, "Unable to retrieve image", ERROR_TYPE_Warning);
 
 	static const u32 READ_AMOUNT = 100;
-	HANDLE file = CreateFileA(pSlot.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+	HANDLE file = CreateFileA(pSlot->load_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
 	char buffer[READ_AMOUNT];
 	unsigned long bytesRead;
 	stream->Read(buffer, READ_AMOUNT, &bytesRead);

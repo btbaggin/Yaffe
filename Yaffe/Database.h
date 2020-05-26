@@ -6,9 +6,11 @@ struct GameInfo
 	s32 id;
 	s32 players;
 	std::string overview;
-	std::string banner;
-	std::string boxart;
+	std::string banner_url;
+	std::string boxart_url;
 	Executable* exe;
+	AssetSlot* banner;
+	AssetSlot* boxart;
 	s32 platform;
 	char platform_name[100];
 };
@@ -16,10 +18,10 @@ struct GameInfo
 struct PlatformInfo
 {
 	std::string name;
-	std::string path;
-	std::string args;
-	std::string folder;
-	std::string display_name;
+	char* path;
+	char* args;
+	char* folder;
+	char* display_name;
 	s32 id;
 };
 
@@ -27,16 +29,18 @@ struct GameInfoWork
 {
 	std::string name;
 	Executable* exe;
+	AssetSlot* banner;
+	AssetSlot* boxart;
 	s32 platform;
 	char platform_name[100];
 };
 
 struct PlatformInfoWork
 {
-	std::string name;
-	std::string path;
-	std::string args;
-	std::string folder;
+	char* name;
+	char* path;
+	char* args;
+	char* folder;
 };
 
 struct DatabaseConnection
@@ -69,20 +73,24 @@ struct SqlStatement
 	}
 };
 
-const char* qs_GetPlatform = "SELECT Path, Args, Roms FROM Platforms WHERE ID = @ID";
-const char* qs_GetAllPlatforms = "SELECT ID, Platform FROM Platforms";
+static void GetPlatformInfo(s32 pApplication, char* pPath, char* pArgs, char* pRoms);
+
+const char* qs_GetPlatform = "SELECT Platform, Path, Args, Roms FROM Platforms WHERE ID = @ID";
+const char* qs_GetAllPlatforms = "SELECT ID, Platform, Roms FROM Platforms";
 const char* qs_AddPlatform = "INSERT INTO Platforms ( ID, Platform, Path, Args, Roms ) VALUES ( @PlatformId, @Platform, @Path, @Args, @Roms )";
 const char* qs_UpdatePlatform = "UPDATE Platforms SET Path = @Path, Args = @Args, Roms = @Roms WHERE ID = @ID";
 
 const char* qs_GetGame = "SELECT ID, Name, Overview, Players, FileName FROM Games WHERE Platform = @Platform AND FileName = @Game";
-const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.FileName, p.Path, p.Args, p.Roms, p.Platform, p.ID FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT 10";
+const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.FileName, p.ID, p.Platform FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT " RECENT_COUNT_STRING;
 const char* qs_AddGame = "INSERT INTO Games (ID, Platform, Name, Overview, Players, FileName) VALUES ( @GameId, @Platform, @Name, @Overview, @Players, @FileName )";
 const char* qs_UpdateGameLastRun = "UPDATE Games SET LastRun = strftime('%s', 'now', 'localtime') WHERE Platform = @Platform AND FileName = @Game";
 
-const char* qs_GetAllApplications = "SELECT Name, Path, Args FROM Applications";
-const char* qs_AddApplication = "INSERT INTO Applications ( Name, Path, Args ) VALUES ( @Name, @Path, @Args )";
+const char* qs_GetAllApplications = "SELECT ID, Name FROM Applications";
+const char* qs_GetApplication = "SELECT Name, Path, Args FROM Applications WHERE ID = @ID";
+const char* qs_AddApplication = "INSERT INTO Applications ( ID, Name, Path, Args ) VALUES ( @ID, @Name, @Path, @Args )";
 const char* qs_UpdateApplication = "UPDATE Applications Set Path = @Path, Args = @Args WHERE Name = @Name";
+const char* qs_GetApplicationID = "SELECT COALESCE(MIN(ID), 0) - 1 from Applications";
 
-const char* qs_CreateApplicationTable = "CREATE TABLE \"Applications\" ( \"Name\" TEXT, \"Path\" TEXT, \"Args\"	TEXT )";
+const char* qs_CreateApplicationTable = "CREATE TABLE \"Applications\" ( \"ID\" INTEGER, \"Name\" TEXT, \"Path\" TEXT, \"Args\"	TEXT )";
 const char* qs_CreateGamesTable = "CREATE TABLE \"Games\" ( \"ID\" INTEGER, \"Platform\" INTEGER, \"Name\" TEXT, \"Overview\" TEXT, \"Players\" INTEGER, \"FileName\" TEXT, \"LastRun\" INTEGER )";
 const char* qs_CreatePlatformsTable = "CREATE TABLE \"Platforms\" ( \"ID\" INTEGER, \"Platform\" TEXT, \"Path\" TEXT, \"Args\" TEXT, \"Roms\" TEXT )";

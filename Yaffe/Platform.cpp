@@ -12,17 +12,18 @@ static inline Executable* GetSelectedExecutable()
 	return nullptr;
 }
 
-static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs)
+static void BuildCommandLine(char* pBuffer, Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs)
 {
-	char exe_path[MAX_PATH];
-	CombinePath(exe_path, pPath, pExe->file);
-
-	sprintf(pExe->command_line, "\"%s\" %s \"%s\"", pEmuPath, pArgs, exe_path);
-}
-
-static void BuildCommandLine(Executable* pExe, const char* pPath, const char* pArgs)
-{
-	sprintf(pExe->command_line, "\"%s\" %s", pPath, pArgs);
+	if (pExe->platform < 0)
+	{
+		sprintf(pBuffer, "\"%s\" %s", pEmuPath, pArgs);
+	}
+	else
+	{
+		char exe_path[MAX_PATH];
+		CombinePath(exe_path, pPath, pExe->file);
+		sprintf(pBuffer, "\"%s\" %s \"%s\"", pEmuPath, pArgs, exe_path);
+	}
 }
 
 static void CleanFileName(char* pName, char* pDest)
@@ -51,51 +52,72 @@ static void CleanFileName(char* pName, char* pDest)
 	}
 }
 
+static Platform* FindPlatform(YaffeState* pState, s32 pId)
+{
+	for (u32 i = 0; i < pState->platforms.count; i++)
+	{
+		Platform* p = pState->platforms.GetItem(i);
+		if (p->id == pId) return p;
+	}
+	return nullptr;
+}
+
 static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 {
 	pState->selected_rom = 0;
 
-	if (pApp->type == PLATFORM_Emulator)
+	char platform_names[RECENT_COUNT][35];
+	switch (pApp->type)
 	{
-		char path[MAX_PATH];
-		char args[100];
-		char roms[MAX_PATH];
-		GetPlatformInfo(pApp, path, args, roms);
-
-		std::vector<std::string> files = GetFilesInDirectory(roms);
-		if (pApp->files.count == files.size()) return;
-
-		pApp->files.Initialize((u32)files.size());
-
-		for (u32 j = 0; j < files.size(); j++)
+		case PLATFORM_Emulator:
 		{
-			Executable* exe = pApp->files.AddItem();
+			std::vector<std::string> files = GetFilesInDirectory(pApp->path);
+			if (pApp->files.count == files.size()) return;
 
-			char file_name[MAX_PATH];
-			strcpy(file_name, files[j].c_str());
-			strcpy(exe->file, file_name);
-			exe->platform = pApp->id;
+			pApp->files.Initialize((u32)files.size());
+			pApp->file_display.Initialize((u32)files.size());
 
-			PathRemoveExtensionA(file_name);
-			CleanFileName(file_name, file_name);
-			strcpy(exe->display_name, file_name);
+			for (u32 j = 0; j < files.size(); j++)
+			{
+				Executable* exe = pApp->files.AddItem();
+				ExecutableDisplay* exe_display = pApp->file_display.AddItem();
 
-			BuildCommandLine(exe, path, roms, args);
+				char file_name[MAX_PATH];
+				strcpy(file_name, files[j].c_str());
+				strcpy(exe->file, file_name);
+				exe->platform = pApp->id;
 
-			GetGameInfo(pApp, exe, file_name);
+				PathRemoveExtensionA(file_name);
+				CleanFileName(file_name, file_name);
+				strcpy(exe->display_name, file_name);
+
+				GetGameInfo(pApp, exe, exe_display, file_name);
+			}
 		}
-	}
-	else if (pApp->type == PLATFORM_App)
-	{
+		break;
+
+	case PLATFORM_App:
 		GetAllApplications(pState, pApp);
-	}
-	else if (pApp->type == PLATFORM_Recents)
-	{
-		GetRecentGames(pApp);
+		pApp->file_display.Initialize(pApp->files.count);
+		pApp->file_display.count = pApp->files.count;
+		
+		break;
+
+	case PLATFORM_Recents:
+		GetRecentGames(pApp, platform_names);
+		pApp->file_display.Initialize(pApp->files.count);
+		pApp->file_display.count = pApp->files.count;
+		break;
 	}
 
-	if (pApp->type != PLATFORM_Recents)
+	if(pApp->type != PLATFORM_Recents) std::sort(pApp->files.items, pApp->files.items + pApp->files.count, RomsSort);
+
+	for (u32 i = 0; i < pApp->files.count; i++)
 	{
-		std::sort(pApp->files.items, pApp->files.items + pApp->files.count, RomsSort);
+		Executable* exe = pApp->files.GetItem(i);
+		ExecutableDisplay* exe_display = pApp->file_display.GetItem(i);
+
+		const char* name = pApp->type == PLATFORM_Recents ? platform_names[i] : pApp->name;
+		SetAssetPaths(name, exe, &exe_display->banner, &exe_display->boxart);
 	}
 }

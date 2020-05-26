@@ -12,7 +12,7 @@ struct Overlay;
 typedef WORK_QUEUE_CALLBACK(work_queue_callback);
 
 static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData);
-static void StartProgram(YaffeState* pState, Executable* pRom);
+static void StartProgram(YaffeState* pState, char* pCommand);
 
 static void GetFullPath(const char* pPath, char* pBuffer);
 static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional);

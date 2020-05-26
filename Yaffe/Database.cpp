@@ -58,6 +58,7 @@ static void GetAllPlatforms(YaffeState* pState)
 		current->type = PLATFORM_Emulator;
 		current->id = GetIntColumn(stmt, 0);
 		strcpy(current->name, GetTextColumn(stmt, 1));
+		strcpy(current->path, GetTextColumn(stmt, 2));
 		RefreshExecutables(pState, current);
 	}
 
@@ -73,10 +74,10 @@ static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_AddPlatform);
 	BindIntParm(stmt, pInfo->id);
-	BindTextParm(stmt, pInfo->display_name.c_str());
-	BindTextParm(stmt, pInfo->path.c_str());
-	BindTextParm(stmt, pInfo->args.c_str());
-	BindTextParm(stmt, pInfo->folder.c_str());
+	BindTextParm(stmt, pInfo->display_name);
+	BindTextParm(stmt, pInfo->path);
+	BindTextParm(stmt, pInfo->args);
+	BindTextParm(stmt, pInfo->folder);
 
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to add new platform", ERROR_TYPE_Error);
@@ -99,7 +100,7 @@ static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	json response;
 	YaffeMessage args;
 	args.type = MESSAGE_TYPE_Platform;
-	args.name = work->name.c_str();
+	args.name = work->name;
 	Verify(SendServiceMessage(g_state.service, &args, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
 
 	u32 count = (u32)response.get("count").get<double>();
@@ -121,13 +122,13 @@ static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 
 	if (exact)
 	{
-		WritePlatformToDB(&items[0], work->name.c_str());
+		WritePlatformToDB(&items[0], work->name);
 	}
 	else if(count > 0)
 	{
 		char title[200];
-		sprintf(title, "Found %d results for platform '%s'", count, work->name.c_str());
-		DisplayModalWindow(&g_state, "Select Emulator", new ListModal<PlatformInfo>(items, work->name.c_str(), title), BITMAP_None, WritePlatformToDB);
+		sprintf(title, "Found %d results for platform '%s'", count, work->name);
+		DisplayModalWindow(&g_state, "Select Emulator", new ListModal<PlatformInfo>(items, work->name, title), BITMAP_None, WritePlatformToDB);
 	}
 	delete work;
 }
@@ -138,7 +139,7 @@ static void InsertPlatform(char* pName, char* pPath, char* pArgs, char* pRom)
 	work->path = pPath;
 	work->args = pArgs;
 	work->folder = pRom;
-	QueueUserWorkItem(g_state.queue, RetrievePossiblePlatforms, work);
+	QueueUserWorkItem(g_state.work_queue, RetrievePossiblePlatforms, work);
 }
 static void UpdatePlatform(s32 pPlatform, char* pName, char* pPath, char* pArgs, char* pRom)
 {
@@ -152,16 +153,29 @@ static void UpdatePlatform(s32 pPlatform, char* pName, char* pPath, char* pArgs,
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to update platform information", ERROR_TYPE_Warning);
 }
-static void GetPlatformInfo(Platform* Application, char* pPath, char* pArgs, char* pRoms)
+static void GetPlatformInfo(s32 pPlatform, char* pPath, char* pArgs, char* pRoms)
 {
 	DatabaseConnection con;
-	SqlStatement stmt(&con, qs_GetPlatform);
-	BindIntParm(stmt, Application->id);
-	Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
 
-	strcpy(pPath, GetTextColumn(stmt, 0));
-	strcpy(pArgs, GetTextColumn(stmt, 1));
-	strcpy(pRoms, GetTextColumn(stmt, 2));
+	if (pPlatform < 0)
+	{
+		SqlStatement stmt(&con, qs_GetApplication);
+		BindIntParm(stmt, pPlatform);
+		Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
+
+		if (pPath) strcpy(pPath, GetTextColumn(stmt, 1));
+		if (pArgs) strcpy(pArgs, GetTextColumn(stmt, 2));
+	}
+	else
+	{
+		SqlStatement stmt(&con, qs_GetPlatform);
+		BindIntParm(stmt, pPlatform);
+		Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
+
+		if (pPath) strcpy(pPath, GetTextColumn(stmt, 1));
+		if (pArgs) strcpy(pArgs, GetTextColumn(stmt, 2));
+		if (pRoms) strcpy(pRoms, GetTextColumn(stmt, 3));
+	}
 }
 
 
@@ -183,10 +197,19 @@ static void AddNewApplication(char* pName, char* pPath, char* pArgs, char* pImag
 	Verify(CopyFileTo(pImage, assets), "Unable to copy application image", ERROR_TYPE_Warning);
 
 	DatabaseConnection con;
+
+	s32 id = -1;
+	{
+		SqlStatement stmt(&con, qs_GetApplicationID);
+		Verify(ExecuteReader(stmt), "Unable to get application ID", ERROR_TYPE_Error);
+		id = GetIntColumn(stmt, 0);
+	}
+
 	SqlStatement stmt(&con, qs_AddApplication);
+	BindIntParm(stmt, id);
 	BindTextParm(stmt, pName);
-	BindTextParm(stmt, pPath);
-	BindTextParm(stmt, pArgs);
+	BindTextParm(stmt, pPath != nullptr ? pPath : "");
+	BindTextParm(stmt, pArgs != nullptr ? pArgs : "");
 
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
 	Verify(ExecuteUpdate(stmt), "Unable to add new application", ERROR_TYPE_Error);
@@ -212,15 +235,9 @@ static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 	{
 		Executable* exe = pPlat->files.AddItem();
 
-		strcpy(exe->file, GetTextColumn(stmt, 0));
+		exe->platform = GetIntColumn(stmt, 0);
+		strcpy(exe->file, GetTextColumn(stmt, 1));
 		strcpy(exe->display_name, exe->file);
-		exe->platform = pPlat->id;
-
-		SetAssetPaths(pPlat->name, exe);
-
-		const char* path = GetTextColumn(stmt, 1);
-		const char* args = GetTextColumn(stmt, 2);
-		BuildCommandLine(exe, path, args);
 	}
 }
 
@@ -230,32 +247,31 @@ static void GetAllApplications(YaffeState* pState, Platform* pPlat)
 //
 // GAME QUERIES
 //
-static void GetRecentGames(Platform* pPlat)
+static void GetRecentGames(Platform* pPlat, char pNames[RECENT_COUNT][35])
 {
-	pPlat->files.Initialize(10);
+	pPlat->files.Initialize(RECENT_COUNT);
 
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetRecentGames);
+	u32 i = 0;
 	while (ExecuteReader(stmt))
 	{
 		Executable* exe = pPlat->files.AddItem();
+		ExecutableDisplay* exe_display = pPlat->file_display.AddItem();
 
 		strcpy(exe->display_name, GetTextColumn(stmt, 0));
 		exe->overview = GetTextColumn(stmt, 1);
 		exe->players = GetIntColumn(stmt, 2);
 		strcpy(exe->file, GetTextColumn(stmt, 3));
-		exe->platform = GetIntColumn(stmt, 8);
-
-		BuildCommandLine(exe, GetTextColumn(stmt, 4), GetTextColumn(stmt, 6), GetTextColumn(stmt, 5));
-
-		SetAssetPaths(GetTextColumn(stmt, 7), exe);
+		exe->platform = GetIntColumn(stmt, 4);
+		strcpy(pNames[i++], GetTextColumn(stmt, 5));
 	}
 }
-static void UpdateGameLastRun(Executable* pGame, s32 pPlatform)
+static void UpdateGameLastRun(Executable* pGame)
 {
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_UpdateGameLastRun);
-	BindIntParm(stmt, pPlatform);
+	BindIntParm(stmt, pGame->platform);
 	BindTextParm(stmt, pGame->file);
 
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
@@ -265,11 +281,11 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 {
 	//We now know exactly what game we wanted, write the values we didn't know
 	strcpy(pInfo->exe->display_name, pInfo->name.c_str());
-	SetAssetPaths(pInfo->platform_name, pInfo->exe);
+	SetAssetPaths(pInfo->platform_name, pInfo->exe, &pInfo->banner, &pInfo->boxart);
 
 	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
-	if (!pInfo->boxart.empty()) DownloadImage((url_base + pInfo->boxart).c_str(), pInfo->exe->boxart->load_path);
-	if (!pInfo->banner.empty()) DownloadImage((url_base + pInfo->banner).c_str(), pInfo->exe->banner->load_path);
+	if (!pInfo->boxart_url.empty()) DownloadImage((url_base + pInfo->boxart_url).c_str(), pInfo->boxart);
+	if (!pInfo->banner_url.empty()) DownloadImage((url_base + pInfo->banner_url).c_str(), pInfo->banner);
 
 	{
 		DatabaseConnection con;
@@ -318,9 +334,11 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 		pi.id = (s32)game.get("id").get<double>();
 		pi.overview = game.get("overview").get<std::string>();
 		pi.players = (s32)game.get("players").get<double>();
-		pi.banner = game.get("banner").get<std::string>();
-		pi.boxart = game.get("boxart").get<std::string>();
+		pi.banner_url = game.get("banner").get<std::string>();
+		pi.boxart_url = game.get("boxart").get<std::string>();
 		pi.exe = work->exe;
+		pi.banner = work->banner;
+		pi.boxart = work->boxart;
 		pi.platform = work->platform;
 		strcpy(pi.platform_name, work->platform_name);
 		items.push_back(pi);
@@ -339,7 +357,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	
 	delete work;
 }
-static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
+static void GetGameInfo(Platform* pApp, Executable* pExe, ExecutableDisplay* pDisplay, const char* pName)
 {
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetGame);
@@ -350,8 +368,6 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 		strcpy(pExe->display_name, GetTextColumn(stmt, 1));
 		pExe->overview = GetTextColumn(stmt, 2);
 		pExe->players = GetIntColumn(stmt, 3);
-
-		SetAssetPaths(pApp->name, pExe);
 	}
 	else
 	{
@@ -361,7 +377,9 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 		work->exe = pExe;
 		work->name = pName;
 		work->platform = pApp->id;
+		work->banner = pDisplay->banner;
+		work->boxart = pDisplay->boxart;
 		strcpy(work->platform_name, pApp->name);
-		QueueUserWorkItem(g_state.queue, RetrievePossibleGames, work);
+		QueueUserWorkItem(g_state.work_queue, RetrievePossibleGames, work);
 	}
 }
