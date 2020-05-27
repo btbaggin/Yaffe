@@ -436,8 +436,8 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 		slot.type = ASSET_TYPE_Bitmap;
 		strcpy(slot.load_path, boxart);
 		g_assets->display_images.emplace(std::make_pair(boxart_string, slot));
+		find = g_assets->display_images.find(boxart_string);
 	}
-	find = g_assets->display_images.find(boxart_string);
 	assert(find != g_assets->display_images.end());
 	*pBoxart = &find->second;
 
@@ -451,8 +451,8 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 		slot.type = ASSET_TYPE_Bitmap;
 		strcpy(slot.load_path, banner);
 		g_assets->display_images.emplace(std::make_pair(banner_string, slot));
+		find = g_assets->display_images.find(banner_string);
 	}
-	find = g_assets->display_images.find(banner_string);
 	assert(find != g_assets->display_images.end());
 	*pBanner = &find->second;
 }
