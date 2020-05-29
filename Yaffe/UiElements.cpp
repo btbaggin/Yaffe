@@ -34,7 +34,7 @@ int delete_chars(STB_TEXTEDIT_STRING *str, int pos, int num)
 
 int insert_chars(STB_TEXTEDIT_STRING *str, int pos, STB_TEXTEDIT_CHARTYPE *newtext, int num)
 {
-	str->string = (char*)realloc(str->string, str->stringlen + num);
+	str->string = (char*)realloc(str->string, str->stringlen + num + 1);
 	memmove(&str->string[pos + num], &str->string[pos], str->stringlen - pos);
 	memcpy(&str->string[pos], newtext, num);
 	str->stringlen += num;
@@ -157,7 +157,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 				if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
 			}
 
-			for (int i = KEY_Backspace; i < KEY_Quote; i++)
+			for (int i = KEY_Backspace; i <= KEY_Quote; i++)
 			{
 				int key = i;
 				if (IsKeyPressed((KEYS)key, false))
