@@ -2,7 +2,6 @@
 
 /*
 TODO
-Check if needs admin
 Don't hardcode emulator allocation count
 */
 
@@ -573,6 +572,24 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	glewExperimental = true; // Needed for core profile
 	glewInit();
+
+	//Check if we need admin privileges to write to the current directory
+	char base_path[MAX_PATH];
+	GetFullPath(".", base_path);
+	CombinePath(base_path, base_path, "lock");
+	HANDLE h = CreateFileA(base_path, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		DWORD error = GetLastError();
+		if (error == ERROR_ACCESS_DENIED) MessageBoxA(nullptr, "Administrator privileges required", "Error", MB_OK);
+		else MessageBoxA(nullptr, "Unable to create required directories", "Error", MB_OK);
+		return 0;
+	}
+	else
+	{
+		CloseHandle(h);
+		DeleteFileA(base_path);
+	}
 
 	//Initialization
 	u32 asset_size = Megabytes(6);
