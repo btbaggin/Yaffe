@@ -117,7 +117,10 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 		Executable* exe = pApp->files.GetItem(i);
 		ExecutableDisplay* exe_display = pApp->file_display.GetItem(i);
 
-		const char* name = pApp->type == PLATFORM_Recents ? platform_names[i] : pApp->name;
-		SetAssetPaths(name, exe, &exe_display->banner, &exe_display->boxart);
+		if (!exe->invalid)
+		{
+			const char* name = pApp->type == PLATFORM_Recents ? platform_names[i] : pApp->name;
+			SetAssetPaths(name, exe, &exe_display->banner, &exe_display->boxart);
+		}
 	}
 }

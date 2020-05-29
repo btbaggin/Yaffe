@@ -76,7 +76,7 @@ static void WritePlatformToDB(PlatformInfo* pInfo, std::string pOld)
 	BindIntParm(stmt, pInfo->id);
 	BindTextParm(stmt, pInfo->display_name);
 	BindTextParm(stmt, pInfo->path);
-	BindTextParm(stmt, pInfo->args);
+	BindTextParm(stmt, pInfo->args != nullptr ? pInfo->args : "");
 	BindTextParm(stmt, pInfo->folder);
 
 	std::lock_guard<std::mutex> guard(g_state.db_mutex);
@@ -101,34 +101,35 @@ static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	YaffeMessage args;
 	args.type = MESSAGE_TYPE_Platform;
 	args.name = work->name;
-	Verify(SendServiceMessage(g_state.service, &args, &response), "Error communicating with YaffeService", ERROR_TYPE_Error);
+	if (SendServiceMessage(g_state.service, &args, &response))
+	{
+		u32 count = (u32)response.get("count").get<double>();
+		bool exact = response.get("exact").get<bool>();
+		picojson::array games = response.get("platforms").get<picojson::array>();
+		std::vector<PlatformInfo> items;
+		for (u32 i = 0; i < count; i++)
+		{
+			json game = games.at(i);
+			PlatformInfo pi;
+			pi.name = game.get("name").get<std::string>();
+			pi.id = (s32)game.get("id").get<double>();
+			pi.args = work->args;
+			pi.folder = work->folder;
+			pi.path = work->path;
+			pi.display_name = work->name;
+			items.push_back(pi);
+		}
 
-	u32 count = (u32)response.get("count").get<double>();
-	bool exact = response.get("exact").get<bool>();
-	picojson::array games = response.get("platforms").get<picojson::array>();
-	std::vector<PlatformInfo> items;
-	for (u32 i = 0; i < count; i++)
-	{
-		json game = games.at(i);
-		PlatformInfo pi;
-		pi.name = game.get("name").get<std::string>();
-		pi.id = (s32)game.get("id").get<double>();
-		pi.args = work->args;
-		pi.folder = work->folder;
-		pi.path = work->path;
-		pi.display_name = work->name;
-		items.push_back(pi);
-	}
-
-	if (exact)
-	{
-		WritePlatformToDB(&items[0], work->name);
-	}
-	else if(count > 0)
-	{
-		char title[200];
-		sprintf(title, "Found %d results for platform '%s'", count, work->name);
-		DisplayModalWindow(&g_state, "Select Emulator", new ListModal<PlatformInfo>(items, work->name, title), BITMAP_None, WritePlatformToDB);
+		if (exact)
+		{
+			WritePlatformToDB(&items[0], work->name);
+		}
+		else if (count > 0)
+		{
+			char title[200];
+			sprintf(title, "Found %d results for platform '%s'", count, work->name);
+			DisplayModalWindow(&g_state, "Select Emulator", new ListModal<PlatformInfo>(items, work->name, title), BITMAP_None, WritePlatformToDB);
+		}
 	}
 	delete work;
 }
@@ -281,11 +282,11 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 {
 	//We now know exactly what game we wanted, write the values we didn't know
 	strcpy(pInfo->exe->display_name, pInfo->name.c_str());
-	SetAssetPaths(pInfo->platform_name, pInfo->exe, &pInfo->banner, &pInfo->boxart);
+	SetAssetPaths(pInfo->platform_name, pInfo->exe, &pInfo->exe_display->banner, &pInfo->exe_display->boxart);
 
 	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
-	if (!pInfo->boxart_url.empty()) DownloadImage((url_base + pInfo->boxart_url).c_str(), pInfo->boxart);
-	if (!pInfo->banner_url.empty()) DownloadImage((url_base + pInfo->banner_url).c_str(), pInfo->banner);
+	if (!pInfo->boxart_url.empty()) DownloadImage((url_base + pInfo->boxart_url).c_str(), pInfo->exe_display->boxart);
+	if (!pInfo->banner_url.empty()) DownloadImage((url_base + pInfo->banner_url).c_str(), pInfo->exe_display->banner);
 
 	{
 		DatabaseConnection con;
@@ -320,39 +321,39 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	args.type = MESSAGE_TYPE_Game;
 	args.name = work->name.c_str();
 	args.platform = work->platform;
-	Verify(SendServiceMessage(g_state.service, &args, &response), "Unable to communicate to YaffeService", ERROR_TYPE_Error);
+	if (SendServiceMessage(g_state.service, &args, &response))
+	{
+		u32 count = (u32)response.get("count").get<double>();
+		bool exact = response.get("exact").get<bool>();
+		picojson::array games = response.get("games").get<picojson::array>();
+		std::vector<GameInfo> items;
+		for (u32 i = 0; i < count; i++)
+		{
+			json game = games.at(i);
+			GameInfo pi;
+			pi.name = game.get("name").get<std::string>();
+			pi.id = (s32)game.get("id").get<double>();
+			pi.overview = game.get("overview").get<std::string>();
+			pi.players = (s32)game.get("players").get<double>();
+			pi.banner_url = game.get("banner").get<std::string>();
+			pi.boxart_url = game.get("boxart").get<std::string>();
+			pi.exe = work->exe;
+			pi.exe_display = work->exe_display;
+			pi.platform = work->platform;
+			strcpy(pi.platform_name, work->platform_name);
+			items.push_back(pi);
+		}
 
-	u32 count = (u32)response.get("count").get<double>();
-	u32 exact = response.get("exact").get<bool>();
-	picojson::array games = response.get("games").get<picojson::array>();
-	std::vector<GameInfo> items;
-	for (u32 i = 0; i < count; i++)
-	{
-		json game = games.at(i);
-		GameInfo pi;
-		pi.name = game.get("name").get<std::string>();
-		pi.id = (s32)game.get("id").get<double>();
-		pi.overview = game.get("overview").get<std::string>();
-		pi.players = (s32)game.get("players").get<double>();
-		pi.banner_url = game.get("banner").get<std::string>();
-		pi.boxart_url = game.get("boxart").get<std::string>();
-		pi.exe = work->exe;
-		pi.banner = work->banner;
-		pi.boxart = work->boxart;
-		pi.platform = work->platform;
-		strcpy(pi.platform_name, work->platform_name);
-		items.push_back(pi);
-	}
-
-	if (exact)
-	{
-		WriteGameToDB(&items[0], work->exe->file);
-	}
-	else if(count > 0)
-	{
-		char title[200];
-		sprintf(title, "Found %d results for game '%s'", count, work->name.c_str());
-		DisplayModalWindow(&g_state, "Select Game", new ListModal<GameInfo>(items, work->exe->file, title), BITMAP_None, WriteGameToDB);
+		if (exact)
+		{
+			WriteGameToDB(&items[0], work->exe->file);
+		}
+		else if (count > 0)
+		{
+			char title[200];
+			sprintf(title, "Found %d results for game '%s'", count, work->name.c_str());
+			DisplayModalWindow(&g_state, "Select Game", new ListModal<GameInfo>(items, work->exe->file, title), BITMAP_None, WriteGameToDB);
+		}
 	}
 	
 	delete work;
@@ -371,14 +372,15 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, ExecutableDisplay* pDi
 	}
 	else
 	{
+		pExe->invalid = true;
+
 		//Taking a pointer to the exe here could cause an invalid reference when we try to write to it in WriteGameToDB
 		//However, it seems unlikely due to the circumstances that would need to occur
 		GameInfoWork* work = new GameInfoWork();
 		work->exe = pExe;
+		work->exe_display = pDisplay;
 		work->name = pName;
 		work->platform = pApp->id;
-		work->banner = pDisplay->banner;
-		work->boxart = pDisplay->boxart;
 		strcpy(work->platform_name, pApp->name);
 		QueueUserWorkItem(g_state.work_queue, RetrievePossibleGames, work);
 	}

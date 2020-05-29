@@ -9,8 +9,7 @@ struct GameInfo
 	std::string banner_url;
 	std::string boxart_url;
 	Executable* exe;
-	AssetSlot* banner;
-	AssetSlot* boxart;
+	ExecutableDisplay* exe_display;
 	s32 platform;
 	char platform_name[100];
 };
@@ -29,8 +28,7 @@ struct GameInfoWork
 {
 	std::string name;
 	Executable* exe;
-	AssetSlot* banner;
-	AssetSlot* boxart;
+	ExecutableDisplay* exe_display;
 	s32 platform;
 	char platform_name[100];
 };

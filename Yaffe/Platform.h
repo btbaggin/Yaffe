@@ -37,6 +37,7 @@ struct Executable
 	std::string overview;
 	s32 platform; //Duplicated from Platform so we always know it, even if launching from recents
 	u8 players;
+	bool invalid;
 };
 
 struct Platform

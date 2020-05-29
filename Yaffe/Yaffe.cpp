@@ -2,7 +2,7 @@
 
 /*
 TODO
-Allow changing applications
+Check if needs admin
 Don't hardcode emulator allocation count
 */
 
@@ -16,6 +16,7 @@ Don't hardcode emulator allocation count
 #include "intrin.h"
 #include <Windows.h>
 #include <ShlObj.h>
+#include <WinInet.h>
 
 #include "Yaffe.h"
 #include "Memory.h"
@@ -91,7 +92,31 @@ static void GetFullPath(const char* pPath, char* pBuffer)
 }
 static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional)
 {
-	PathCombineA(pBuffer, pBase, pAdditional);
+	char file[MAX_PATH];
+	u32 i = 0;
+	for (i = 0; pAdditional[i] != 0; i++)
+	{
+		char c = pAdditional[i];
+		switch (c)
+		{
+		case '\\':
+		case '/':
+		case ':':
+		case '?':
+		case '\"':
+		case '<':
+		case '>':
+		case '|':
+			file[i] = ' ';
+			break;
+		default:
+			file[i] = c;
+			break;
+		}
+	}
+	file[i] = '\0';
+
+	PathCombineA(pBuffer, pBase, file);
 }
 static bool CreateDirectoryIfNotExists(const char* pDirectory)
 {
@@ -560,6 +585,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	InitializeUI(&g_state);
 	InitailizeDatbase(&g_state);
 
+	g_state.has_connection = InternetGetConnectedState(0, 0);
 	g_state.service = new PlatformService();
 	InitYaffeService(g_state.service);
 	GetAllPlatforms(&g_state);

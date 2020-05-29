@@ -79,6 +79,7 @@ struct YaffeState
 	TaskCallbackQueue callbacks;
 
 	bool is_running;
+	bool has_connection;
 
 	PlatformService* service;
 

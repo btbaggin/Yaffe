@@ -88,6 +88,8 @@ static void CreateServiceMessage(YaffeMessage* pArgs, char* pBuffer)
 
 static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage, json* pResponse)
 {
+	if (!g_state.has_connection) return false;
+
 	const u32 size = Megabytes(2);
 	char* buf = new char[size];
 	ZeroMemory(buf, size);
@@ -140,6 +142,8 @@ static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
 
 	static const u32 READ_AMOUNT = 100;
 	HANDLE file = CreateFileA(pSlot->load_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+	Verify(file, "Unable to download image", ERROR_TYPE_Warning);
+
 	char buffer[READ_AMOUNT];
 	unsigned long bytesRead;
 	stream->Read(buffer, READ_AMOUNT, &bytesRead);
