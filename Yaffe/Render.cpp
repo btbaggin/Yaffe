@@ -54,12 +54,12 @@ static GLProgram CreateProgram(GLuint pVertex, GLuint pFragment)
 #define Megabytes(size) size * 1024 * 1024
 static void InitializeRenderer(RenderState* pState)
 {
-	void* render = malloc(Megabytes(8));
-	pState->arena = CreateMemoryStack(render, Megabytes(8));
+	void* render = malloc(Megabytes(6));
+	pState->arena = CreateMemoryStack(render, Megabytes(6));
 	pState->index_count = 0;
 	pState->vertex_count = 0;
-	pState->vertices = CreateSubStack(pState->arena, Megabytes(5));
-	pState->indices = CreateSubStack(pState->arena, Megabytes(2) - sizeof(MemoryStack));
+	pState->vertices = CreateSubStack(pState->arena, Megabytes(4));
+	pState->indices = CreateSubStack(pState->arena, Megabytes(1) - sizeof(MemoryStack));
 
 	glGenVertexArrays(1, &pState->VAO);
 	glBindVertexArray(pState->VAO);
@@ -204,7 +204,6 @@ GlyphQuad GetGlyph(FontInfo* pFont, u32 pChar, v4 pColor, float* pX, float* pY)
 	int index = pChar - ' ';
 	if (index < 0 || index > '~' - ' ') index = 0;
 
-	//pFont->info.numGlyphs
 	stbtt_GetPackedQuad(pFont->charInfo, pFont->atlasWidth, pFont->atlasHeight, index, pX, pY, &quad, 1);
 
 	float x_min = quad.x0;
@@ -236,6 +235,7 @@ static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pP
 		m2->index_count = 0;
 		m2->texture = font->texture;
 		m2->flags = 0;
+
 		if (pClipMin.X > 0) m2->flags |= RENDER_TEXT_FLAG_Clip;
 		m2->clip_min = pClipMin;
 		m2->clip_max = pClipMax;
@@ -324,18 +324,34 @@ static void PushSizedQuad(RenderState* pState, v2 pMin, v2 pSize, v4 pColor)
 	PushQuad(pState, pMin, pMin + pSize, pColor, nullptr);
 }
 
-static v2 PushRightAlignedTextWithIcon(RenderState* pState, v2 pRight, BITMAPS pIcon, float pIconSize, FONTS pFont, const char* pText, float pMargin = 15, v4 pTextColor = V4(0, 0, 0, 1))
+static void PushLine(RenderState* pState, v2 pP1, v2 pP2, float pSize, v4 pColor)
 {
-	v2 new_pos = pRight;
+	pP1.Y = g_state.form->height - pP1.Y;
+	pP2.Y = g_state.form->height - pP2.Y;
+	Renderable_Line* line = PushRenderGroupEntry(pState, Renderable_Line, RENDER_GROUP_ENTRY_TYPE_Line);
+	line->first_vertex = pState->vertex_count;
+	line->size = pSize;
+
+	Vertex* v = PushArray(pState->vertices, Vertex, 2);
+	*(v + 0) = { pP1, pColor, {0.0F, 0.0F} };
+	*(v + 1) = { pP2, pColor, {0.0F, 0.0F} };
+
+	pState->vertex_count += 2;
+}
+
+static void PushRightAlignedTextWithIcon(RenderState* pState, v2* pRight, BITMAPS pIcon, float pIconSize, FONTS pFont, const char* pText, v4 pTextColor = V4(0, 0, 0, 1))
+{
 	v2 text_size = MeasureString(pFont, pText);
-	new_pos.X -= text_size.Width;
+	pRight->X -= text_size.Width;
 
-	float text_y = new_pos.Y - text_size.Height - (text_size.Height - pIconSize);
+	PushText(pState, pFont, pText, *pRight, pTextColor);
+	if (pIcon != BITMAP_None)
+	{
+		pRight->X -= pIconSize;
+		PushSizedQuad(pState, V2(pRight->X, pRight->Y + text_size.Height - pIconSize + 2), V2(pIconSize), V4(1, 1, 1, pTextColor.A), GetBitmap(g_assets, pIcon));
+	}
 
-	PushText(pState, pFont, pText, V2(new_pos.X, text_y), pTextColor);
-	PushQuad(pState, new_pos - V2(pIconSize), new_pos, V4(1, 1, 1, pTextColor.A), GetBitmap(g_assets, pIcon));
-
-	return V2(new_pos.X - pIconSize - pMargin, new_pos.Y);
+	pRight->X -= UI_MARGIN;
 }
 
 static void DisposeRenderState(RenderState* pState)

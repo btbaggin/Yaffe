@@ -1,15 +1,17 @@
 #pragma once
 #include <algorithm>
 #include <vector>
+#include <map>
 #include <assert.h>
+#include "time.h"
 
 #include "typedefs.h"
-#include "Platform.h"
+#include "YaffePlatform.h"
 #include "Memory.h"
 #include "sqlite/sqlite3.h"
 
 const u32 QUEUE_ENTRIES = 256;
-const u32 MAX_ERROR_COUNT = 8;
+const u32 MAX_ERROR_COUNT = 16;
 const s32 MAX_MODAL_COUNT = 8;
 const u32 UPDATE_FREQUENCY = 30;
 const float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
@@ -62,8 +64,8 @@ struct YaffeState
 	PlatformWindow* form;
 	Overlay overlay;
 
-	List<Application> emulators;
-	s32 selected_emulator;
+	List<Platform> platforms;
+	s32 selected_platform;
 	s32 selected_rom;
 
 	const char* errors[MAX_ERROR_COUNT];
@@ -73,12 +75,23 @@ struct YaffeState
 	ModalWindow* modals[MAX_MODAL_COUNT];
 	volatile LONG current_modal;
 
-	PlatformWorkQueue* queue;
+	PlatformWorkQueue* work_queue;
 	TaskCallbackQueue callbacks;
 
 	bool is_running;
-	YaffeTime time;
+	bool has_connection;
+
+	PlatformService* service;
+
+	std::mutex db_mutex;
 };
+
+inline void Tick(YaffeTime* pTime)
+{
+	auto current_time = clock();
+	pTime->delta_time = (current_time - pTime->current_time) / (float)CLOCKS_PER_SEC;
+	pTime->current_time = current_time;
+}
 
 void DisplayErrorMessage(const char* pError, ERROR_TYPE pType);
 #define Verify(condition, message, type) if (!condition) { DisplayErrorMessage(message, type); return; }

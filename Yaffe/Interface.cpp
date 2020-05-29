@@ -1,8 +1,7 @@
 inline static v2 CenterText(FONTS pFont, const char* pText, v2 pBounds)
 {
 	v2 size = MeasureString(pFont, pText);
-
-	return V2((pBounds.Width - size.Width) / 2.0F, (pBounds.Height - size.Height - (size.Height / 2.0F)) / 2.0F);
+	return (pBounds - size) / 2.0F;
 }
 
 inline static v4 GetFontColor(bool pFocused)
@@ -26,11 +25,6 @@ inline static UI_NAMES GetFocusedElement()
 	return g_ui.focus[g_ui.focus_index - 1];
 }
 
-inline static UiControl* GetControl(UI_NAMES pName)
-{
-	return g_ui.elements[pName];
-}
-
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 {
 	assert(g_state.error_count < MAX_ERROR_COUNT);
@@ -39,39 +33,39 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 	if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
 }
 
-static void RenderModalWindow(RenderState* pState, ModalWindow* pWindow)
+static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, PlatformWindow* pWindow)
 {
 	const float TITLEBAR_SIZE = 32.0F;
 	const float ICON_SIZE = 32.0F;
 	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
-	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pWindow->content->size;
-	if (pWindow->icon != BITMAP_None)
+	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pModal->content->size;
+	if (pModal->icon != BITMAP_None)
 	{
 		size.Height = max(ICON_SIZE_WITH_MARGIN, size.Height);
 		size.Width += ICON_SIZE_WITH_MARGIN;
 	}
 
-	v2 window_position = V2((g_state.form->width - size.Width) / 2, (g_state.form->height - size.Height) / 2);
+	v2 window_position = V2((pWindow->width - size.Width) / 2, (pWindow->height - size.Height) / 2);
 	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
 	
-	PushQuad(pState, V2(0.0F), V2((float)g_state.form->width, (float)g_state.form->height), V4(0.0F, 0.0F, 0.0F, 0.4F));
+	PushQuad(pState, V2(0.0F), V2(pWindow->width, pWindow->height), MODAL_OVERLAY_COLOR);
 
 	//Window
 	PushSizedQuad(pState, window_position, size, MODAL_BACKGROUND);
 	//Tilebar
 	PushSizedQuad(pState, window_position, V2(size.Width, TITLEBAR_SIZE), MODAL_TITLE);
-	PushText(pState, FONT_Subtext, pWindow->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
+	PushText(pState, FONT_Subtext, pModal->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
 
 	//Sidebar highlight
 	PushSizedQuad(pState, window_position + V2(0, TITLEBAR_SIZE), V2(UI_MARGIN, size.Height - TITLEBAR_SIZE), ACCENT_COLOR);
 
-	if (pWindow->icon != BITMAP_None)
+	if (pModal->icon != BITMAP_None)
 	{
-		Bitmap* image = GetBitmap(g_assets, pWindow->icon);
+		Bitmap* image = GetBitmap(g_assets, pModal->icon);
 		PushSizedQuad(pState, icon_position, V2(ICON_SIZE), image);
 		icon_position.X += ICON_SIZE;
 	}
-	pWindow->content->Render(pState, icon_position);
+	pModal->content->Render(pState, icon_position);
 }
 
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose)
@@ -95,15 +89,15 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::stri
 	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose);
 }
 
-MODAL_CLOSE(ErrorModalClose) { if (g_state.error_is_critical) g_state.is_running = false; }
-MODAL_CLOSE(ExitModalClose)
+static MODAL_CLOSE(ErrorModalClose) { if (pState->error_is_critical) pState->is_running = false; }
+static MODAL_CLOSE(ExitModalClose)
 { 
 	if (pResult == MODAL_RESULT_Ok)
 	{
-		SelectorModal* content = (SelectorModal*)pContent;
+		ListModal<std::string>* content = (ListModal<std::string>*)pContent;
 		if (content->GetSelected() == "Quit")
 		{
-			g_state.is_running = false;
+			pState->is_running = false;
 		}
 		else
 		{
@@ -115,17 +109,50 @@ MODAL_CLOSE(ExitModalClose)
 static void DisplayApplicationErrors(YaffeState* pState)
 {
 	//Check for and display any errors
-	if (pState->error_count > 0)
+	u32 errors = pState->error_count;
+	if (errors > 0)
 	{
 		std::string message;
-		for (u32 i = 0; i < pState->error_count; i++)
+		for (u32 i = 0; i < errors; i++)
 		{
 			message += std::string(pState->errors[i]);
-			if (i < pState->error_count - 1) message += '\n';
+			if (i < errors - 1) message += '\n';
 		}
 
 		DisplayModalWindow(pState, "Error", message, BITMAP_Error, ErrorModalClose);
 		pState->error_count = 0;
+	}
+}
+
+static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
+{
+	float title = GetFontSize(FONT_Title);
+	v2 menu_position = pMain.size - V2(UI_MARGIN, UI_MARGIN + title);
+
+	char buffer[20];
+	GetTime(buffer, 20);
+	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED); menu_position.X -= UI_MARGIN;
+
+	menu_position.Y += (title - GetFontSize(FONT_Normal));
+	switch (GetFocusedElement())
+	{
+		case UI_Roms:
+		{
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter"); menu_position.X -= UI_MARGIN;
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back"); menu_position.X -= UI_MARGIN;
+		}
+		break;
+
+		case UI_Emulators:
+		{
+			Platform* plat = GetSelectedPlatform();
+			if (plat && plat->type != PLATFORM_Recents)
+			{
+				PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Info"); menu_position.X -= UI_MARGIN;
+			}
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select"); menu_position.X -= UI_MARGIN;
+		}
+		break;
 	}
 }
 
@@ -139,7 +166,7 @@ static void DisplayQuitMessage(YaffeState* pState)
 		std::vector<std::string> options;
 		options.push_back("Quit");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "Exit", new SelectorModal(options, nullptr), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "Exit", new ListModal<std::string>(options), BITMAP_None, ExitModalClose);
 	}
 }
 
@@ -147,7 +174,7 @@ static UiRegion CreateRegion()
 {
 	UiRegion region;
 	region.position = V2(0);
-	region.size = V2((float)g_state.form->width, (float)g_state.form->height);
+	region.size = V2(g_state.form->width, g_state.form->height);
 
 	return region;
 }
@@ -161,7 +188,7 @@ static UiRegion CreateRegion(UiRegion pRegion, v2 pSize)
 	return region;
 }
 
-#include "EmulatorList.cpp"
+#include "PlatformList.cpp"
 #include "RomMenu.cpp"
 #include "FilterBar.cpp"
 #include "InfoPane.cpp"
@@ -173,37 +200,21 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	PushQuad(pRender, main.position, main.size, b);
 
 	UiRegion list_region = CreateRegion(main, V2(EMU_MENU_PERCENT, 1));
-	RenderElement(EmulatorList, UI_Emulators, list_region);
+	RenderElement(UI_Emulators, list_region);
 
 	UiRegion menu_region = CreateRegion(main, V2(1 - EMU_MENU_PERCENT, 1)); 
 	menu_region.position.X += list_region.size.Width;
-	RenderElement(RomMenu, UI_Roms, menu_region);
+	RenderElement(UI_Roms, menu_region);
 
 	UiRegion filter_region = CreateRegion(menu_region, V2(1, 0.05F));
-	RenderElement(FilterBar, UI_Search, filter_region);
+	RenderElement(UI_Search, filter_region);
 
-	RenderElement(InfoPane, UI_Info, main);
+	RenderElement(UI_Info, main);
 
-	v2 menu_position = main.size - V2(UI_MARGIN);
-	switch (GetFocusedElement())
-	{
-		case UI_Roms:
-		{
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter");
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back");
-		}
-		break;
-
-		case UI_Emulators:
-		{
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Add");
-			menu_position = PushRightAlignedTextWithIcon(pRender, menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select");
-		}
-		break;
-	}
+	DisplayToolbar(main, pRender);
 	if (pState->current_modal >= 0)
 	{
-		RenderModalWindow(pRender, pState->modals[pState->current_modal]);
+		RenderModalWindow(pRender, pState->modals[pState->current_modal], pState->form);
 	}
 }
 
@@ -219,7 +230,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		MODAL_RESULTS result = modal->content->Update(pDeltaTime);
 		if (result != MODAL_RESULT_None)
 		{
-			if(modal->on_close) modal->on_close(result, modal->content);
+			if(modal->on_close) modal->on_close(pState, result, modal->content);
 			InterlockedDecrement(&pState->current_modal);
 			delete modal->content;
 			delete modal;
@@ -227,16 +238,22 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		return;
 	}
 
-	for (u32 i = 0; i < UI_COUNT; i++)
+	UI_NAMES focused = GetFocusedElement();
+	for (u32 i = 0; i < (u32)focused; i++)
 	{
-		g_ui.elements[i]->Update(pDeltaTime);
+		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
+	}
+	g_ui.elements[focused]->Update(pState, pDeltaTime);
+	for (u32 i = focused + 1; i < UI_COUNT; i++)
+	{
+		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
 	}
 }
 
 static void InitializeUI(YaffeState* pState)
 {
-	g_ui.elements[UI_Emulators] = new EmulatorList(pState);
-	g_ui.elements[UI_Roms] = new RomMenu(pState);
+	g_ui.elements[UI_Emulators] = new PlatformList(pState);
+	g_ui.elements[UI_Roms] = new RomMenu();
 	g_ui.elements[UI_Info] = new InfoPane();
 	g_ui.elements[UI_Search] = new FilterBar();
 

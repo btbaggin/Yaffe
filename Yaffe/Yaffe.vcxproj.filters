@@ -6,12 +6,8 @@
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Assets.cpp" />
     <ClCompile Include="Input.cpp" />
-    <ClCompile Include="Emulators.cpp" />
     <ClCompile Include="Interface.cpp" />
     <ClCompile Include="RomMenu.cpp">
-      <Filter>Interface</Filter>
-    </ClCompile>
-    <ClCompile Include="EmulatorList.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
     <ClCompile Include="Database.cpp" />
@@ -30,6 +26,17 @@
     <ClCompile Include="InfoPane.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
+    <ClCompile Include="Server.cpp" />
+    <ClCompile Include="ListModal.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Platform.cpp" />
+    <ClCompile Include="PlatformList.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDetailModal.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="typedefs.h" />
@@ -39,9 +46,10 @@
     <ClInclude Include="Assets.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="Interface.h" />
-    <ClInclude Include="Emulators.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Render.h" />
+    <ClInclude Include="Database.h" />
+    <ClInclude Include="YaffePlatform.h" />
     <ClInclude Include="Platform.h" />
   </ItemGroup>
   <ItemGroup>

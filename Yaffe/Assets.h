@@ -32,6 +32,9 @@ enum BITMAPS : u8
 	BITMAP_ButtonB,
 	BITMAP_ButtonX,
 	BITMAP_ButtonY,
+	BITMAP_App,
+	BITMAP_Emulator,
+	BITMAP_Recent,
 
 	BITMAP_COUNT
 };
@@ -85,6 +88,8 @@ struct Assets
 	AssetSlot bitmaps[BITMAP_COUNT];
 	u32 blank_texture;
 
+	std::map<std::string, AssetSlot> display_images;
+
 	MemoryPool* memory;
 };
 
@@ -96,4 +101,4 @@ struct LoadAssetWork
 	const char* load_info;
 };
 
-void EvictOldestAsset(AssetSlot* pAssets, u32 pAssetCount);
+void EvictOldestAsset(Assets* pAssets);

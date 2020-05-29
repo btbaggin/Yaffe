@@ -25,49 +25,36 @@ static void UpdateOverlay(Overlay* pOverlay)
 	}
 }
 
-static void RenderOverlayModal(RenderState* pState, const char* pMessage)
-{
-	v2 content_size = MeasureString(FONT_Normal, pMessage);
-
-	const float ICON_SIZE = 32.0F;
-	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
-	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2) + content_size;
-	size.Height = max(ICON_SIZE_WITH_MARGIN, size.Height);
-	size.Width += ICON_SIZE_WITH_MARGIN;
-
-	v2 window_position = V2((g_state.overlay.form->width - size.Width) / 2, (g_state.overlay.form->height - size.Height) / 2);
-	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN); //Window + margin for window + margin for icon
-
-	PushQuad(pState, window_position, window_position + size, MODAL_BACKGROUND);
-	PushSizedQuad(pState, window_position, V2(UI_MARGIN / 2.0F, size.Height), ACCENT_COLOR);
-
-	Bitmap* image = GetBitmap(g_assets, BITMAP_Question);
-	PushSizedQuad(pState, icon_position, V2(ICON_SIZE), image);
-	icon_position.X += ICON_SIZE;
-
-	PushText(pState, FONT_Normal, pMessage, icon_position, TEXT_FOCUSED);
-}
-
 static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 {
+	PlatformWindow* overlay = pState->overlay.form;
 	if (pState->overlay.showing)
 	{
 		//Render to overlay window
-		wglMakeCurrent(pState->overlay.form->dc, pState->form->rc);
+		wglMakeCurrent(overlay->dc, pState->form->rc);
 
-		float width = (float)pState->overlay.form->width;
-		float height = (float)pState->overlay.form->height;
-		v2 size = V2(width, height);
+		v2 size = V2(overlay->width, overlay->height);
 		BeginRenderPass(size, pRender);
 		glClearColor(1, 1, 1, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		PushQuad(pRender, V2(0.0F), V2(width, height), V4(0.0F, 0.0F, 0.0F, 0.9F));
+		PushQuad(pRender, V2(0), size, OVERLAY_COLOR);
 
-		RenderOverlayModal(pRender, "Are you sure you wish to exit?");
+		ModalWindow modal = {};
+		modal.title = "Confirm";
+		modal.icon = BITMAP_Question;
+		modal.content = new StringModal("Are you sure you wish to exit?");
+
+		RenderModalWindow(pRender, &modal, overlay);
+		delete modal.content;
+
+		char buffer[20];
+		GetTime(buffer, 20);
+		v2 position = V2(overlay->width, overlay->height) - V2(UI_MARGIN, GetFontSize(FONT_Title) + UI_MARGIN);
+		PushRightAlignedTextWithIcon(pRender, &position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
 
 		EndRenderPass(size, pRender);
-		SwapBuffers(g_state.overlay.form);
+		SwapBuffers(overlay);
 
 		//Switch back to normal window
 		wglMakeCurrent(pState->form->dc, pState->form->rc);

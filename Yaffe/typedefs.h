@@ -31,6 +31,10 @@ static v4 V4(float x, float y, float z, float w)
 {
 	return { x, y, z, w };
 }
+static v4 V4(v4 xyz, float w)
+{
+	return { xyz.X, xyz.Y, xyz.Z, w };
+}
 static v4 V4(float xyzw)
 {
 	return { xyzw, xyzw, xyzw, xyzw };
@@ -53,6 +57,15 @@ static bool operator>(v2 l, v2 r)
 	return l.X > r.X && l.Y > r.Y;
 }
 
+static void GetTime(char* pBuffer, u32 pBufferSize)
+{
+	time_t t;
+	struct tm* timeinfo;
+	time(&t);
+	timeinfo = localtime(&t);
+	strftime(pBuffer, pBufferSize, "%I:%M%p", timeinfo);
+}
+
 #define ArrayCount(a) sizeof(a) / sizeof(a[0])
 #define HasFlag(flag, value) (flag & value) != 0
 
@@ -69,9 +82,15 @@ public:
 		return items + pIndex;
 	}
 
-	void InitializeWithArray(T* pItems, u32 pCount)
+	T* AddItem()
 	{
-		items = pItems;
+		return items + count++;
+	}
+
+	void Initialize(u32 pCount)
+	{
+		if (items) delete[] items;
+		items = new T[pCount];
 		count = 0;
 		ZeroMemory(items, sizeof(T) * pCount);
 	}

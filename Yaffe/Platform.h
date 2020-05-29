@@ -1,31 +1,58 @@
 #pragma once
-struct PlatformWorkQueue;
-struct PlatformWindow;
-struct PlatformProcess;
-struct YaffeState;
-struct Application;
-struct Executable;
-struct Overlay;
 
-#define WORK_QUEUE_CALLBACK(name)void name(PlatformWorkQueue* pQueue, void* pData)
-typedef WORK_QUEUE_CALLBACK(work_queue_callback);
+const u32 RECENT_COUNT = 10;
+#define RECENT_COUNT_STRING "10"
 
-static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData);
-static void StartProgram(YaffeState* pState, Application* pApplication, Executable* pRom);
+enum EXECUTABLE_FLAGS : u8
+{
+	EXECUTABLE_FLAG_None = 0,
+	EXECUTABLE_FLAG_Filtered = 1,
+};
 
-static void GetFullPath(const char* pPath, char* pBuffer);
-static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional);
-static std::vector<std::string> GetFilesInDirectory(char* pDirectory);
-static bool CreateShortcut(const char* pTargetfile, const char* pTargetargs, char* pLinkfile);
-static bool CreateDirectoryIfNotExists(const char* pDirectory);
-static bool CopyFileTo(const char* pOld, const char* pNew);
+enum PLATFORM_TYPE : u8
+{
+	PLATFORM_Invalid,
 
-static void SwapBuffers(PlatformWindow* pWindow);
+	PLATFORM_Recents,
+	PLATFORM_Emulator,
+	PLATFORM_App,
+};
 
-static void ShowOverlay(Overlay* pOverlay);
-static void CloseOverlay(Overlay* pOverlay, bool pTerminate);
-static bool ProcessIsRunning(PlatformProcess* pProcess);
+//Information about how to render the executable
+struct ExecutableDisplay
+{
+	v2 position;
+	v2 size;
+	v2 target_size;
+	u8 flags;
+	AssetSlot* boxart;
+	AssetSlot* banner;
+};
 
-static bool Shutdown();
+//Information about the executable
+struct Executable
+{
+	char file[100];
+	char display_name[80];
+	std::string overview;
+	s32 platform; //Duplicated from Platform so we always know it, even if launching from recents
+	u8 players;
+	bool invalid;
+};
 
-#define MAX_PATH 260 //Is this smart?
+struct Platform
+{
+	char name[35];
+	char path[MAX_PATH];
+	PLATFORM_TYPE type;
+	s32 id;
+
+	List<Executable> files;
+	List<ExecutableDisplay> file_display;
+};
+
+
+static inline Platform* GetSelectedPlatform();
+static void RefreshExecutables(YaffeState* pState, Platform* pEmulator);
+static void BuildCommandLine(Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs);
+bool RomsSort(Executable a, Executable b) { return strcmp(a.display_name, b.display_name) < 0; }

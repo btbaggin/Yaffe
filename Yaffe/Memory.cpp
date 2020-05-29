@@ -150,12 +150,12 @@ void* Alloc(Assets* pAssets, u64 pSize)
 	MemoryBlock* block = FindBlockForSize(pAssets->memory, pSize);
 	for(u32 i = 0; i < 5 && !block; i++)
 	{
-		EvictOldestAsset(pAssets->bitmaps, BITMAP_COUNT);
+		EvictOldestAsset(pAssets);
 		block = FindBlockForSize(pAssets->memory, pSize);
 	}
 
 	assert(block);
-	if (block && pSize <= block->size)
+	if (pSize <= block->size)
 	{
 		result = (char*)(block + 1);
 
