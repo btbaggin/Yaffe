@@ -247,6 +247,27 @@ static void SwapBuffers(PlatformWindow* pWindow)
 {
 	SwapBuffers(pWindow->dc);
 }
+static void SendKeyMessage(KEYS pKey, bool pDown)
+{
+	INPUT buffer = {};
+	buffer.type = INPUT_KEYBOARD;
+	buffer.ki.wVk = pKey;
+	if(!pDown) buffer.ki.dwFlags = KEYEVENTF_KEYUP;
+	SendInput(1, &buffer, sizeof(INPUT));
+}
+static void SendMouseMessage(MOUSE_BUTTONS pButtons, bool pDown)
+{
+	INPUT buffer = {};
+	buffer.type = INPUT_MOUSE;
+	buffer.mi.dwFlags = MOUSEEVENTF_ABSOLUTE;
+	if(pButtons == BUTTON_Left) buffer.mi.dwFlags |= (pDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP);
+	else if (pButtons == BUTTON_Right) buffer.mi.dwFlags |= (pDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP);
+	SendInput(1, &buffer, sizeof(INPUT));
+}
+static void SetCursor(v2 pPosition)
+{
+	SetCursorPos(pPosition.X, pPosition.Y);
+}
 
 
 //
