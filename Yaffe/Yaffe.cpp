@@ -2,6 +2,7 @@
 
 /*
 TODO
+allow move movement for applications while overlay is active?
 Don't hardcode emulator allocation count
 */
 
@@ -177,14 +178,8 @@ static void StartProgram(YaffeState* pState, char* pCommand)
 	else
 	{
 		DWORD error = GetLastError();
-		if (error == ERROR_ELEVATION_REQUIRED)
-		{
-			DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
-		}
-		else
-		{
-			DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
-		}
+		if (error == ERROR_ELEVATION_REQUIRED) DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
+		else DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
 	}
 }
 static void ShowOverlay(Overlay* pOverlay)
@@ -514,12 +509,12 @@ void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 		pInput->right_stick = V2((float)state.sThumbRX, (float)state.sThumbRY);
 
 		float length = HMM_LengthSquaredVec2(pInput->left_stick);
-		if (length <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE * XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+		if (length <= XINPUT_INPUT_DEADZONE * XINPUT_INPUT_DEADZONE)
 		{
 			pInput->left_stick = V2(0);
 		}
 		length = HMM_LengthSquaredVec2(pInput->right_stick);
-		if (length <= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+		if (length <= XINPUT_INPUT_DEADZONE * XINPUT_INPUT_DEADZONE)
 		{
 			pInput->right_stick = V2(0);
 		}
@@ -665,7 +660,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		EndRenderPass(size, &render_state);
 		SwapBuffers(g_state.form);
 
-		UpdateOverlay(&g_state.overlay);
+		UpdateOverlay(&g_state.overlay, time.delta_time);
 		RenderOverlay(&g_state, &render_state);
 
 		{//Sleep until FPS is hit

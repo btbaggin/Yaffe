@@ -88,24 +88,11 @@ inline static bool IsLeftStickPushed(DIRECTIONS pDirection)
 
 	return false;
 }
-
-inline static bool IsRightStickPushed(DIRECTIONS pDirection)
+inline static v2 GetLeftStickVector()
 {
-	CHECK_KEY_DELAY();
-	switch (pDirection)
-	{
-	case DIRECTION_Up:
-		CHECK_KEY_INPUT(g_input.right_stick.Y > 0 && abs(g_input.right_stick.Y) > abs(g_input.right_stick.X));
-	case DIRECTION_Down:
-		CHECK_KEY_INPUT(g_input.right_stick.Y < 0 && abs(g_input.right_stick.Y) > abs(g_input.right_stick.X));
-	case DIRECTION_Left:
-		CHECK_KEY_INPUT(g_input.right_stick.X < 0 && abs(g_input.right_stick.X) > abs(g_input.right_stick.Y));
-	case DIRECTION_Right:
-		CHECK_KEY_INPUT(g_input.right_stick.X > 0 && abs(g_input.right_stick.X) > abs(g_input.right_stick.Y));
-	}
-
-	return false;
+	return g_input.left_stick;
 }
+
 inline static v2 GetMousePosition()
 {
 	return g_input.mouse_position;

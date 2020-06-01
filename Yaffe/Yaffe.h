@@ -48,6 +48,7 @@ struct Overlay
 {
 	PlatformWindow* form;
 	bool showing;
+	bool allow_input;
 
 	PlatformProcess* process;
 };
