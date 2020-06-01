@@ -21,8 +21,9 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 
 				//optionally normalize the magnitude with respect to its expected range
 				//giving a magnitude value of 0.0 to 1.0
-				normalizedMagnitude = magnitude / (32767 - XINPUT_INPUT_DEADZONE);
-				dir = dir / (normalizedMagnitude * 250);
+				v2 normalizedDir = dir / (32767 - XINPUT_INPUT_DEADZONE);
+				normalizedDir.Y *= -1;
+				v2 move = normalizedDir * 500 * pDeltaTime;
 
 				//determine the direction the controller is pushed
 
@@ -31,14 +32,61 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 				u32 width = mi.rcMonitor.right - mi.rcMonitor.left;
 				u32 height = mi.rcMonitor.bottom - mi.rcMonitor.top;
 
-				buffer.mi.dx = ((mouse.X + dir.X) * (0xFFFF / (width + 1)));
-				buffer.mi.dy = ((mouse.Y + dir.Y) * (0xFFFF / (height + 1)));
+				buffer.mi.dx = ((mouse.X + move.X) * (0xFFFF / (width + 1)));
+				buffer.mi.dy = ((mouse.Y + move.Y) * (0xFFFF / (height + 1)));
 				buffer.mi.dwFlags = (MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE);
 
-				SendInput(1, &buffer, sizeof(INPUT));
+				SetCursorPos(mouse.X + move.X, mouse.Y + move.Y);
+				//SendInput(1, &buffer, sizeof(INPUT));
 			}
 
+			if (IsControllerPressed(CONTROLLER_RIGHT_SHOULDER))
+			{
+				INPUT ip = {};
+				// Set up a generic keyboard event.
+				ip.type = INPUT_KEYBOARD;
+				ip.ki.wScan = 0; // hardware scan code for key
+				ip.ki.time = 0;
+				ip.ki.dwExtraInfo = 0;
 
+				// Press the "A" key
+				ip.ki.wVk = KEY_Tab; // virtual-key code for the "a" key
+				ip.ki.dwFlags = 0; // 0 for key press
+				SendInput(1, &ip, sizeof(INPUT));
+				Sleep(10);
+				// Release the "A" key
+				ip.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
+				SendInput(1, &ip, sizeof(INPUT));
+			}
+
+			if (IsControllerPressed(CONTROLLER_LEFT_SHOULDER))
+			{
+				INPUT ip = {};
+				// Set up a generic keyboard event.
+				ip.type = INPUT_KEYBOARD;
+				ip.ki.wScan = 0; // hardware scan code for key
+				ip.ki.time = 0;
+				ip.ki.dwExtraInfo = 0;
+
+				ip.ki.wVk = KEY_Shift;
+				ip.ki.dwFlags = 0; // 0 for key press
+				SendInput(1, &ip, sizeof(INPUT));
+				Sleep(10);
+
+				// Press the "A" key
+				ip.ki.wVk = KEY_Tab; // virtual-key code for the "a" key
+				ip.ki.dwFlags = 0; // 0 for key press
+				SendInput(1, &ip, sizeof(INPUT));
+				Sleep(10);
+				// Release the "A" key
+				ip.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
+				SendInput(1, &ip, sizeof(INPUT));
+
+				// Release the "A" key
+				ip.ki.wVk = KEY_Shift;
+				ip.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
+				SendInput(1, &ip, sizeof(INPUT));
+			}
 
 			if (IsControllerPressed(CONTROLLER_A))
 			{
