@@ -2,7 +2,7 @@
 
 /*
 TODO
-allow move movement for applications while overlay is active?
+Controller movement isn't working 100%
 Don't hardcode emulator allocation count
 */
 
@@ -266,7 +266,12 @@ static void SendMouseMessage(MOUSE_BUTTONS pButtons, bool pDown)
 }
 static void SetCursor(v2 pPosition)
 {
-	SetCursorPos(pPosition.X, pPosition.Y);
+	if (!SetCursorPos((int)pPosition.X, (int)pPosition.Y))
+	{
+		char error[100];
+		sprintf(error, "Unable to set cursor: %d", (int)GetLastError());
+		MessageBoxA(g_state.form->handle, error, "Error", MB_OK);
+	}
 }
 
 
@@ -742,6 +747,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 		glViewport(0, 0, (int)g_state.form->width, (int)g_state.form->height);
 		return 0;
+	}
+
+	case WM_ACTIVATE:
+	{
+		//Scale down FPS to 10 when not focused
+		UPDATE_FREQUENCY = wParam == WA_INACTIVE ? 10 : 30;
+		ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
 	}
 
 	default:

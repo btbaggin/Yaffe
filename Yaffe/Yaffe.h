@@ -13,8 +13,8 @@
 const u32 QUEUE_ENTRIES = 256;
 const u32 MAX_ERROR_COUNT = 16;
 const s32 MAX_MODAL_COUNT = 8;
-const u32 UPDATE_FREQUENCY = 30;
-const float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
+u32 UPDATE_FREQUENCY = 30;
+float ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
 
 enum ERROR_TYPE
 {
