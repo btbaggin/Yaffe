@@ -50,7 +50,7 @@ static void InitYaffeService(PlatformService* pService)
 		si.dwFlags = STARTF_USESHOWWINDOW;
 		si.wShowWindow = SW_MINIMIZE;
 		PROCESS_INFORMATION pi = {};
-		CreateProcessA("YaffeService.exe", NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+		CreateProcessA("YaffeService.exe", NULL, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
 	}
 }
 

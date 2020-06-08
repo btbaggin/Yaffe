@@ -27,10 +27,11 @@ inline static UI_NAMES GetFocusedElement()
 
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
 {
-	assert(g_state.error_count < MAX_ERROR_COUNT);
-
-	g_state.errors[g_state.error_count++] = pError;
-	if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
+	if (g_state.error_count < MAX_ERROR_COUNT)
+	{
+		g_state.errors[g_state.error_count++] = pError;
+		if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
+	}
 }
 
 static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, PlatformWindow* pWindow)
