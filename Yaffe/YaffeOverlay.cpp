@@ -32,8 +32,8 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			};
 			KeyMapping mappings[5] = {
 				{CONTROLLER_RIGHT_SHOULDER, true, KEY_Tab},
-				{CONTROLLER_RIGHT_SHOULDER, true, KEY_Tab, true},
-				{CONTROLLER_START, false, KEY_Enter},
+				{CONTROLLER_LEFT_SHOULDER, true, KEY_Tab, true},
+				{CONTROLLER_START, true, KEY_Enter},
 				{CONTROLLER_A, false, BUTTON_Left},
 				{CONTROLLER_X, false, BUTTON_Right},
 			};
