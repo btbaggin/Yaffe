@@ -126,7 +126,7 @@ static bool CreateDirectoryIfNotExists(const char* pDirectory)
 		return CreateDirectoryA(pDirectory, &sa);
 	}
 
-	return true;
+return true;
 }
 static bool CopyFileTo(const char* pOld, const char* pNew)
 {
@@ -164,6 +164,7 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 
 	return files;
 }
+
 static void StartProgram(YaffeState* pState, char* pCommand)
 {
 	Overlay* overlay = &pState->overlay;
@@ -174,11 +175,33 @@ static void StartProgram(YaffeState* pState, char* pCommand)
 	{
 		overlay->process = new PlatformProcess();
 		overlay->process->info = pi;
+
+		//Wait for the program to start
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		//Search through open processes for children of our processID
+		//Some processes like FireFox or Edge start new processes for tabs
+		//Our processID could be killed and a new "window manager" process started
+		HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		PROCESSENTRY32 pe32;
+		pe32.dwSize = sizeof(PROCESSENTRY32);
+		if (Process32First(hProcessSnap, &pe32))
+		{
+			do
+			{
+				if (pe32.th32ParentProcessID == pi.dwProcessId)
+				{
+					overlay->process->info.dwProcessId = pe32.th32ProcessID;
+					break;
+				}
+			} while (Process32Next(hProcessSnap, &pe32));
+		}
+
+		CloseHandle(hProcessSnap);
 	}
 	else
 	{
-		DWORD error = GetLastError();
-		if (error == ERROR_ELEVATION_REQUIRED) DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
+		if (GetLastError() == ERROR_ELEVATION_REQUIRED) DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
 		else DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
 	}
 }
@@ -194,18 +217,43 @@ static void ShowOverlay(Overlay* pOverlay)
 	ShowWindow(pOverlay->form->handle, SW_SHOW);
 	UpdateWindow(pOverlay->form->handle);
 }
+
 static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 {
 	ShowWindow(pOverlay->form->handle, SW_HIDE);
 
 	if (pTerminate)
 	{
-		TerminateProcess(pOverlay->process->info.hProcess, 0);
-		WaitForSingleObject(pOverlay->process->info.hProcess, INFINITE);
-		CloseHandle(pOverlay->process->info.hProcess);
-		CloseHandle(pOverlay->process->info.hThread);
-	}
+		bool success = false;
+		//Search all top level windows for one with our process
+		//We can use this to send a WM_QUIT message to close the window nicely
+		//We don't use PlatformProcess.dwThreadID because the processID might have changed
+		//From searching for the parent process in StartProgram
+		for (HWND hwnd = GetTopWindow(NULL); hwnd; hwnd = ::GetNextWindow(hwnd, GW_HWNDNEXT)) {
+			DWORD dwWindowProcessID;
+			DWORD dwThreadID = ::GetWindowThreadProcessId(hwnd, &dwWindowProcessID);
+			if (dwWindowProcessID == pOverlay->process->info.dwProcessId)
+			{
+				success = PostThreadMessage(dwThreadID, WM_QUIT, 0, 0);
+				break;
+			}
+		}
 
+		//The nice way didn't work, just kill it
+		if (!success) success = TerminateProcess(pOverlay->process->info.hProcess, 0);
+		if(success)
+		{
+			WaitForSingleObject(pOverlay->process->info.hProcess, INFINITE);
+			CloseHandle(pOverlay->process->info.hProcess);
+			CloseHandle(pOverlay->process->info.hThread);
+		}
+		else
+		{
+			char* error = new char[100];
+			sprintf(error, "Unable to terminate process: %d", (int)GetLastError());
+			DisplayErrorMessage(error, ERROR_TYPE_Warning);
+		}
+	}
 }
 static bool ProcessIsRunning(PlatformProcess* pProcess)
 {
@@ -571,7 +619,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	//Set up work queue
-	const u32 THREAD_COUNT = 8;
+	const u32 THREAD_COUNT = 4;
 	win32_thread_info threads[THREAD_COUNT];
 	PlatformWorkQueue work_queue = {};
 	work_queue.Semaphore = CreateSemaphoreEx(0, 0, THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);

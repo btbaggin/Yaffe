@@ -2,26 +2,39 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 {
 	if (pOverlay->process)
 	{
-		if (pOverlay->allow_input)
+		if (IsControllerPressed(CONTROLLER_GUIDE) || IsKeyPressed(KEY_Escape))
 		{
-			v2 dir = GetLeftStickVector();
+			pOverlay->showing = !pOverlay->showing;
+
+			if (pOverlay->showing) ShowOverlay(pOverlay);
+			else CloseOverlay(pOverlay, false);
+		}
+		else if (pOverlay->showing && IsEnterPressed())
+		{
+			CloseOverlay(pOverlay, true);
+			delete pOverlay->process; pOverlay->process = nullptr;
+			pOverlay->showing = false;
+		}
+		else if (!pOverlay->allow_input && !ProcessIsRunning(pOverlay->process)) //TODO checking allow_input feels kind of hacky, but Firefox reports it stopped
+		{
+			//Check if the program closed without going through the overlay
+			CloseOverlay(pOverlay, false);
+			delete pOverlay->process; pOverlay->process = nullptr;
+			pOverlay->showing = false;
+		}
+
+		if (pOverlay->allow_input && !pOverlay->showing)
+		{
 			v2 mouse = GetMousePosition();
+			v2 move = NormalizeStickInput(g_input.left_stick);
+			SetCursor(mouse + (move * 400 * pDeltaTime));
 
-			//determine how far the controller is pushed
-			float magnitude = HMM_Length(dir);
-			//check if the controller is outside a circular dead zone
-			if (magnitude > XINPUT_INPUT_DEADZONE)
-			{
-				if (magnitude > 32767) magnitude = 32767;
-				magnitude -= XINPUT_INPUT_DEADZONE;
-
-				//giving a magnitude value of 0.0 to 1.0
-				v2 normalizedDir = dir / (32767 - XINPUT_INPUT_DEADZONE);
-				normalizedDir.Y *= -1;
-				v2 move = normalizedDir * 500 * pDeltaTime;
-
-				SetCursor(mouse + move);
-			}
+			v2 scroll = NormalizeStickInput(g_input.right_stick);
+			INPUT buffer = {};
+			buffer.type = INPUT_MOUSE;
+			buffer.mi.dwFlags = MOUSEEVENTF_WHEEL;
+			buffer.mi.mouseData = (DWORD)(-scroll.Y * WHEEL_DELTA);
+			SendInput(1, &buffer, sizeof(INPUT));
 
 			struct KeyMapping
 			{
@@ -54,27 +67,6 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 					else SendMouseMessage((MOUSE_BUTTONS)key.input, false);
 				}
 			}
-		}
-
-		if (IsControllerPressed(CONTROLLER_GUIDE) || IsKeyPressed(KEY_Escape))
-		{
-			pOverlay->showing = !pOverlay->showing;
-
-			if (pOverlay->showing) ShowOverlay(pOverlay);
-			else CloseOverlay(pOverlay, false);
-		} 
-		else if (pOverlay->showing && IsEnterPressed())
-		{
-			CloseOverlay(pOverlay, true);
-			delete pOverlay->process; pOverlay->process = nullptr;
-			pOverlay->showing = false;
-		}
-		else if (!ProcessIsRunning(pOverlay->process))
-		{
-			//Check if the program closed without going through the overlay
-			CloseOverlay(pOverlay, false);
-			delete pOverlay->process; pOverlay->process = nullptr;
-			pOverlay->showing = false;
 		}
 	}
 }

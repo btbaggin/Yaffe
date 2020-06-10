@@ -88,9 +88,26 @@ inline static bool IsLeftStickPushed(DIRECTIONS pDirection)
 
 	return false;
 }
-inline static v2 GetLeftStickVector()
+
+inline static v2 NormalizeStickInput(v2 pStick)
 {
-	return g_input.left_stick;
+	v2 dir = pStick;
+
+	//determine how far the controller is pushed
+	float magnitude = HMM_Length(dir);
+	//check if the controller is outside a circular dead zone
+	if (magnitude > XINPUT_INPUT_DEADZONE)
+	{
+		if (magnitude > 32767) magnitude = 32767;
+		magnitude -= XINPUT_INPUT_DEADZONE;
+
+		//giving a magnitude value of 0.0 to 1.0
+		v2 normalizedDir = dir / (32767 - XINPUT_INPUT_DEADZONE);
+		normalizedDir.Y *= -1;
+
+		return normalizedDir;
+	}
+	return V2(0);
 }
 
 inline static v2 GetMousePosition()
