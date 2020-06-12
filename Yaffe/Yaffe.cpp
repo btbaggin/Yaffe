@@ -52,7 +52,8 @@ struct PlatformWindow
 
 struct PlatformProcess
 {
-	PROCESS_INFORMATION info;
+	HANDLE handle;
+	DWORD id;
 };
 
 struct win32_thread_info
@@ -174,7 +175,8 @@ static void StartProgram(YaffeState* pState, char* pCommand)
 	if (CreateProcessA(NULL, pCommand, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 	{
 		overlay->process = new PlatformProcess();
-		overlay->process->info = pi;
+		overlay->process->id = pi.dwProcessId;
+		overlay->process->handle = pi.hProcess;
 
 		//Wait for the program to start
 		WaitForSingleObject(pi.hProcess, INFINITE);
@@ -191,7 +193,10 @@ static void StartProgram(YaffeState* pState, char* pCommand)
 			{
 				if (pe32.th32ParentProcessID == pi.dwProcessId)
 				{
-					overlay->process->info.dwProcessId = pe32.th32ProcessID;
+					overlay->process->id = pe32.th32ProcessID;
+					//Get handle to new pid
+					CloseHandle(overlay->process->handle);
+					overlay->process->handle = OpenProcess(SYNCHRONIZE, 0, overlay->process->id);
 					break;
 				}
 			} while (Process32Next(hProcessSnap, &pe32));
@@ -232,7 +237,7 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 		for (HWND hwnd = GetTopWindow(NULL); hwnd; hwnd = ::GetNextWindow(hwnd, GW_HWNDNEXT)) {
 			DWORD dwWindowProcessID;
 			DWORD dwThreadID = ::GetWindowThreadProcessId(hwnd, &dwWindowProcessID);
-			if (dwWindowProcessID == pOverlay->process->info.dwProcessId)
+			if (dwWindowProcessID == pOverlay->process->id)
 			{
 				success = PostThreadMessage(dwThreadID, WM_QUIT, 0, 0);
 				break;
@@ -240,12 +245,11 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 		}
 
 		//The nice way didn't work, just kill it
-		if (!success) success = TerminateProcess(pOverlay->process->info.hProcess, 0);
+		if (!success) success = TerminateProcess(pOverlay->process->handle, 0);
 		if(success)
 		{
-			WaitForSingleObject(pOverlay->process->info.hProcess, INFINITE);
-			CloseHandle(pOverlay->process->info.hProcess);
-			CloseHandle(pOverlay->process->info.hThread);
+			WaitForSingleObject(pOverlay->process->handle, INFINITE);
+			CloseHandle(pOverlay->process->handle);
 		}
 		else
 		{
@@ -257,7 +261,7 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 }
 static bool ProcessIsRunning(PlatformProcess* pProcess)
 {
-	return WaitForSingleObject(pProcess->info.hProcess, 20) != 0;
+	return WaitForSingleObject(pProcess->handle, 20) != 0;
 }
 static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
 {

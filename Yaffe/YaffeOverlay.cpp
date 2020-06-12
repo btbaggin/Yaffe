@@ -15,7 +15,7 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			delete pOverlay->process; pOverlay->process = nullptr;
 			pOverlay->showing = false;
 		}
-		else if (!pOverlay->allow_input && !ProcessIsRunning(pOverlay->process)) //TODO checking allow_input feels kind of hacky, but Firefox reports it stopped
+		else if (!ProcessIsRunning(pOverlay->process))
 		{
 			//Check if the program closed without going through the overlay
 			CloseOverlay(pOverlay, false);
