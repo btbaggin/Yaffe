@@ -15,7 +15,7 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			delete pOverlay->process; pOverlay->process = nullptr;
 			pOverlay->showing = false;
 		}
-		else if (!ProcessIsRunning(pOverlay->process))
+		else if (!pOverlay->allow_input && !ProcessIsRunning(pOverlay->process))
 		{
 			//Check if the program closed without going through the overlay
 			CloseOverlay(pOverlay, false);
@@ -36,36 +36,37 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			buffer.mi.mouseData = (DWORD)(-scroll.Y * WHEEL_DELTA);
 			SendInput(1, &buffer, sizeof(INPUT));
 
-			struct KeyMapping
-			{
-				CONTROLLER_BUTTONS cont;
-				bool is_key;
-				u32 input;
-				bool do_shift;
+			struct KeyMapping { CONTROLLER_BUTTONS cont; KEYS input; bool do_shift; };
+			struct MouseMapping { CONTROLLER_BUTTONS cont; MOUSE_BUTTONS input; };
+			KeyMapping k_mappings[3] = {
+				{CONTROLLER_RIGHT_SHOULDER, KEY_Tab},
+				{CONTROLLER_LEFT_SHOULDER, KEY_Tab, true},
+				{CONTROLLER_START, KEY_Enter},
 			};
-			KeyMapping mappings[5] = {
-				{CONTROLLER_RIGHT_SHOULDER, true, KEY_Tab},
-				{CONTROLLER_LEFT_SHOULDER, true, KEY_Tab, true},
-				{CONTROLLER_START, true, KEY_Enter},
-				{CONTROLLER_A, false, BUTTON_Left},
-				{CONTROLLER_X, false, BUTTON_Right},
+			MouseMapping m_mappings[2] = {
+				{CONTROLLER_A, BUTTON_Left},
+				{CONTROLLER_X, BUTTON_Right},
 			};
-
-			for (u32 i = 0; i < ArrayCount(mappings); i++)
+			
+			for (u32 i = 0; i < ArrayCount(k_mappings); i++)
 			{
-				KeyMapping key = mappings[i];
+				KeyMapping key = k_mappings[i];
 				if (IsControllerPressed(key.cont))
 				{
 					if (key.do_shift) SendKeyMessage(KEY_Shift, true);
-					if (key.is_key) SendKeyMessage((KEYS)key.input, true);
-					else SendMouseMessage((MOUSE_BUTTONS)key.input, true);
+					SendKeyMessage(key.input, true);
 				}
 				else if (IsControllerReleased(key.cont))
 				{
 					if (key.do_shift) SendKeyMessage(KEY_Shift, false);
-					if (key.is_key) SendKeyMessage((KEYS)key.input, false);
-					else SendMouseMessage((MOUSE_BUTTONS)key.input, false);
+					SendKeyMessage(key.input, false);
 				}
+			}
+			for (u32 i = 0; i < ArrayCount(m_mappings); i++)
+			{
+				MouseMapping key = m_mappings[i];
+				if (IsControllerPressed(key.cont)) SendMouseMessage(key.input, true);
+				else if (IsControllerReleased(key.cont)) SendMouseMessage(key.input, false);
 			}
 		}
 	}

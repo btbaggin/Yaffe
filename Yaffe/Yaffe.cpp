@@ -179,7 +179,7 @@ static void StartProgram(YaffeState* pState, char* pCommand)
 		overlay->process->handle = pi.hProcess;
 
 		//Wait for the program to start
-		WaitForSingleObject(pi.hProcess, INFINITE);
+		WaitForSingleObject(pi.hProcess, 5000);
 
 		//Search through open processes for children of our processID
 		//Some processes like FireFox or Edge start new processes for tabs
@@ -804,7 +804,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_ACTIVATE:
 	{
 		//Scale down FPS to 10 when not focused
-		UPDATE_FREQUENCY = wParam == WA_INACTIVE ? 10 : 30;
+		UPDATE_FREQUENCY = wParam == WA_INACTIVE ? 15 : 30;
 		ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
 	}
 
