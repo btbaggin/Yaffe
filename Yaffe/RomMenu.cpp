@@ -150,7 +150,7 @@ public:
 
 			char buffer[1000];
 			BuildCommandLine(buffer, exe, path, roms, args);
-			StartProgram(&g_state, buffer);
+			StartProgram(&g_state, buffer, path);
 
 			g_state.overlay.allow_input = (exe->platform < 0);
 		}

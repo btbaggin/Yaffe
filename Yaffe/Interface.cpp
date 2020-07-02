@@ -46,6 +46,11 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 		size.Width += ICON_SIZE_WITH_MARGIN;
 	}
 
+	if (pModal->button)
+	{
+		size.Height += 24;//TODO
+	}
+
 	v2 window_position = V2((pWindow->width - size.Width) / 2, (pWindow->height - size.Height) / 2);
 	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
 	
@@ -67,9 +72,15 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 		icon_position.X += ICON_SIZE;
 	}
 	pModal->content->Render(pState, icon_position);
+
+	v2 right = window_position + size - V2(24);
+	if (pModal->button)
+	{
+		PushRightAlignedTextWithIcon(pState, &right, BITMAP_ButtonA, 24, FONT_Subtext, pModal->button, TEXT_FOCUSED);
+	}
 }
 
-static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose)
+static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose, const char* pButtons)
 {
 	_WriteBarrier();
 	if (pState->current_modal < MAX_MODAL_COUNT)
@@ -79,6 +90,7 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalCont
 		modal->title = pTitle;
 		modal->icon = pImage;
 		modal->content = pContent;
+		modal->button = pButtons;
 		modal->on_close = pClose;
 		pState->modals[modal_index] = modal;
 		return true;
@@ -87,7 +99,7 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalCont
 }
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::string pMessage, BITMAPS pImage, modal_window_close* pClose)
 {
-	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose);
+	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose, "Ok");
 }
 
 static MODAL_CLOSE(ErrorModalClose) { if (pState->error_is_critical) pState->is_running = false; }

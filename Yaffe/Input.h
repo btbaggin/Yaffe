@@ -27,6 +27,7 @@ typedef struct
 
 // returns 0 on success, 1167 on not connected. Might be others.
 typedef int(__stdcall * get_gamepad_ex)(int, XINPUT_GAMEPAD_EX*);
+typedef void(__stdcall * gamepad_enable)(bool);
 
 
 //https://forums.tigsource.com/index.php?topic=26792.0
@@ -42,6 +43,7 @@ struct YaffeInput
 	v2 right_stick;
 
 	get_gamepad_ex XInputGetState;
+	gamepad_enable XInputEnable;
 	HKL layout;
 
 	long last_input;

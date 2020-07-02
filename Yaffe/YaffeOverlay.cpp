@@ -1,27 +1,110 @@
+class OverlayModal : public ModalContent
+{
+	float volume;
+	MODAL_RESULTS Update(float pDeltaTime)
+	{
+		CoInitialize(NULL);
+		IMMDeviceEnumerator *deviceEnumerator = NULL;
+		HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
+		IMMDevice *defaultDevice = NULL;
+
+		hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
+		deviceEnumerator->Release();
+		deviceEnumerator = NULL;
+
+		IAudioEndpointVolume *endpointVolume = NULL;
+		hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, NULL, (void**)&endpointVolume);
+		defaultDevice->Release();
+		defaultDevice = NULL;
+
+		hr = endpointVolume->GetMasterVolumeLevelScalar(&volume);
+
+		if (IsLeftPressed())
+		{
+			volume = max(0.0F, volume - 0.05F);
+			hr = endpointVolume->SetMasterVolumeLevelScalar(volume, NULL);
+		}
+		else if (IsRightPressed())
+		{
+			volume = min(1.0F, volume + 0.05F);
+			hr = endpointVolume->SetMasterVolumeLevelScalar(volume, NULL);
+		}
+
+		endpointVolume->Release();
+		CoUninitialize();
+
+		return ModalContent::Update(pDeltaTime);
+	}
+
+	void Render(RenderState* pState, v2 pPosition)
+	{
+		float x = 24 + UI_MARGIN;
+		PushSizedQuad(pState, pPosition, V2(24), GetBitmap(g_assets, BITMAP_Speaker));
+		PushSizedQuad(pState, pPosition + V2(x, 0), V2(720 - x, 24), ELEMENT_BACKGROUND);
+		PushSizedQuad(pState, pPosition + V2(x, 0), V2((720 - x) * volume, 24), ACCENT_COLOR);
+	}
+
+public:
+	OverlayModal()
+	{
+		size = V2(720, 24);
+	}
+};
+
+static void DisposeOverlay(Overlay* pOverlay)
+{
+	delete pOverlay->process; pOverlay->process = nullptr;
+	pOverlay->showing = false;
+	delete pOverlay->modal->content;
+	delete pOverlay->modal;
+}
+
 static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 {
 	if (pOverlay->process)
 	{
-		if (IsControllerPressed(CONTROLLER_GUIDE) || IsKeyPressed(KEY_Escape))
+		if (IsControllerPressed(CONTROLLER_GUIDE) || IsEscPressed())
 		{
 			pOverlay->showing = !pOverlay->showing;
 
-			if (pOverlay->showing) ShowOverlay(pOverlay);
-			else CloseOverlay(pOverlay, false);
-		}
-		else if (pOverlay->showing && IsEnterPressed())
-		{
-			CloseOverlay(pOverlay, true);
-			delete pOverlay->process; pOverlay->process = nullptr;
-			pOverlay->showing = false;
+			if (pOverlay->showing)
+			{
+				ShowOverlay(pOverlay);
+
+				if (pOverlay->modal)
+				{
+					delete pOverlay->modal->content;
+					delete pOverlay->modal;
+				}
+
+				pOverlay->modal = new ModalWindow();
+				pOverlay->modal->title = "Yaffe";
+				pOverlay->modal->icon = BITMAP_None;
+				pOverlay->modal->button = "Quit Application";
+				pOverlay->modal->content = new OverlayModal();
+			}
+			else
+			{
+				CloseOverlay(pOverlay, false);
+			}
 		}
 		else if (!pOverlay->allow_input && !ProcessIsRunning(pOverlay->process))
 		{
 			//Check if the program closed without going through the overlay
 			CloseOverlay(pOverlay, false);
-			delete pOverlay->process; pOverlay->process = nullptr;
-			pOverlay->showing = false;
+			DisposeOverlay(pOverlay);
 		}
+
+		if (pOverlay->showing)
+		{
+			MODAL_RESULTS result = pOverlay->modal->content->Update(pDeltaTime);
+			if (result == MODAL_RESULT_Ok)
+			{
+				CloseOverlay(pOverlay, true);
+				DisposeOverlay(pOverlay);
+			}
+		}
+		
 
 		if (pOverlay->allow_input && !pOverlay->showing)
 		{
@@ -86,14 +169,7 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		PushQuad(pRender, V2(0), size, OVERLAY_COLOR);
-
-		ModalWindow modal = {};
-		modal.title = "Confirm";
-		modal.icon = BITMAP_Question;
-		modal.content = new StringModal("Are you sure you wish to exit?");
-
-		RenderModalWindow(pRender, &modal, overlay);
-		delete modal.content;
+		RenderModalWindow(pRender, pState->overlay.modal, overlay);
 
 		char buffer[20];
 		GetTime(buffer, 20);

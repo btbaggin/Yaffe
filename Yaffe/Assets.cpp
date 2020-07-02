@@ -347,6 +347,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	AddBitmapAsset(assets, BITMAP_App, ".\\Assets\\apps.png");
 	AddBitmapAsset(assets, BITMAP_Emulator, ".\\Assets\\emulator.png");
 	AddBitmapAsset(assets, BITMAP_Recent, ".\\Assets\\recents.png");
+	AddBitmapAsset(assets, BITMAP_Speaker, ".\\Assets\\speaker.png");
 
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };

@@ -138,14 +138,14 @@ public:
 
 		if (pState->selected_platform == -1 && IsEnterPressed())
 		{
-			DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr), BITMAP_None, OnAddApplicationModalClose);
+			DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr), BITMAP_None, OnAddApplicationModalClose, "Save");
 		}
 		else
 		{
 			if (IsEnterPressed()) FocusElement(UI_Roms);
 			else if (IsInfoPressed() && GetSelectedPlatform()->type != PLATFORM_Recents)
 			{
-				DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose);
+				DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose, "Save");
 			}
 		}
 	}

@@ -44,12 +44,14 @@ struct TaskCallbackQueue
 	u64 i;
 };
 
+struct ModalWindow;
 struct Overlay
 {
 	PlatformWindow* form;
 	bool showing;
 	bool allow_input;
 
+	ModalWindow* modal;
 	PlatformProcess* process;
 };
 
@@ -59,7 +61,6 @@ struct YaffeTime
 	long current_time;
 };
 
-struct ModalWindow;
 struct YaffeState
 {
 	PlatformWindow* form;
@@ -74,7 +75,7 @@ struct YaffeState
 	bool error_is_critical;
 
 	ModalWindow* modals[MAX_MODAL_COUNT];
-	volatile LONG current_modal;
+	volatile long current_modal;
 
 	PlatformWorkQueue* work_queue;
 	TaskCallbackQueue callbacks;

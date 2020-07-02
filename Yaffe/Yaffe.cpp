@@ -2,7 +2,7 @@
 
 /*
 TODO
-Controller movement isn't working 100%
+Asset packer
 Don't hardcode emulator allocation count
 */
 
@@ -17,6 +17,8 @@ Don't hardcode emulator allocation count
 #include <Windows.h>
 #include <ShlObj.h>
 #include <WinInet.h>
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
 
 #include "Yaffe.h"
 #include "Memory.h"
@@ -54,6 +56,8 @@ struct PlatformProcess
 {
 	HANDLE handle;
 	DWORD id;
+	DWORD thread_id;
+	char path[MAX_PATH];
 };
 
 struct win32_thread_info
@@ -166,7 +170,7 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 	return files;
 }
 
-static void StartProgram(YaffeState* pState, char* pCommand)
+static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 {
 	Overlay* overlay = &pState->overlay;
 
@@ -176,33 +180,9 @@ static void StartProgram(YaffeState* pState, char* pCommand)
 	{
 		overlay->process = new PlatformProcess();
 		overlay->process->id = pi.dwProcessId;
+		overlay->process->thread_id = pi.dwThreadId;
 		overlay->process->handle = pi.hProcess;
-
-		//Wait for the program to start
-		WaitForSingleObject(pi.hProcess, 5000);
-
-		//Search through open processes for children of our processID
-		//Some processes like FireFox or Edge start new processes for tabs
-		//Our processID could be killed and a new "window manager" process started
-		HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-		PROCESSENTRY32 pe32;
-		pe32.dwSize = sizeof(PROCESSENTRY32);
-		if (Process32First(hProcessSnap, &pe32))
-		{
-			do
-			{
-				if (pe32.th32ParentProcessID == pi.dwProcessId)
-				{
-					overlay->process->id = pe32.th32ProcessID;
-					//Get handle to new pid
-					CloseHandle(overlay->process->handle);
-					overlay->process->handle = OpenProcess(SYNCHRONIZE, 0, overlay->process->id);
-					break;
-				}
-			} while (Process32Next(hProcessSnap, &pe32));
-		}
-
-		CloseHandle(hProcessSnap);
+		strcpy(overlay->process->path, pExe);
 	}
 	else
 	{
@@ -229,29 +209,45 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 
 	if (pTerminate)
 	{
-		bool success = false;
-		//Search all top level windows for one with our process
-		//We can use this to send a WM_QUIT message to close the window nicely
-		//We don't use PlatformProcess.dwThreadID because the processID might have changed
-		//From searching for the parent process in StartProgram
-		for (HWND hwnd = GetTopWindow(NULL); hwnd; hwnd = ::GetNextWindow(hwnd, GW_HWNDNEXT)) {
-			DWORD dwWindowProcessID;
-			DWORD dwThreadID = ::GetWindowThreadProcessId(hwnd, &dwWindowProcessID);
-			if (dwWindowProcessID == pOverlay->process->id)
+		//Try the nice way of closing the process
+		bool success = PostThreadMessage(pOverlay->process->thread_id, WM_QUIT, 0, 0);
+
+		if (!success)
+		{
+			//Go nuclear
+			//Find the exe and force kill it
+			HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+			if (hProcessSnap != INVALID_HANDLE_VALUE)
 			{
-				success = PostThreadMessage(dwThreadID, WM_QUIT, 0, 0);
-				break;
+				PROCESSENTRY32 pe32;
+				pe32.dwSize = sizeof(PROCESSENTRY32);
+				if (Process32First(hProcessSnap, &pe32))
+				{
+					//Get the name of the exe from the path
+					wchar_t wcstring[MAX_PATH];
+					mbstowcs_s(0, wcstring, strlen(pOverlay->process->path) + 1, pOverlay->process->path, _TRUNCATE);
+					LPWSTR exe_name = PathFindFileNameW(wcstring);
+
+					do
+					{
+						if (StrCmpW(pe32.szExeFile, exe_name) == 0)
+						{
+							HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
+							if (hProcess)
+							{
+								success = TerminateProcess(hProcess, 0);
+								WaitForSingleObject(hProcess, INFINITE);
+								CloseHandle(hProcess);
+							}
+							break;
+						}
+					} while (Process32Next(hProcessSnap, &pe32));
+				}
+				CloseHandle(hProcessSnap);
 			}
 		}
 
-		//The nice way didn't work, just kill it
-		if (!success) success = TerminateProcess(pOverlay->process->handle, 0);
-		if(success)
-		{
-			WaitForSingleObject(pOverlay->process->handle, INFINITE);
-			CloseHandle(pOverlay->process->handle);
-		}
-		else
+		if(!success)
 		{
 			char* error = new char[100];
 			sprintf(error, "Unable to terminate process: %d", (int)GetLastError());
@@ -697,11 +693,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 	assert(xinput_dll);
 
-	//Get the address of ordinal 100.
-	FARPROC lpfnGetProcessID = GetProcAddress(xinput_dll, (LPCSTR)100); // load ordinal 100
-
 	//Assign it to getControllerData for easier use
-	g_input.XInputGetState = (get_gamepad_ex)lpfnGetProcessID;
+	g_input.XInputGetState = (get_gamepad_ex)GetProcAddress(xinput_dll, (LPCSTR)100);
+	g_input.XInputEnable = (gamepad_enable)GetProcAddress(xinput_dll, "XInputEnable");
 	g_input.layout = GetKeyboardLayout(0);
 
 	YaffeTime time = {};

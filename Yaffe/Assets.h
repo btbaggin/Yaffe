@@ -35,6 +35,7 @@ enum BITMAPS : u8
 	BITMAP_App,
 	BITMAP_Emulator,
 	BITMAP_Recent,
+	BITMAP_Speaker,
 
 	BITMAP_COUNT
 };
