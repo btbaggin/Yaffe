@@ -57,9 +57,54 @@ static void SendFontToGraphicsCard(void* pData)
 	}
 }
 
+static void AddBitmapAsset(Assets* pAssets, Bitmap* pTexture, TextureAtlas* pAtlas, BITMAPS pName, const char* pPath)
+{
+	AssetSlot* slot = pAssets->bitmaps + pName;
+	slot->type = ASSET_TYPE_Bitmap;
+	slot->state = ASSET_STATE_Loaded;
+
+	slot->bitmap = AllocStruct(pAssets, Bitmap);
+	memcpy(slot->bitmap, pTexture, sizeof(Bitmap));
+	for (u32 i = 0; i < pAtlas->count; i++)
+	{
+		TextureAtlasEntry e = pAtlas->entries[i];
+		if (strcmp(e.file, pPath) == 0)
+		{
+			slot->bitmap->uv_min = V2(e.u_min, e.v_min);
+			slot->bitmap->uv_max = V2(e.u_max, e.v_max);
+			return;
+		}
+	}
+}
+static void LoadTexturePack(void* pData)
+{
+	TextureAtlasWork* work = (TextureAtlasWork*)pData;
+	SendTextureToGraphicsCard(work->bitmap);
+
+	TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas);
+
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Error, "error.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Question, "question.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ArrowUp, "arrow_up.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ArrowDown, "arrow_down.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonA, "button_a.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonB, "button_b.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonX, "button_x.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonY, "button_y.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_App, "apps.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Emulator, "emulator.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Recent, "recents.png");
+	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Speaker, "speaker.png");
+
+	ta_DisposeTextureAtlas(&atlas);
+	delete pData;
+}
+
 static Bitmap* LoadBitmapAsset(Assets* pAssets, const char* pPath)
 {
 	Bitmap* bitmap = AllocStruct(pAssets, Bitmap);
+	bitmap->uv_min = V2(0);
+	bitmap->uv_max = V2(1);
 
 	bitmap->data = stbi_load(pPath, &bitmap->width, &bitmap->height, &bitmap->channels, STBI_rgb_alpha);
 	if (!bitmap->data) return nullptr;
@@ -158,6 +203,16 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 			work->slot->bitmap = LoadBitmapAsset(work->assets, work->load_info);
 			AddTaskCallback(work->queue, SendTextureToGraphicsCard, work->slot->bitmap);
 			break;
+		case ASSET_TYPE_TexturePack:
+		{
+			work->slot->bitmap = LoadBitmapAsset(work->assets, work->load_info);
+
+			TextureAtlasWork* ta_work = new TextureAtlasWork();
+			ta_work->bitmap = work->slot->bitmap;
+			ta_work->atlas = (const char*)work->data;
+			AddTaskCallback(work->queue, LoadTexturePack, ta_work);
+		}
+		break;
 		case ASSET_TYPE_Font:
 			work->slot->font = LoadFontAsset(work->assets, work->load_info, work->slot->size);
 			AddTaskCallback(work->queue, SendFontToGraphicsCard, work->slot->font);
@@ -167,15 +222,16 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 	delete work;
 }
 
-static void LoadAsset(Assets* pAssets, AssetSlot* pSlot)
+static void LoadAsset(Assets* pAssets, AssetSlot* pSlot, void* pData = nullptr)
 {
 	if (_InterlockedCompareExchange(&pSlot->state, ASSET_STATE_Queued, ASSET_STATE_Unloaded) == ASSET_STATE_Unloaded)
 	{
 		LoadAssetWork* work = new LoadAssetWork();
-		work->load_info = pSlot->load_path;
+		work->load_info = pSlot->load_path.c_str();
 		work->slot = pSlot;
 		work->assets = pAssets;
 		work->queue = &g_state.callbacks;
+		work->data = pData;
 		QueueUserWorkItem(g_state.work_queue, LoadAssetBackground, work);
 	}
 }
@@ -185,7 +241,7 @@ static Bitmap* GetBitmap(Assets* pAssets, AssetSlot* pSlot)
 	if (pSlot)
 	{
 		pSlot->last_requested = __rdtsc();
-		if (pSlot->state == ASSET_STATE_Unloaded && FileExists(pSlot->load_path))
+		if (pSlot->state == ASSET_STATE_Unloaded && FileExists(pSlot->load_path.c_str()))
 		{
 			LoadAsset(pAssets, pSlot);
 		}
@@ -202,7 +258,7 @@ static Bitmap* GetBitmap(Assets* pAssets, BITMAPS pAsset)
 static FontInfo* GetFont(Assets* pAssets, AssetSlot* pSlot)
 {
 	pSlot->last_requested = __rdtsc();
-	if (pSlot->state == ASSET_STATE_Unloaded && FileExists(pSlot->load_path))
+	if (pSlot->state == ASSET_STATE_Unloaded && FileExists(pSlot->load_path.c_str()))
 	{
 		LoadAsset(pAssets, pSlot);
 	}
@@ -307,15 +363,24 @@ static void AddBitmapAsset(Assets* pAssets, BITMAPS pName, const char* pPath)
 {
 	AssetSlot* slot = pAssets->bitmaps + pName;
 	slot->type = ASSET_TYPE_Bitmap;
-	strcpy(slot->load_path, pPath);
+	slot->load_path = pPath;
 }
 
 static void AddFontAsset(Assets* pAssets, FONTS pName, const char* pPath, float pSize)
 {
 	AssetSlot* slot = pAssets->fonts + pName;
 	slot->type = ASSET_TYPE_Font;
-	strcpy(slot->load_path, pPath);
+	slot->load_path = pPath;
 	slot->size = pSize;
+}
+
+static void LoadPackedTexture(Assets* pAssets, BITMAPS pName, const char* pTexture, const char* pAtlas)
+{
+	AssetSlot* slot = pAssets->bitmaps + pName;
+	slot->type = ASSET_TYPE_TexturePack;
+	slot->load_path = pTexture;
+
+	LoadAsset(pAssets, slot, (void*)pAtlas);
 }
 
 static Assets* LoadAssets(void* pStack, u64 pSize)
@@ -336,18 +401,8 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	AddFontAsset(assets, FONT_Title, ".\\Assets\\roboto-black.ttf", 36);
 	AddBitmapAsset(assets, BITMAP_Background, ".\\Assets\\background.jpg");
 	AddBitmapAsset(assets, BITMAP_Placeholder, ".\\Assets\\placeholder.jpg");
-	AddBitmapAsset(assets, BITMAP_Error, ".\\Assets\\error.png");
-	AddBitmapAsset(assets, BITMAP_Question, ".\\Assets\\question.png");
-	AddBitmapAsset(assets, BITMAP_ArrowUp, ".\\Assets\\arrow_up.png");
-	AddBitmapAsset(assets, BITMAP_ArrowDown, ".\\Assets\\arrow_down.png");
-	AddBitmapAsset(assets, BITMAP_ButtonA, ".\\Assets\\button_a.png");
-	AddBitmapAsset(assets, BITMAP_ButtonB, ".\\Assets\\button_b.png");
-	AddBitmapAsset(assets, BITMAP_ButtonX, ".\\Assets\\button_x.png");
-	AddBitmapAsset(assets, BITMAP_ButtonY, ".\\Assets\\button_y.png");
-	AddBitmapAsset(assets, BITMAP_App, ".\\Assets\\apps.png");
-	AddBitmapAsset(assets, BITMAP_Emulator, ".\\Assets\\emulator.png");
-	AddBitmapAsset(assets, BITMAP_Recent, ".\\Assets\\recents.png");
-	AddBitmapAsset(assets, BITMAP_Speaker, ".\\Assets\\speaker.png");
+
+	LoadPackedTexture(assets, BITMAP_TexturePack, ".\\Assets\\packed.png", ".\\Assets\\atlas.tex");
 
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };
@@ -427,7 +482,10 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 	CombinePath(rom_asset_path, rom_asset_path, pExe->display_name);
 	CreateDirectoryIfNotExists(rom_asset_path);
 
-	char boxart[MAX_PATH];
+	//Check to see if the image has already been loaded and use that.
+	//This allows us to call SetAssetPaths without having to worry 
+	//if we have already called it for that image
+	char* boxart = new char[MAX_PATH];
 	CombinePath(boxart, rom_asset_path, "boxart.jpg");
 	std::string boxart_string = std::string(boxart);
 	auto find = g_assets->display_images.find(boxart_string);
@@ -435,14 +493,14 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 	{
 		AssetSlot slot = {};
 		slot.type = ASSET_TYPE_Bitmap;
-		strcpy(slot.load_path, boxart);
+		slot.load_path = boxart_string;
 		g_assets->display_images.emplace(std::make_pair(boxart_string, slot));
 		find = g_assets->display_images.find(boxart_string);
 	}
 	assert(find != g_assets->display_images.end());
 	*pBoxart = &find->second;
 
-	char banner[MAX_PATH];
+	char* banner = new char[MAX_PATH];
 	CombinePath(banner, rom_asset_path, "banner.jpg");
 	std::string banner_string = std::string(banner);
 	find = g_assets->display_images.find(banner_string);
@@ -450,7 +508,7 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 	{
 		AssetSlot slot = {};
 		slot.type = ASSET_TYPE_Bitmap;
-		strcpy(slot.load_path, banner);
+		slot.load_path = banner_string;
 		g_assets->display_images.emplace(std::make_pair(banner_string, slot));
 		find = g_assets->display_images.find(banner_string);
 	}

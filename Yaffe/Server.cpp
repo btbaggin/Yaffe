@@ -141,7 +141,7 @@ static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
 	Verify(result == 0, "Unable to retrieve image", ERROR_TYPE_Warning);
 
 	static const u32 READ_AMOUNT = 100;
-	HANDLE file = CreateFileA(pSlot->load_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+	HANDLE file = CreateFileA(pSlot->load_path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
 	Verify(file, "Unable to download image", ERROR_TYPE_Warning);
 
 	char buffer[READ_AMOUNT];

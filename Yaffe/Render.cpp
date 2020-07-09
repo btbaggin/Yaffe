@@ -283,11 +283,14 @@ static void PushQuad(RenderState* pState, v2 pMin, v2 pMax, v4 pColor, Bitmap* p
 {
 	pMin.Y = g_state.form->height - pMin.Y;
 	pMax.Y = g_state.form->height - pMax.Y;
+	v2 uv_min = pTexture ? pTexture->uv_min : V2(0);
+	v2 uv_max = pTexture ? pTexture->uv_max : V2(1);
+
 	Vertex* vertices = PushArray(pState->vertices, Vertex, 4);
-	vertices[0] = { { pMin.X, pMin.Y }, pColor, {0, 0} };
-	vertices[1] = { { pMin.X, pMax.Y }, pColor, {0, 1} };
-	vertices[2] = { { pMax.X, pMax.Y }, pColor, {1, 1} };
-	vertices[3] = { { pMax.X, pMin.Y }, pColor, {1, 0} };
+	vertices[0] = { { pMin.X, pMin.Y }, pColor, {uv_min.U, uv_min.V} };
+	vertices[1] = { { pMin.X, pMax.Y }, pColor, {uv_min.U, uv_max.V} };
+	vertices[2] = { { pMax.X, pMax.Y }, pColor, {uv_max.U, uv_max.V} };
+	vertices[3] = { { pMax.X, pMin.Y }, pColor, {uv_max.U, uv_min.V} };
 
 	u16* indices = PushArray(pState->indices, u16, 6);
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;

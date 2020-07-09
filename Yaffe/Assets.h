@@ -16,6 +16,7 @@ enum ASSET_STATE
 enum ASSET_TYPES : u8
 {
 	ASSET_TYPE_Bitmap,
+	ASSET_TYPE_TexturePack,
 	ASSET_TYPE_Font,
 };
 
@@ -24,6 +25,7 @@ enum BITMAPS : u8
 	BITMAP_None,
 	BITMAP_Background,
 	BITMAP_Placeholder,
+	BITMAP_TexturePack,
 	BITMAP_Error,
 	BITMAP_Question,
 	BITMAP_ArrowUp,
@@ -66,6 +68,8 @@ struct Bitmap
 	s32 height;
 	s32 channels;
 	u32 texture;
+	v2 uv_min;
+	v2 uv_max;
 	u8* data;
 };
 
@@ -73,14 +77,15 @@ struct AssetSlot
 {
 	u32 state;
 	u64 last_requested;
-	ASSET_TYPES type;
 	union 
 	{
 		Bitmap* bitmap;
 		FontInfo* font;
 	};
-	char load_path[MAX_PATH];
 	float size;
+
+	ASSET_TYPES type;
+	std::string load_path;
 };
 
 struct Assets
@@ -100,6 +105,13 @@ struct LoadAssetWork
 	TaskCallbackQueue* queue;
 	AssetSlot* slot;
 	const char* load_info;
+	void* data;
+};
+
+struct TextureAtlasWork
+{
+	Bitmap* bitmap;
+	const char* atlas;
 };
 
 void EvictOldestAsset(Assets* pAssets);
