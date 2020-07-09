@@ -39,6 +39,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 	const float TITLEBAR_SIZE = 32.0F;
 	const float ICON_SIZE = 32.0F;
 	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
+	const float BUTTON_SIZE = 24.0F;
 	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pModal->content->size;
 	if (pModal->icon != BITMAP_None)
 	{
@@ -46,10 +47,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 		size.Width += ICON_SIZE_WITH_MARGIN;
 	}
 
-	if (pModal->button)
-	{
-		size.Height += 24;//TODO
-	}
+	if (pModal->button) size.Height += BUTTON_SIZE;
 
 	v2 window_position = V2((pWindow->width - size.Width) / 2, (pWindow->height - size.Height) / 2);
 	v2 icon_position = window_position + V2(UI_MARGIN * 2, UI_MARGIN + TITLEBAR_SIZE); //Window + margin for window + margin for icon
@@ -73,10 +71,10 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 	}
 	pModal->content->Render(pState, icon_position);
 
-	v2 right = window_position + size - V2(24);
+	v2 right = window_position + size - V2(BUTTON_SIZE);
 	if (pModal->button)
 	{
-		PushRightAlignedTextWithIcon(pState, &right, BITMAP_ButtonA, 24, FONT_Subtext, pModal->button, TEXT_FOCUSED);
+		PushRightAlignedTextWithIcon(pState, &right, BITMAP_ButtonA, BUTTON_SIZE, FONT_Subtext, pModal->button, TEXT_FOCUSED);
 	}
 }
 
