@@ -81,23 +81,16 @@ static void LoadTexturePack(void* pData)
 	TextureAtlasWork* work = (TextureAtlasWork*)pData;
 	SendTextureToGraphicsCard(work->bitmap);
 
-	TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas);
-
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Error, "error.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Question, "question.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ArrowUp, "arrow_up.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ArrowDown, "arrow_down.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonA, "button_a.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonB, "button_b.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonX, "button_x.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_ButtonY, "button_y.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_App, "apps.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Emulator, "emulator.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Recent, "recents.png");
-	AddBitmapAsset(g_assets, work->bitmap, &atlas, BITMAP_Speaker, "speaker.png");
+	TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas->config);
+	for (u32 i = 0; i < ArrayCount(work->atlas->textures); i++)
+	{
+		PackedTextureEntry t = work->atlas->textures[i];
+		AddBitmapAsset(g_assets, work->bitmap, &atlas, t.bitmap, t.file);
+	}
 
 	ta_DisposeTextureAtlas(&atlas);
 	delete pData;
+	delete work->atlas;
 }
 
 static Bitmap* LoadBitmapAsset(Assets* pAssets, const char* pPath)
@@ -209,7 +202,7 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 
 			TextureAtlasWork* ta_work = new TextureAtlasWork();
 			ta_work->bitmap = work->slot->bitmap;
-			ta_work->atlas = (const char*)work->data;
+			ta_work->atlas = (PackedTexture*)work->data;
 			AddTaskCallback(work->queue, LoadTexturePack, ta_work);
 		}
 		break;
@@ -374,13 +367,13 @@ static void AddFontAsset(Assets* pAssets, FONTS pName, const char* pPath, float 
 	slot->size = pSize;
 }
 
-static void LoadPackedTexture(Assets* pAssets, BITMAPS pName, const char* pTexture, const char* pAtlas)
+static void LoadPackedTexture(Assets* pAssets, BITMAPS pName, PackedTexture* pAtlas)
 {
 	AssetSlot* slot = pAssets->bitmaps + pName;
 	slot->type = ASSET_TYPE_TexturePack;
-	slot->load_path = pTexture;
+	slot->load_path = pAtlas->image;
 
-	LoadAsset(pAssets, slot, (void*)pAtlas);
+	LoadAsset(pAssets, slot, pAtlas);
 }
 
 static Assets* LoadAssets(void* pStack, u64 pSize)
@@ -402,7 +395,22 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	AddBitmapAsset(assets, BITMAP_Background, ".\\Assets\\background.jpg");
 	AddBitmapAsset(assets, BITMAP_Placeholder, ".\\Assets\\placeholder.jpg");
 
-	LoadPackedTexture(assets, BITMAP_TexturePack, ".\\Assets\\packed.png", ".\\Assets\\atlas.tex");
+	PackedTexture* text = new PackedTexture();
+	text->textures[0] = { BITMAP_Error, "error.png" };
+	text->textures[1] = { BITMAP_Question, "question.png" };
+	text->textures[2] = { BITMAP_ArrowUp, "arrow_up.png" };
+	text->textures[3] = { BITMAP_ArrowDown, "arrow_down.png" };
+	text->textures[4] = { BITMAP_ButtonA, "button_a.png" };
+	text->textures[5] = { BITMAP_ButtonB, "button_b.png" };
+	text->textures[6] = { BITMAP_ButtonX, "button_x.png" };
+	text->textures[7] = { BITMAP_ButtonY, "button_y.png" };
+	text->textures[8] = { BITMAP_App, "apps.png" };
+	text->textures[9] = { BITMAP_Emulator, "emulator.png" };
+	text->textures[10] = { BITMAP_Recent, "recents.png" };
+	text->textures[11] = { BITMAP_Speaker, "speaker.png" };
+	text->config = ".\\Assets\\atlas.tex";
+	text->image = ".\\Assets\\packed.png";
+	LoadPackedTexture(assets, BITMAP_TexturePack, text);
 
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };

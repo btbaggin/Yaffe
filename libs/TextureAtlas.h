@@ -57,7 +57,7 @@ static TextureAtlas ta_ReadTextureAtlas(const char* pPath)
 	fread(&atlas.count, sizeof(int), 1, file);
 
 	atlas.entries = new TextureAtlasEntry[atlas.count];
-	for(int i = 0; i < atlas.count; i++)
+	for(unsigned int i = 0; i < atlas.count; i++)
 	{
 		TextureAtlasEntry* e = atlas.entries + i;;
 		int width, height, x, y;

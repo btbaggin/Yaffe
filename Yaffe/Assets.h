@@ -108,10 +108,25 @@ struct LoadAssetWork
 	void* data;
 };
 
+struct PackedTextureEntry
+{
+	BITMAPS bitmap;
+	const char* file;
+};
+
+struct PackedTexture
+{
+	PackedTextureEntry textures[BITMAP_COUNT - BITMAP_TexturePack - 1];
+
+	const char* image;
+	const char* config;
+};
+
 struct TextureAtlasWork
 {
 	Bitmap* bitmap;
-	const char* atlas;
+	PackedTexture* atlas;
 };
+
 
 void EvictOldestAsset(Assets* pAssets);
