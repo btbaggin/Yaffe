@@ -1,53 +1,34 @@
+const float VOLUME_DELTA = 0.05F;
+const float CURSOR_SPEED = 400.0F;
+
 class OverlayModal : public ModalContent
 {
+	const float ICON_SIZE = 24.0F;
+	const float MODAL_WIDTH = 720.0F;
 	float volume;
 	MODAL_RESULTS Update(float pDeltaTime)
 	{
-		CoInitialize(NULL);
-		IMMDeviceEnumerator *deviceEnumerator = NULL;
-		HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
-		IMMDevice *defaultDevice = NULL;
+		float delta = 0.0F;
+		if (IsLeftPressed()) delta = -VOLUME_DELTA;
+		else if (IsRightPressed()) delta = VOLUME_DELTA;
 
-		hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
-		deviceEnumerator->Release();
-		deviceEnumerator = NULL;
-
-		IAudioEndpointVolume *endpointVolume = NULL;
-		hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, NULL, (void**)&endpointVolume);
-		defaultDevice->Release();
-		defaultDevice = NULL;
-
-		hr = endpointVolume->GetMasterVolumeLevelScalar(&volume);
-
-		if (IsLeftPressed())
-		{
-			volume = max(0.0F, volume - 0.05F);
-			hr = endpointVolume->SetMasterVolumeLevelScalar(volume, NULL);
-		}
-		else if (IsRightPressed())
-		{
-			volume = min(1.0F, volume + 0.05F);
-			hr = endpointVolume->SetMasterVolumeLevelScalar(volume, NULL);
-		}
-
-		endpointVolume->Release();
-		CoUninitialize();
+		GetAndSetVolume(&volume, delta);
 
 		return ModalContent::Update(pDeltaTime);
 	}
 
 	void Render(RenderState* pState, v2 pPosition)
 	{
-		float x = 24 + UI_MARGIN;
-		PushSizedQuad(pState, pPosition, V2(24), GetBitmap(g_assets, BITMAP_Speaker));
-		PushSizedQuad(pState, pPosition + V2(x, 0), V2(720 - x, 24), ELEMENT_BACKGROUND);
-		PushSizedQuad(pState, pPosition + V2(x, 0), V2((720 - x) * volume, 24), ACCENT_COLOR);
+		float x = ICON_SIZE + UI_MARGIN;
+		PushSizedQuad(pState, pPosition, V2(ICON_SIZE), GetBitmap(g_assets, BITMAP_Speaker));
+		PushSizedQuad(pState, pPosition + V2(x, 0), V2(MODAL_WIDTH - x, ICON_SIZE), ELEMENT_BACKGROUND);
+		PushSizedQuad(pState, pPosition + V2(x, 0), V2((MODAL_WIDTH - x) * volume, ICON_SIZE), ACCENT_COLOR);
 	}
 
 public:
 	OverlayModal()
 	{
-		size = V2(720, 24);
+		size = V2(MODAL_WIDTH, ICON_SIZE);
 	}
 };
 
@@ -88,7 +69,7 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 				CloseOverlay(pOverlay, false);
 			}
 		}
-		else if (!pOverlay->allow_input && !ProcessIsRunning(pOverlay->process))
+		else if (!pOverlay->allow_input && !ProcessIsRunning(pOverlay->process)) //Kind of a hack, but I can't get it to report browsers running correctly
 		{
 			//Check if the program closed without going through the overlay
 			CloseOverlay(pOverlay, false);
@@ -105,19 +86,22 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			}
 		}
 		
-
+		//Allow us to control the mouse with XInput
 		if (pOverlay->allow_input && !pOverlay->showing)
 		{
+			PlatformInputMessage message;
+			
 			v2 mouse = GetMousePosition();
 			v2 move = NormalizeStickInput(g_input.left_stick);
-			SetCursor(mouse + (move * 400 * pDeltaTime));
+
+			message.action = INPUT_ACTION_Cursor;
+			message.cursor = mouse + (move * CURSOR_SPEED * pDeltaTime);
+			SendInputMessage(&message);
 
 			v2 scroll = NormalizeStickInput(g_input.right_stick);
-			INPUT buffer = {};
-			buffer.type = INPUT_MOUSE;
-			buffer.mi.dwFlags = MOUSEEVENTF_WHEEL;
-			buffer.mi.mouseData = (DWORD)(-scroll.Y * WHEEL_DELTA);
-			SendInput(1, &buffer, sizeof(INPUT));
+			message.action = INPUT_ACTION_Scroll;
+			message.scroll = scroll.Y;
+			SendInputMessage(&message);
 
 			struct KeyMapping { CONTROLLER_BUTTONS cont; KEYS input; bool do_shift; };
 			struct MouseMapping { CONTROLLER_BUTTONS cont; MOUSE_BUTTONS input; };
@@ -131,25 +115,50 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 				{CONTROLLER_X, BUTTON_Right},
 			};
 			
+			message.action = INPUT_ACTION_Key;
 			for (u32 i = 0; i < ArrayCount(k_mappings); i++)
 			{
 				KeyMapping key = k_mappings[i];
 				if (IsControllerPressed(key.cont))
 				{
-					if (key.do_shift) SendKeyMessage(KEY_Shift, true);
-					SendKeyMessage(key.input, true);
+					message.down = true;
+					if (key.do_shift)
+					{
+						message.key = KEY_Shift;
+						SendInputMessage(&message);
+					}
+					message.key = key.input;
+					SendInputMessage(&message);
 				}
 				else if (IsControllerReleased(key.cont))
 				{
-					if (key.do_shift) SendKeyMessage(KEY_Shift, false);
-					SendKeyMessage(key.input, false);
+					message.down = false;
+					if (key.do_shift)
+					{
+						message.key = KEY_Shift;
+						SendInputMessage(&message);
+					}
+					message.key = key.input;
+					SendInputMessage(&message);
 				}
 			}
+
+			message.action = INPUT_ACTION_Mouse;
 			for (u32 i = 0; i < ArrayCount(m_mappings); i++)
 			{
 				MouseMapping key = m_mappings[i];
-				if (IsControllerPressed(key.cont)) SendMouseMessage(key.input, true);
-				else if (IsControllerReleased(key.cont)) SendMouseMessage(key.input, false);
+				if (IsControllerPressed(key.cont))
+				{
+					message.down = true;
+					message.button = key.input;
+					SendInputMessage(&message);
+				}
+				else if (IsControllerReleased(key.cont))
+				{
+					message.down = false;
+					message.button = key.input;
+					SendInputMessage(&message);
+				}
 			}
 		}
 	}

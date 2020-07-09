@@ -29,6 +29,8 @@ Don't hardcode emulator allocation count
 #include "Platform.h"
 #include "Database.h"
 #include <json.h>
+#include "TextureAtlas.h"
+
 using json = picojson::value;
 
 struct PlatformWorkQueue
@@ -58,6 +60,16 @@ struct PlatformProcess
 	DWORD id;
 	DWORD thread_id;
 	char path[MAX_PATH];
+};
+
+struct PlatformInputMessage
+{
+	INPUT_ACTIONS action;
+	v2 cursor;
+	bool down;
+	MOUSE_BUTTONS button;
+	KEYS key;
+	float scroll;
 };
 
 struct win32_thread_info
@@ -295,33 +307,63 @@ static void SwapBuffers(PlatformWindow* pWindow)
 {
 	SwapBuffers(pWindow->dc);
 }
-static void SendKeyMessage(KEYS pKey, bool pDown)
+static void SendInputMessage(PlatformInputMessage* pMessage)
 {
 	INPUT buffer = {};
-	buffer.type = INPUT_KEYBOARD;
-	buffer.ki.wVk = pKey;
-	if(!pDown) buffer.ki.dwFlags = KEYEVENTF_KEYUP;
-	SendInput(1, &buffer, sizeof(INPUT));
-}
-static void SendMouseMessage(MOUSE_BUTTONS pButtons, bool pDown)
-{
-	INPUT buffer = {};
-	buffer.type = INPUT_MOUSE;
-	buffer.mi.dwFlags = MOUSEEVENTF_ABSOLUTE;
-	if(pButtons == BUTTON_Left) buffer.mi.dwFlags |= (pDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP);
-	else if (pButtons == BUTTON_Right) buffer.mi.dwFlags |= (pDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP);
-	SendInput(1, &buffer, sizeof(INPUT));
-}
-static void SetCursor(v2 pPosition)
-{
-	if (!SetCursorPos((int)pPosition.X, (int)pPosition.Y))
+	switch (pMessage->action)
 	{
-		char error[100];
-		sprintf(error, "Unable to set cursor: %d", (int)GetLastError());
-		MessageBoxA(g_state.form->handle, error, "Error", MB_OK);
-	}
-}
+	case INPUT_ACTION_Key:
+		buffer.type = INPUT_KEYBOARD;
+		buffer.ki.wVk = pMessage->key;
+		if (!pMessage->down) buffer.ki.dwFlags = KEYEVENTF_KEYUP;
+		break;
 
+	case INPUT_ACTION_Mouse:
+		buffer.type = INPUT_MOUSE;
+		buffer.mi.dwFlags = MOUSEEVENTF_ABSOLUTE;
+		if (pMessage->button == BUTTON_Left) buffer.mi.dwFlags |= (pMessage->down ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP);
+		else if (pMessage->button == BUTTON_Right) buffer.mi.dwFlags |= (pMessage->down ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP);
+		break;
+
+	case INPUT_ACTION_Cursor:
+		SetCursorPos((int)pMessage->cursor.X, (int)pMessage->cursor.Y);
+		return;
+
+	case INPUT_ACTION_Scroll:
+		buffer.type = INPUT_MOUSE;
+		buffer.mi.dwFlags = MOUSEEVENTF_WHEEL;
+		buffer.mi.mouseData = (DWORD)(-pMessage->scroll * WHEEL_DELTA);
+		break;
+	}
+	SendInput(1, &buffer, sizeof(INPUT));
+}
+static void GetAndSetVolume(float* pVolume, float pDelta)
+{
+	CoInitialize(NULL);
+	IMMDeviceEnumerator *deviceEnumerator = NULL;
+	HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
+	IMMDevice *defaultDevice = NULL;
+
+	hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
+	deviceEnumerator->Release();
+	deviceEnumerator = NULL;
+
+	IAudioEndpointVolume *endpointVolume = NULL;
+	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, NULL, (void**)&endpointVolume);
+	defaultDevice->Release();
+	defaultDevice = NULL;
+
+	hr = endpointVolume->GetMasterVolumeLevelScalar(pVolume);
+
+	if (pDelta != 0)
+	{
+		*pVolume = min(1.0F, max(0.0F, *pVolume + pDelta));
+		hr = endpointVolume->SetMasterVolumeLevelScalar(*pVolume, NULL);
+	}
+
+	endpointVolume->Release();
+	CoUninitialize();
+}
 
 //
 // Main Yaffe loop

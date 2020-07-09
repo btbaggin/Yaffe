@@ -7,8 +7,7 @@ struct YaffeState;
 struct Platform;
 struct Executable;
 struct Overlay;
-enum KEYS;
-enum MOUSE_BUTTONS;
+struct PlatformInputMessage;
 
 
 #define WORK_QUEUE_CALLBACK(name)void name(PlatformWorkQueue* pQueue, void* pData)
@@ -23,9 +22,8 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory);
 static bool CreateDirectoryIfNotExists(const char* pDirectory);
 static bool CopyFileTo(const char* pOld, const char* pNew);
 
-static void SendKeyMessage(KEYS pKey, bool pDown);
-static void SendMouseMessage(MOUSE_BUTTONS pButtons, bool pDown);
-static void SetCursor(v2 pPosition);
+static void SendInputMessage(PlatformInputMessage* pMessage);
+static void GetAndSetVolume(float* pVolume, float pDelta);
 
 static void SwapBuffers(PlatformWindow* pWindow);
 
