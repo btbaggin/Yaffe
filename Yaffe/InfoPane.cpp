@@ -20,6 +20,7 @@ public:
 				ExecutableDisplay* rom = plat->file_display.GetItem(g_state.selected_rom);
 				if (rom)
 				{
+					//Background
 					float width = pRegion.size.Width * INFO_PANE_WIDTH;
 					PushSizedQuad(pState, position, V2(width, pRegion.size.Height), MODAL_BACKGROUND);
 

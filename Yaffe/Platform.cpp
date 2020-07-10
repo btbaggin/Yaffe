@@ -16,10 +16,12 @@ static void BuildCommandLine(char* pBuffer, Executable* pExe, const char* pEmuPa
 {
 	if (pExe->platform < 0)
 	{
+		//Application, we only have the path to the application and it's arguments
 		sprintf(pBuffer, "\"%s\" %s", pEmuPath, pArgs);
 	}
 	else
 	{
+		//Emulator, path to emulator, args to emulator, and path to rom file
 		char exe_path[MAX_PATH];
 		CombinePath(exe_path, pPath, pExe->file);
 		sprintf(pBuffer, "\"%s\" %s \"%s\"", pEmuPath, pArgs, exe_path);
@@ -28,7 +30,7 @@ static void BuildCommandLine(char* pBuffer, Executable* pExe, const char* pEmuPa
 
 static void CleanFileName(char* pName, char* pDest)
 {
-	//Stip any bracket/parenthesis that are commonly appended to names
+	//Strip any bracket/parenthesis that are commonly appended to names
 	bool in_bracket = false;
 	u32 j = 0;
 	for (u32 i = 0; pName[i] != 0; i++)
@@ -50,16 +52,6 @@ static void CleanFileName(char* pName, char* pDest)
 	{
 		pDest[j] = '\0';
 	}
-}
-
-static Platform* FindPlatform(YaffeState* pState, s32 pId)
-{
-	for (u32 i = 0; i < pState->platforms.count; i++)
-	{
-		Platform* p = pState->platforms.GetItem(i);
-		if (p->id == pId) return p;
-	}
-	return nullptr;
 }
 
 static void RefreshExecutables(YaffeState* pState, Platform* pApp)

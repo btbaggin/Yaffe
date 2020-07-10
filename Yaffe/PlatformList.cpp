@@ -3,7 +3,7 @@ static MODAL_CLOSE(OnAddApplicationModalClose)
 	if (pResult == MODAL_RESULT_Ok)
 	{
 		PlatformDetailModal* add = (PlatformDetailModal*)pContent;
-		if (add->application.checked)
+		if (add->GetIsApplication())
 		{
 
 			AddNewApplication(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
@@ -22,7 +22,7 @@ static MODAL_CLOSE(OnUpdateApplicationModalClose)
 	if (pResult == MODAL_RESULT_Ok)
 	{
 		PlatformDetailModal* add = (PlatformDetailModal*)pContent;
-		if (add->application.checked)
+		if (add->GetIsApplication())
 		{
 			UpdateApplication(add->GetName(), add->GetExecutable(), add->GetArgs(), add->GetFolder());
 		}

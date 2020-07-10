@@ -1,6 +1,7 @@
 #pragma once
 const s32 GLOBAL_INPUT_DELAY = 100;
-#define CHECK_KEY_DELAY() if(g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
+#define InputDown(state, input) (g_input.state[input] & 0x80) != 0
+#define InputUp(state, input) (g_input.state[input] & 0x80) == 0
 #define CHECK_KEY_INPUT(expression) if(expression) { g_input.last_input = clock(); return true; } else { return false; }
 #define XINPUT_INPUT_DEADZONE  7849
 
@@ -192,12 +193,4 @@ enum DIRECTIONS
 	DIRECTION_Down,
 	DIRECTION_Left,
 	DIRECTION_Right,
-};
-
-enum INPUT_ACTIONS
-{
-	INPUT_ACTION_Scroll,
-	INPUT_ACTION_Key,
-	INPUT_ACTION_Mouse,
-	INPUT_ACTION_Cursor,
 };

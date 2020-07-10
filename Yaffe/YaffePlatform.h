@@ -8,6 +8,13 @@ struct Platform;
 struct Executable;
 struct Overlay;
 struct PlatformInputMessage;
+enum INPUT_ACTIONS
+{
+	INPUT_ACTION_Scroll,
+	INPUT_ACTION_Key,
+	INPUT_ACTION_Mouse,
+	INPUT_ACTION_Cursor,
+};
 
 
 #define WORK_QUEUE_CALLBACK(name)void name(PlatformWorkQueue* pQueue, void* pData)
@@ -22,7 +29,7 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory);
 static bool CreateDirectoryIfNotExists(const char* pDirectory);
 static bool CopyFileTo(const char* pOld, const char* pNew);
 
-static void SendInputMessage(PlatformInputMessage* pMessage);
+static void SendInputMessage(INPUT_ACTIONS pAction, PlatformInputMessage* pMessage);
 static void GetAndSetVolume(float* pVolume, float pDelta);
 
 static void SwapBuffers(PlatformWindow* pWindow);

@@ -3,7 +3,6 @@ class RomMenu : public UiControl
 public:
 	s32 first_visible;
 
-	v2 ideal_tile_size = {};
 	s32 tiles_x;
 	s32 tiles_y;
 
@@ -187,7 +186,9 @@ public:
 			region.size = V2(pState->form->width, pState->form->height) - region.position;
 
 			List<ExecutableDisplay> roms = plat->file_display;
-			GetTileSize(&roms, region, plat->type != PLATFORM_Emulator);
+			v2 ideal_tile_size = GetTileSize(&roms, region, plat->type != PLATFORM_Emulator);
+
+			//Display index of the window (does not include roms which are not displayed)
 			s32 effective_i = 0;
 			for (s32 i = 0; i < (s32)roms.count; i++)
 			{
@@ -208,8 +209,8 @@ public:
 				rom->size = Lerp(rom->size, pDeltaTime * ANIMATION_SPEED, rom->target_size);
 
 				//This is to prevent roms from sliding in from 0,0 when the application is first started
-				if (rom->position.X == 0 && rom->position.Y == 0) rom->position = rom_position;
-				rom->position = Lerp(rom->position, pDeltaTime * ANIMATION_SPEED, rom_position);
+				if (IsZero(rom->position)) rom->position = rom_position;
+				else rom->position = Lerp(rom->position, pDeltaTime * ANIMATION_SPEED, rom_position);
 
 				if (i >= GetFirstVisibleTile() && i <= GetLastVisibleTile() &&
 					!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
@@ -220,7 +221,7 @@ public:
 		}
 	}
 
-	void GetTileSize(List<ExecutableDisplay>* pRoms, UiRegion pRegion, bool pFindMax)
+	v2 GetTileSize(List<ExecutableDisplay>* pRoms, UiRegion pRegion, bool pFindMax)
 	{
 		float width = 0;
 		float height = 0;
@@ -245,58 +246,65 @@ public:
 			}
 
 			if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
-			if (!b) return;
-
-			v2 menu_size = pRegion.size;
-			//Scale based on the larger dimension
-			if (b->width > b->height)
+			if (b)
 			{
-				float aspect = (float)b->height / (float)b->width;
-				width = GetDefaultItemSize(menu_size.Width, 4);
-				height = aspect * width;
-			}
-			else
-			{
-				float aspect = (float)b->width / (float)b->height;
-				height = GetDefaultItemSize(menu_size.Height, 3);
-				width = aspect * height;
-			}
-			ideal_tile_size = V2(width, height);
-			tiles_x = (s32)(menu_size.Width / width);
-			tiles_y = (s32)(menu_size.Height / height);
-
-			for (s32 i = max(0, GetFirstVisibleTile()); i < GetLastVisibleTile(); i++)
-			{
-				if (i >= (s32)pRoms->count) return;
-
-				//Try to find a bitmap actually loaded so we get proper sizes.
-				//Should be the first one most times
-				ExecutableDisplay* rom = pRoms->GetItem(i);
-				Bitmap* bitmap = GetBitmap(g_assets, rom->boxart);
-				if (!bitmap) bitmap = GetBitmap(g_assets, BITMAP_Placeholder);
-				if (!bitmap) continue;
-
-				rom->target_size = ideal_tile_size;
-				//By default on the recents menu it chooses the widest game boxart (see pFindMax in GetTileSize)
-				//We wouldn't want vertical boxart to stretch to the horizontal dimensions
-				//This will scale boxart that is different aspect to fit within the tile_size.Height
-				float real_aspect = (float)bitmap->width / (float)bitmap->height;
-				float tile_aspect = ideal_tile_size.Width / ideal_tile_size.Height;
-
-				//If an aspect is wider than it is tall, it is > 1
-				//If the two aspect ratios are on other sides of one, it means we need to scale
-				if (signbit(real_aspect - 1) != signbit(tile_aspect - 1))
+				v2 menu_size = pRegion.size;
+				//Scale based on the larger dimension
+				if (b->width > b->height)
 				{
-					rom->target_size.Width = rom->target_size.Height * real_aspect;
+					float aspect = (float)b->height / (float)b->width;
+					width = GetDefaultItemSize(menu_size.Width, 4);
+					height = aspect * width;
+				}
+				else
+				{
+					float aspect = (float)b->width / (float)b->height;
+					height = GetDefaultItemSize(menu_size.Height, 3);
+					width = aspect * height;
+				}
+				v2 ideal_tile_size = V2(width, height);
+				tiles_x = (s32)(menu_size.Width / width);
+				tiles_y = (s32)(menu_size.Height / height);
+
+				for (s32 i = max(0, GetFirstVisibleTile()); i < GetLastVisibleTile(); i++)
+				{
+					if (i >= (s32)pRoms->count) break;
+
+					//Get bitmap or placeholder if it isn't loaded yet
+					ExecutableDisplay* rom = pRoms->GetItem(i);
+					Bitmap* bitmap = GetBitmap(g_assets, rom->boxart);
+					if (!bitmap) bitmap = GetBitmap(g_assets, BITMAP_Placeholder);
+					if (!bitmap) continue;
+
+					rom->target_size = ideal_tile_size;
+					//By default on the recents menu it chooses the widest game boxart (see pFindMax in GetTileSize)
+					//We wouldn't want vertical boxart to stretch to the horizontal dimensions
+					//This will scale boxart that is different aspect to fit within the tile_size.Height
+					float real_aspect = (float)bitmap->width / (float)bitmap->height;
+					float tile_aspect = ideal_tile_size.Width / ideal_tile_size.Height;
+
+					//If an aspect is wider than it is tall, it is > 1
+					//If the two aspect ratios are on other sides of one, it means we need to scale
+					if (signbit(real_aspect - 1) != signbit(tile_aspect - 1))
+					{
+						rom->target_size.Width = rom->target_size.Height * real_aspect;
+					}
+
+					//Scale the selected rom if we are currently focused
+					if (i == g_state.selected_rom && IsFocused())
+					{
+						rom->target_size = rom->target_size * (1 + SELECTED_ROM_SIZE);
+					}
+
+					//This is to prevent roms from growing from nothing when we first select a platform
+					if (IsZero(rom->size)) rom->size = rom->target_size;
 				}
 
-				if (i == g_state.selected_rom && IsFocused())
-				{
-					rom->target_size = rom->target_size * (1 + SELECTED_ROM_SIZE);
-				}
-				if (rom->size.X == 0 && rom->size.Y == 0) rom->size = rom->target_size;
+				return ideal_tile_size;
 			}
 		}
+
+		return V2(0);
 	}
 
 	RomMenu() : UiControl(UI_Roms)

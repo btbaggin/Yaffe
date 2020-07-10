@@ -151,7 +151,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 			bool shift = IsKeyDown(KEY_Shift);
 			bool control = IsKeyDown(KEY_Control);
 
-			if (control && IsKeyPressed(KEY_V, false))
+			if (control && IsKeyPressedWithoutDelay(KEY_V))
 			{
 				char* text = GetClipboardText();
 				if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
@@ -160,7 +160,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 			for (int i = KEY_Backspace; i <= KEY_Quote; i++)
 			{
 				int key = i;
-				if (IsKeyPressed((KEYS)key, false))
+				if (IsKeyPressed((KEYS)key))
 				{
 					if (shift) key |= STB_TEXTEDIT_K_SHIFT;
 					if (control) key |= STB_TEXTEDIT_K_CONTROL;

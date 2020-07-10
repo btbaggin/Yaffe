@@ -114,7 +114,7 @@ public:
 		{
 			while (!exists[++selected_index] && selected_index != -1)
 			{
-				if (selected_index == ArrayCount(exists) - 1) selected_index = -2;
+				if (selected_index == ArrayCount(exists) - 1) selected_index = -2; //-2 because we will increment once before checking the loop
 			}
 			FilterRoms();
 		}
@@ -155,7 +155,6 @@ public:
 			position = Lerp(position, pDeltaTime * ANIMATION_SPEED, V2(pState->form->width * EMU_MENU_PERCENT, -100));
 		}
 	}
-
 
 	void ResetRoms()
 	{

@@ -1,6 +1,6 @@
 #pragma once
 
-MemoryStack* CreateMemoryStack(void* pMemory, u64 pSize)
+static MemoryStack* CreateMemoryStack(void* pMemory, u64 pSize)
 {
 	MemoryStack* stack = (MemoryStack*)pMemory;
 
@@ -10,12 +10,12 @@ MemoryStack* CreateMemoryStack(void* pMemory, u64 pSize)
 	return stack;
 }
 
-inline void* MemoryAddress(MemoryStack* pStack, u64 pCount = 0)
+static inline void* MemoryAddress(MemoryStack* pStack, u64 pCount = 0)
 {
 	return (char*)(pStack + 1) + pCount;
 }
 
-void* PushSize(MemoryStack* pStack, u64 pSize)
+static void* PushSize(MemoryStack* pStack, u64 pSize)
 {
 	assert(pStack->count + pSize <= pStack->size);
 	void* alloc = (char*)pStack + sizeof(MemoryStack) + pStack->count;
@@ -23,12 +23,14 @@ void* PushSize(MemoryStack* pStack, u64 pSize)
 
 	return alloc;
 }
-void* PushAndZeroSize(MemoryStack* pStack, u64 pSize)
+
+static void* PushAndZeroSize(MemoryStack* pStack, u64 pSize)
 {
 	void* size = PushSize(pStack, pSize);
 	memset(size, 0, (size_t)pSize);
 	return size;
 }
+
 #define PushStruct(pStack, pType) (pType*)PushSize(pStack, sizeof(pType))
 #define PushArray(pStack, pType, pCount) (pType*)PushSize(pStack, sizeof(pType) * pCount)
 #define PushZerodArray(pStack, pType, pCount) (pType*)PushAndZeroSize(pStack, sizeof(pType) * pCount)
@@ -118,8 +120,6 @@ bool MergeMemoryBlocks(MemoryBlock* pFirst, MemoryBlock* pSecond)
 				std::lock_guard<std::mutex> guard(pool_mutex);
 				pSecond->previous->next = pSecond->next;
 				pSecond->next->previous = pSecond->previous;
-
-
 				pSecond->next = pSecond->previous = nullptr;
 
 				pFirst->size += sizeof(MemoryBlock) + pSecond->size;

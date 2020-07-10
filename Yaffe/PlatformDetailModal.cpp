@@ -1,5 +1,7 @@
 class PlatformDetailModal : public ModalContent
 {
+	Textbox fields[4];
+	Checkbox application;
 	const float WIDTH = 720;
 
 	MODAL_RESULTS Update(float pDeltaTime)
@@ -23,8 +25,6 @@ class PlatformDetailModal : public ModalContent
 	}
 
 public:
-	Checkbox application;
-	Textbox fields[4];
 	s32 id;
 	const char* field_label[4] = { "Name", "Executable", "Args", "Folder" };
 
@@ -53,4 +53,5 @@ public:
 	char* GetExecutable() { return GetTextboxText(&fields[1]); }
 	char* GetArgs() { return GetTextboxText(&fields[2]); }
 	char* GetFolder() { return GetTextboxText(&fields[3]); }
+	bool GetIsApplication() { return application.checked; }
 };

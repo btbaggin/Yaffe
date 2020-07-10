@@ -48,6 +48,8 @@ static v2 Lerp(v2 a, float time, v2 b)
 	return result;
 }
 
+inline static bool IsZero(v2 a) { return a.X == 0 && a.Y == 0; }
+
 static bool operator<(v2 l, v2 r)
 {
 	return l.X < r.X && l.Y < r.Y;

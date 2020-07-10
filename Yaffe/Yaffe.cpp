@@ -64,11 +64,13 @@ struct PlatformProcess
 
 struct PlatformInputMessage
 {
-	INPUT_ACTIONS action;
 	v2 cursor;
 	bool down;
-	MOUSE_BUTTONS button;
-	KEYS key;
+	union
+	{
+		MOUSE_BUTTONS button;
+		KEYS key;
+	};
 	float scroll;
 };
 
@@ -307,10 +309,10 @@ static void SwapBuffers(PlatformWindow* pWindow)
 {
 	SwapBuffers(pWindow->dc);
 }
-static void SendInputMessage(PlatformInputMessage* pMessage)
+static void SendInputMessage(INPUT_ACTIONS pAction, PlatformInputMessage* pMessage)
 {
 	INPUT buffer = {};
-	switch (pMessage->action)
+	switch (pAction)
 	{
 	case INPUT_ACTION_Key:
 		buffer.type = INPUT_KEYBOARD;

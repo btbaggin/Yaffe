@@ -5,14 +5,9 @@ public:
 	v2 size;
 	virtual MODAL_RESULTS Update(float pDeltaTime)
 	{
-		if (IsEnterPressed())
-		{
-			return MODAL_RESULT_Ok;
-		}
-		else if (IsEscPressed())
-		{
-			return MODAL_RESULT_Cancel;
-		}
+		if (IsEnterPressed()) return MODAL_RESULT_Ok;
+		else if (IsEscPressed()) return MODAL_RESULT_Cancel;
+		
 		return MODAL_RESULT_None;
 	}
 	virtual void Render(RenderState* pState, v2 pPosition) = 0;

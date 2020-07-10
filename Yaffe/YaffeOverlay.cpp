@@ -94,14 +94,12 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			v2 mouse = GetMousePosition();
 			v2 move = NormalizeStickInput(g_input.left_stick);
 
-			message.action = INPUT_ACTION_Cursor;
 			message.cursor = mouse + (move * CURSOR_SPEED * pDeltaTime);
-			SendInputMessage(&message);
+			SendInputMessage(INPUT_ACTION_Cursor, &message);
 
 			v2 scroll = NormalizeStickInput(g_input.right_stick);
-			message.action = INPUT_ACTION_Scroll;
 			message.scroll = scroll.Y;
-			SendInputMessage(&message);
+			SendInputMessage(INPUT_ACTION_Scroll, &message);
 
 			struct KeyMapping { CONTROLLER_BUTTONS cont; KEYS input; bool do_shift; };
 			struct MouseMapping { CONTROLLER_BUTTONS cont; MOUSE_BUTTONS input; };
@@ -115,7 +113,6 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 				{CONTROLLER_X, BUTTON_Right},
 			};
 			
-			message.action = INPUT_ACTION_Key;
 			for (u32 i = 0; i < ArrayCount(k_mappings); i++)
 			{
 				KeyMapping key = k_mappings[i];
@@ -125,10 +122,10 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 					if (key.do_shift)
 					{
 						message.key = KEY_Shift;
-						SendInputMessage(&message);
+						SendInputMessage(INPUT_ACTION_Key, &message);
 					}
 					message.key = key.input;
-					SendInputMessage(&message);
+					SendInputMessage(INPUT_ACTION_Key, &message);
 				}
 				else if (IsControllerReleased(key.cont))
 				{
@@ -136,14 +133,13 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 					if (key.do_shift)
 					{
 						message.key = KEY_Shift;
-						SendInputMessage(&message);
+						SendInputMessage(INPUT_ACTION_Key, &message);
 					}
 					message.key = key.input;
-					SendInputMessage(&message);
+					SendInputMessage(INPUT_ACTION_Key, &message);
 				}
 			}
 
-			message.action = INPUT_ACTION_Mouse;
 			for (u32 i = 0; i < ArrayCount(m_mappings); i++)
 			{
 				MouseMapping key = m_mappings[i];
@@ -151,13 +147,13 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 				{
 					message.down = true;
 					message.button = key.input;
-					SendInputMessage(&message);
+					SendInputMessage(INPUT_ACTION_Mouse, &message);
 				}
 				else if (IsControllerReleased(key.cont))
 				{
 					message.down = false;
 					message.button = key.input;
-					SendInputMessage(&message);
+					SendInputMessage(INPUT_ACTION_Mouse, &message);
 				}
 			}
 		}

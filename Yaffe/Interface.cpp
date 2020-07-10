@@ -40,6 +40,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 	const float ICON_SIZE = 32.0F;
 	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
 	const float BUTTON_SIZE = 24.0F;
+
 	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pModal->content->size;
 	if (pModal->icon != BITMAP_None)
 	{
@@ -140,29 +141,27 @@ static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
 	float title = GetFontSize(FONT_Title);
 	v2 menu_position = pMain.size - V2(UI_MARGIN, UI_MARGIN + title);
 
+	//Time
 	char buffer[20];
 	GetTime(buffer, 20);
 	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED); menu_position.X -= UI_MARGIN;
 
+	//Action buttons
 	menu_position.Y += (title - GetFontSize(FONT_Normal));
 	switch (GetFocusedElement())
 	{
 		case UI_Roms:
-		{
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter"); menu_position.X -= UI_MARGIN;
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back"); menu_position.X -= UI_MARGIN;
-		}
+		PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter"); menu_position.X -= UI_MARGIN;
+		PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back"); menu_position.X -= UI_MARGIN;
 		break;
 
 		case UI_Emulators:
+		Platform* plat = GetSelectedPlatform();
+		if (plat && plat->type != PLATFORM_Recents)
 		{
-			Platform* plat = GetSelectedPlatform();
-			if (plat && plat->type != PLATFORM_Recents)
-			{
-				PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Info"); menu_position.X -= UI_MARGIN;
-			}
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select"); menu_position.X -= UI_MARGIN;
+			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Info"); menu_position.X -= UI_MARGIN;
 		}
+		PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select"); menu_position.X -= UI_MARGIN;
 		break;
 	}
 }
@@ -177,7 +176,7 @@ static void DisplayQuitMessage(YaffeState* pState)
 		std::vector<std::string> options;
 		options.push_back("Quit");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "Exit", new ListModal<std::string>(options), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "Exit", new ListModal<std::string>(options, "", nullptr), BITMAP_None, ExitModalClose);
 	}
 }
 

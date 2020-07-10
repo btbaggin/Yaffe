@@ -11,13 +11,14 @@ static std::string GetDisplayString(std::string* pInfo)
 	return *pInfo;
 }
 
+//We need to define GetDisplayString for each type that will be using this modal
 template <typename T>
 class ListModal : public ModalContent
 {
 	s32 index;
 	std::vector<T> items;
 	char title[200];
-	bool has_title;
+	bool has_title = false;
 
 	MODAL_RESULTS Update(float pDeltaTime)
 	{
@@ -78,21 +79,16 @@ class ListModal : public ModalContent
 
 public:
 	std::string old_value;
-	ListModal(std::vector<T> pItems)
-	{
-		items = pItems;
-		index = 0;
-		has_title = false;
-		CalculateSize();
-	}
-
 	ListModal(std::vector<T> pItems, std::string pData, const char* pTitle)
 	{
 		items = pItems;
 		index = 0;
 		old_value = pData;
-		strcpy(title, pTitle);
-		has_title = true;
+		if (pTitle)
+		{
+			has_title = true;
+			strcpy(title, pTitle);
+		}
 		CalculateSize();
 	}
 

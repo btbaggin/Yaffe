@@ -1,57 +1,46 @@
 #pragma once
 
-inline static bool IsKeyPressed(KEYS pKey, bool pDelay = true)
+inline static bool IsKeyPressed(KEYS pKey)
 {
-	if (pDelay) CHECK_KEY_DELAY();
-	//Current state is down
-	//Previous state is up
-	CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0 &&
-		(g_input.previous_keyboard_state[pKey] & 0x80) == 0)
+	if (g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
+	CHECK_KEY_INPUT(InputDown(current_keyboard_state, pKey) && InputUp(previous_keyboard_state, pKey));
 }
-
+inline static bool IsKeyPressedWithoutDelay(KEYS pKey)
+{
+	return InputDown(current_keyboard_state, pKey) && InputUp(previous_keyboard_state, pKey);
+}
 inline static bool IsButtonPressed(MOUSE_BUTTONS pButton)
 {
-		//Current state is down
-		//Previous state is up
-	CHECK_KEY_INPUT((g_input.current_keyboard_state[pButton] & 0x80) != 0 &&
-		(g_input.previous_keyboard_state[pButton] & 0x80) == 0);
+	CHECK_KEY_INPUT(InputDown(current_keyboard_state, pButton) && InputUp(previous_keyboard_state, pButton));
 }
 inline static bool IsControllerPressed(CONTROLLER_BUTTONS pController)
 {
-	CHECK_KEY_DELAY();
+	if (g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
 	CHECK_KEY_INPUT((g_input.current_controller_buttons & pController) != 0 &&
-		(g_input.previous_controller_buttons & pController) == 0);
+					(g_input.previous_controller_buttons & pController) == 0);
 }
 
 inline static bool IsKeyReleased(KEYS pKey)
 {
-	//Current state is up
-	//Previous state is down
-	return (g_input.current_keyboard_state[pKey] & 0x80) == 0 &&
-		(g_input.previous_keyboard_state[pKey] & 0x80) != 0;
+	return InputUp(current_keyboard_state, pKey) && InputDown(previous_keyboard_state, pKey);
 }
 inline static bool IsButtonReleased(MOUSE_BUTTONS pKey)
 {
-	//Current state is up
-	//Previous state is down
-	return (g_input.current_keyboard_state[pKey] & 0x80) == 0 &&
-		(g_input.previous_keyboard_state[pKey] & 0x80) != 0;
+	return InputUp(current_keyboard_state, pKey) && InputDown(previous_keyboard_state, pKey);
 }
 inline static bool IsControllerReleased(CONTROLLER_BUTTONS pController)
 {
-	//Current state is up
-	//Previous state is down
 	return (g_input.current_controller_buttons & pController) == 0 &&
-		(g_input.previous_controller_buttons & pController) != 0;
+		   (g_input.previous_controller_buttons & pController) != 0;
 }
 
 inline static bool IsKeyDown(KEYS pKey)
 {
-	CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0);
+	CHECK_KEY_INPUT(InputDown(current_keyboard_state, pKey));
 }
 inline static bool IsButtonDown(MOUSE_BUTTONS pKey)
 {
-	CHECK_KEY_INPUT((g_input.current_keyboard_state[pKey] & 0x80) != 0);
+	CHECK_KEY_INPUT(InputDown(current_keyboard_state, pKey));
 }
 inline static bool IsControllerDown(CONTROLLER_BUTTONS pController)
 {
@@ -60,11 +49,11 @@ inline static bool IsControllerDown(CONTROLLER_BUTTONS pController)
 
 inline static bool IsKeyUp(KEYS pKey)
 {
-	return (g_input.current_keyboard_state[pKey] & 0x80) == 0;
+	return InputUp(current_keyboard_state, pKey);
 }
 inline static bool IsButtonUp(MOUSE_BUTTONS pKey)
 {
-	return (g_input.current_keyboard_state[pKey] & 0x80) == 0;
+	return InputUp(current_keyboard_state, pKey);
 }
 inline static bool IsControllerUp(CONTROLLER_BUTTONS pController)
 {
@@ -73,7 +62,7 @@ inline static bool IsControllerUp(CONTROLLER_BUTTONS pController)
 
 inline static bool IsLeftStickPushed(DIRECTIONS pDirection)
 {
-	CHECK_KEY_DELAY();
+	if (g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
 	switch (pDirection)
 	{
 	case DIRECTION_Up:
