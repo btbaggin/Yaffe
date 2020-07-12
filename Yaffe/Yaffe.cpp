@@ -2,7 +2,7 @@
 
 /*
 TODO
-Asset packer
+Modals not centered for 1 frame?
 Don't hardcode emulator allocation count
 */
 

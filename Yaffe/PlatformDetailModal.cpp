@@ -4,12 +4,6 @@ class PlatformDetailModal : public ModalContent
 	Checkbox application;
 	const float WIDTH = 720;
 
-	MODAL_RESULTS Update(float pDeltaTime)
-	{
-		size = V2(WIDTH, 480);
-		return ModalContent::Update(pDeltaTime);
-	}
-
 	void Render(RenderState* pState, v2 pPosition)
 	{
 		float size = GetFontSize(FONT_Normal);
@@ -47,6 +41,7 @@ public:
 			application.enabled = false;
 			fields[0].enabled = false;
 		}
+		size = V2(WIDTH, 480);
 	}
 
 	char* GetName() { return GetTextboxText(&fields[0]); }
