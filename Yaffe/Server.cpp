@@ -54,15 +54,18 @@ static void InitYaffeService(PlatformService* pService)
 	}
 }
 
-static void OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
+static bool OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
 {
-	while (!*pHandle || *pHandle == INVALID_HANDLE_VALUE)
+	for (u32 i = 0; i < 3; i++)
 	{
 		if (WaitNamedPipeA(pPath, 2000))
 		{
 			*pHandle = CreateFileA(pPath, pAccess, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+			if (*pHandle != INVALID_HANDLE_VALUE) return true;
 		}
 	}
+
+	return false;
 }
 
 static void CreateServiceMessage(YaffeMessage* pArgs, char* pBuffer)
@@ -99,7 +102,8 @@ static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage
 		CreateServiceMessage(pMessage, message);
 
 		std::lock_guard<std::mutex> guard(pService->mutex);
-		OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE);
+		if (!OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE)) return false;
+
 		WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
 	}
 
@@ -125,8 +129,10 @@ static void ShutdownYaffeService(PlatformService* pService)
 	m.type = MESSAGE_TYPE_Quit;
 	CreateServiceMessage(&m, message);
 
-	OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_WRITE);
-	WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
+	if (OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_WRITE))
+	{
+		WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
+	}
 
 	CloseHandle(pService->handle);
 }
