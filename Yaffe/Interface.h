@@ -109,6 +109,15 @@ struct Checkbox
 	bool enabled;
 };
 
+struct FilePathBox
+{
+	char string[MAX_PATH];
+	float width;
+	FONTS font;
+	bool enabled;
+	bool files;
+};
+
 const v4 MENU_BACKGROUND = { 0.25F, 0.25F, 0.25F, 0.5F };
 const v4 TEXT_FOCUSED = { 0.95F, 0.95F, 0.95F, 1 };
 const v4 TEXT_UNFOCUSED = { 0.6F, 0.6F, 0.6F, 1 };

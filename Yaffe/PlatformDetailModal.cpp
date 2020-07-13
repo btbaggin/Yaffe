@@ -1,52 +1,68 @@
 class PlatformDetailModal : public ModalContent
 {
-	Textbox fields[4];
+	Textbox name;
+	FilePathBox path;
+	Textbox args;
+	FilePathBox roms;
 	Checkbox application;
 	const float WIDTH = 720;
 
 	void Render(RenderState* pState, v2 pPosition)
 	{
 		float size = GetFontSize(FONT_Normal);
-		RenderElementWithLabel(pState, Checkbox, application, pPosition, "Application");
+		PushText(pState, FONT_Normal, "Application", pPosition, TEXT_FOCUSED);
+		RenderCheckbox(pState, &application, pPosition + V2(LABEL_WIDTH, 0));
 
-		field_label[3] = application.checked ? "Image" : "Folder";
+		pPosition.Y += (size + UI_MARGIN);
+		PushText(pState, FONT_Normal, "Name", pPosition, TEXT_FOCUSED);
+		RenderTextbox(pState, &name, pPosition + V2(LABEL_WIDTH, 0));
 
-		for (u32 i = 0; i < ArrayCount(fields); i++)
-		{
-			float y = (size + UI_MARGIN) * (i + 1);
-			RenderElementWithLabel(pState, Textbox, fields[i], pPosition + V2(0, y), field_label[i]);
-		}
+		pPosition.Y += (size + UI_MARGIN);
+		PushText(pState, FONT_Normal, "Executable", pPosition, TEXT_FOCUSED);
+		RenderFilePathBox(pState, &path, pPosition + V2(LABEL_WIDTH, 0));
+
+		pPosition.Y += (size + UI_MARGIN);
+		PushText(pState, FONT_Normal, "Args", pPosition, TEXT_FOCUSED);
+		RenderTextbox(pState, &args, pPosition + V2(LABEL_WIDTH, 0));
+
+		pPosition.Y += (size + UI_MARGIN);
+		PushText(pState, FONT_Normal, application.checked ? "Image" : "Folder", pPosition, TEXT_FOCUSED);
+		RenderFilePathBox(pState, &roms, pPosition + V2(LABEL_WIDTH, 0));
 	}
 
 public:
 	s32 id;
-	const char* field_label[4] = { "Name", "Executable", "Args", "Folder" };
 
 	PlatformDetailModal(Platform* pPlatform)
 	{
 		float width = WIDTH - LABEL_WIDTH - UI_MARGIN * 2;
-		for (u32 i = 0; i < ArrayCount(fields); i++) fields[i] = CreateTextbox(width, FONT_Normal);
+		name = CreateTextbox(width, FONT_Normal);
+		path = CreateFilePathBox(width, FONT_Normal, true);
+		args = CreateTextbox(width, FONT_Normal);
+		roms = CreateFilePathBox(width, FONT_Normal, false);
 		application = CreateCheckbox();
 
 		if (pPlatform)
 		{
-			char path[MAX_PATH], args[100], roms[MAX_PATH];
-			GetPlatformInfo(pPlatform->id, path, args, roms);
-			SetTextboxText(&fields[0], pPlatform->name);
-			SetTextboxText(&fields[1], path);
-			SetTextboxText(&fields[2], args);
-			SetTextboxText(&fields[3], roms);
 			id = pPlatform->id;
+
+			char path_text[MAX_PATH], args_text[100], roms_text[MAX_PATH];
+			GetPlatformInfo(id, path_text, args_text, roms_text);
+			SetText(&name, pPlatform->name);
+			SetText(&path, path_text);
+			SetText(&args, args_text);
+			SetText(&roms, roms_text);
+
 			application.checked = (pPlatform->type == PLATFORM_App);
 			application.enabled = false;
-			fields[0].enabled = false;
+			name.enabled = false;
 		}
 		size = V2(WIDTH, 480);
 	}
 
-	char* GetName() { return GetTextboxText(&fields[0]); }
-	char* GetExecutable() { return GetTextboxText(&fields[1]); }
-	char* GetArgs() { return GetTextboxText(&fields[2]); }
-	char* GetFolder() { return GetTextboxText(&fields[3]); }
+	char* GetName() { return name.string; }
+	char* GetExecutable() { return path.string; }
+	char* GetArgs() { return args.string; }
+	char* GetFolder() { return roms.string; }
 	bool GetIsApplication() { return application.checked; }
 };

@@ -227,15 +227,15 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	}
 }
 
-static char* GetTextboxText(Textbox* pTextbox)
-{
-	return pTextbox->string;
-}
-
-static void SetTextboxText(Textbox* pTextbox, char* pText)
+static void SetText(Textbox* pTextbox, char* pText)
 {
 	pTextbox->stringlen = (int)strlen(pText);
 	pTextbox->string = (char*)realloc(pTextbox->string, pTextbox->stringlen);
+	strcpy(pTextbox->string, pText);
+}
+
+static void SetText(FilePathBox* pTextbox, char* pText)
+{
 	strcpy(pTextbox->string, pText);
 }
 
@@ -271,10 +271,42 @@ static void RenderCheckbox(RenderState* pState, Checkbox* pCheck, v2 pPosition)
 	}
 }
 
+//
+// FILEPATHBOX
+//
+static FilePathBox CreateFilePathBox(float pWidth, FONTS pFont, bool pAllowFiles)
+{
+	FilePathBox fpb = {};
+	fpb.width = pWidth;
+	fpb.font = pFont;
+	fpb.enabled = true;
+	fpb.files = pAllowFiles;
+	return fpb;
+}
 
-//
-// LABELEDELEMENT
-//
-#define RenderElementWithLabel(state, element_type, element, position, label) \
-PushText(state, FONT_Normal, label, position, V4(1)); \
-Render##element_type##(pState, &element, position + V2(LABEL_WIDTH, 0));
+static void RenderFilePathBox(RenderState* pState, FilePathBox* pBox, v2 pPosition)
+{
+	v2 pos = GetMousePosition() - pPosition;
+	float font_size = GetFontSize(pBox->font);
+
+	if (pBox->enabled)
+	{
+		if (IsButtonPressed(BUTTON_Left))
+		{
+			//Toggle focus
+			if(pos.X > 0 && pos.Y > 0 && pos < V2(pBox->width, font_size))
+			{
+				OpenFileSelector(pBox->string, pBox->files);
+			}
+		}
+	}
+
+	//Background
+	PushSizedQuad(pState, pPosition, V2(pBox->width, font_size), pBox->enabled ? ELEMENT_BACKGROUND : ELEMENT_BACKGROUND_NOT_ENABLED);
+
+	//Text
+	if (pBox->string)
+	{
+		PushClippedText(pState, pBox->font, pBox->string, pPosition, TEXT_FOCUSED, pPosition, V2(pBox->width, font_size));
+	}
+}
