@@ -107,7 +107,7 @@ static MODAL_CLOSE(ExitModalClose)
 	if (pResult == MODAL_RESULT_Ok)
 	{
 		ListModal<std::string>* content = (ListModal<std::string>*)pContent;
-		if (content->GetSelected() == "Quit")
+		if (content->GetSelected() == "Exit Yaffe")
 		{
 			pState->is_running = false;
 		}
@@ -174,9 +174,9 @@ static void DisplayQuitMessage(YaffeState* pState)
 	{
 		//Only allow quitting when current window is focused
 		std::vector<std::string> options;
-		options.push_back("Quit");
+		options.push_back("Exit Yaffe");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "Exit", new ListModal<std::string>(options, "", nullptr), BITMAP_None, ExitModalClose);
+		DisplayModalWindow(pState, "Menu", new ListModal<std::string>(options, "", nullptr), BITMAP_None, ExitModalClose);
 	}
 }
 

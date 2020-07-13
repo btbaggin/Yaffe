@@ -143,9 +143,14 @@ public:
 		else
 		{
 			if (IsEnterPressed()) FocusElement(UI_Roms);
-			else if (IsInfoPressed() && GetSelectedPlatform()->type != PLATFORM_Recents)
+			else if (IsInfoPressed())
 			{
-				DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose, "Save");
+				Platform* platform = GetSelectedPlatform();
+				if (platform && platform->type != PLATFORM_Recents)
+				{
+					DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose, "Save");
+
+				}
 			}
 		}
 	}

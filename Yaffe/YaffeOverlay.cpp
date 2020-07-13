@@ -44,7 +44,7 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 {
 	if (pOverlay->process)
 	{
-		if (IsControllerPressed(CONTROLLER_GUIDE) || IsEscPressed())
+		if (IsControllerPressed(CONTROLLER_GUIDE) || IsKeyPressed(KEY_Escape))
 		{
 			pOverlay->showing = !pOverlay->showing;
 

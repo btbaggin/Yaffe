@@ -79,16 +79,19 @@ static void AddBitmapAsset(Assets* pAssets, Bitmap* pTexture, TextureAtlas* pAtl
 static void LoadTexturePack(void* pData)
 {
 	TextureAtlasWork* work = (TextureAtlasWork*)pData;
-	SendTextureToGraphicsCard(work->bitmap);
-
-	TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas->config);
-	for (u32 i = 0; i < ArrayCount(work->atlas->textures); i++)
+	if (work->bitmap)
 	{
-		PackedTextureEntry t = work->atlas->textures[i];
-		AddBitmapAsset(g_assets, work->bitmap, &atlas, t.bitmap, t.file);
-	}
+		SendTextureToGraphicsCard(work->bitmap);
 
-	ta_DisposeTextureAtlas(&atlas);
+		TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas->config);
+		for (u32 i = 0; i < ArrayCount(work->atlas->textures); i++)
+		{
+			PackedTextureEntry t = work->atlas->textures[i];
+			AddBitmapAsset(g_assets, work->bitmap, &atlas, t.bitmap, t.file);
+		}
+
+		ta_DisposeTextureAtlas(&atlas);
+	}
 	delete pData;
 	delete work->atlas;
 }
