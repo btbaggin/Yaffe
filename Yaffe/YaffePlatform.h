@@ -28,6 +28,7 @@ static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditiona
 static std::vector<std::string> GetFilesInDirectory(char* pDirectory);
 static bool CreateDirectoryIfNotExists(const char* pDirectory);
 static bool CopyFileTo(const char* pOld, const char* pNew);
+static bool OpenFileSelector(char* pPath, bool pFiles);
 
 static void SendInputMessage(INPUT_ACTIONS pAction, PlatformInputMessage* pMessage);
 static void GetAndSetVolume(float* pVolume, float pDelta);

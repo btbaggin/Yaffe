@@ -184,6 +184,54 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 	return files;
 }
 
+static bool OpenFileSelector(char* pPath, bool pFiles)
+{
+	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+	IFileDialog *pfd = NULL;
+	CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
+	// Before setting, always get the options first in order 
+	// not to override existing options.
+	DWORD dwFlags;
+	pfd->GetOptions(&dwFlags);
+	if (pFiles)
+	{
+		COMDLG_FILTERSPEC rgSpec[] = { { L"Emulator", L"*.exe" } };
+		pfd->SetOptions(dwFlags | FOS_FORCEFILESYSTEM);
+		pfd->SetFileTypes(ArrayCount(rgSpec), rgSpec);
+	}
+	else
+	{
+		pfd->SetOptions(dwFlags | FOS_PICKFOLDERS);
+	}
+
+	bool result = false;
+	// Set the file types to display only. 
+	if (SUCCEEDED(pfd->Show(NULL)))
+	{
+		IShellItem *psiResult;
+		if (SUCCEEDED(pfd->GetResult(&psiResult)))
+		{
+			PWSTR pszFilePath = NULL;
+			if (SUCCEEDED(psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath)))
+			{
+				int len = WideCharToMultiByte(CP_ACP, 0, pszFilePath, lstrlenW(pszFilePath), NULL, 0, NULL, NULL);
+				WideCharToMultiByte(CP_ACP, 0, pszFilePath, lstrlenW(pszFilePath), pPath, len, NULL, NULL);
+				pPath[len] = '\0';
+				CoTaskMemFree(pszFilePath);
+
+				result = true;
+			}
+			psiResult->Release();
+		}
+	}
+	pfd->Release();
+	CoUninitialize();
+
+	return result;
+}
+
+
 static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 {
 	Overlay* overlay = &pState->overlay;
@@ -739,7 +787,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	//Assign it to getControllerData for easier use
 	g_input.XInputGetState = (get_gamepad_ex)GetProcAddress(xinput_dll, (LPCSTR)100);
-	g_input.XInputEnable = (gamepad_enable)GetProcAddress(xinput_dll, "XInputEnable");
 	g_input.layout = GetKeyboardLayout(0);
 
 	YaffeTime time = {};

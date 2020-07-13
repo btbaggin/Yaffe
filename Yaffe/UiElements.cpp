@@ -194,7 +194,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 			StbFindState end = {};
 			stb_textedit_find_charpos(&start, tc, start_index, true);
 			stb_textedit_find_charpos(&end, tc, end_index, true);
-			PushQuad(pState, pPosition + V2(start.x, start.y), pPosition + V2(end.x, end.y + font_size), V4(0, 0.5F, 1, 1));
+			PushQuad(pState, pPosition + V2(max(start.x - tc->font_x, 0), start.y), pPosition + V2(min(end.x, tc->width), end.y + font_size), V4(0, 0.5F, 1, 1));
 		}
 	}
 

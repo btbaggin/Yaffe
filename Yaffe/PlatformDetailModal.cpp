@@ -47,6 +47,10 @@ public:
 			application.enabled = false;
 			fields[0].enabled = false;
 		}
+
+		char path[MAX_PATH];
+		OpenFileSelector(path, false);
+		SetTextboxText(&fields[0], path);
 	}
 
 	char* GetName() { return GetTextboxText(&fields[0]); }
