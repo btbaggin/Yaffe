@@ -100,6 +100,7 @@ static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage
 	{
 		char message[4048];
 		CreateServiceMessage(pMessage, message);
+		YaffeLogInfo("Sending service message %s", message);
 
 		std::lock_guard<std::mutex> guard(pService->mutex);
 		if (!OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE)) return false;
@@ -112,6 +113,7 @@ static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage
 		std::lock_guard<std::mutex> guard(pService->mutex);
 		if (ReadFile(pService->handle, buf, size, 0, NULL))
 		{
+			YaffeLogInfo("Received service reply");
 			picojson::parse(*pResponse, buf);
 			free(buf);
 			return true;
@@ -141,6 +143,8 @@ static void ShutdownYaffeService(PlatformService* pService)
 #include <urlmon.h>
 static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
 {
+	YaffeLogInfo("Downloading image from %s", pUrl);
+
 	IStream* stream;
 	//Also works with https URL's - unsure about the extent of SSL support though.
 	HRESULT result = URLOpenBlockingStreamA(0, pUrl, &stream, 0, 0);

@@ -66,6 +66,8 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 			std::vector<std::string> files = GetFilesInDirectory(pApp->path);
 			if (pApp->files.count == files.size()) return;
 
+			YaffeLogInfo("Found %d platform items", (u32)files.size());
+
 			pApp->files.Initialize((u32)files.size());
 			pApp->file_display.Initialize((u32)files.size());
 
@@ -79,11 +81,14 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 				strcpy(exe->file, file_name);
 				exe->platform = pApp->id;
 
+				char clean_file_name[MAX_PATH];
 				PathRemoveExtensionA(file_name);
-				CleanFileName(file_name, file_name);
-				strcpy(exe->display_name, file_name);
+				CleanFileName(file_name, clean_file_name);
+				strcpy(exe->display_name, clean_file_name);
 
-				GetGameInfo(pApp, exe, exe_display, file_name);
+				YaffeLogInfo("Processing file %s, name %s", file_name, clean_file_name);
+
+				GetGameInfo(pApp, exe, exe_display, clean_file_name);
 			}
 		}
 		break;

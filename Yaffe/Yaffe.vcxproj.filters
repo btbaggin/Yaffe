@@ -37,6 +37,7 @@
     <ClCompile Include="PlatformDetailModal.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
+    <ClCompile Include="Logger.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="typedefs.h" />

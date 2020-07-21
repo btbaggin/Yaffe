@@ -85,6 +85,7 @@ YaffeInput g_input = {};
 Assets* g_assets;
 Interface g_ui = {};
 
+#include "Logger.cpp"
 #include "Memory.cpp"
 #include "Assets.cpp"
 #include "Input.cpp"
@@ -236,6 +237,8 @@ static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 {
 	Overlay* overlay = &pState->overlay;
 
+	YaffeLogInfo("Starting Process %s", pCommand);
+
 	STARTUPINFOA si = {};
 	PROCESS_INFORMATION pi = {};
 	if (CreateProcessA(NULL, pCommand, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
@@ -274,7 +277,11 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 		//Try the nice way of closing the process
 		bool success = PostThreadMessage(pOverlay->process->thread_id, WM_QUIT, 0, 0);
 
-		if (!success)
+		if (success)
+		{
+			YaffeLogInfo("Able to sucessfully post WM_QUIT");
+		}
+		else
 		{
 			//Go nuclear
 			//Find the exe and force kill it
@@ -692,6 +699,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					  _In_ LPWSTR    lpCmdLine,
 					  _In_ int       nCmdShow)
 {
+
+	InitializeLogger();
+
 	PlatformWindow form = {};
 	g_state.form = &form;
 	if (!CreateOpenGLWindow(g_state.form, hInstance, 720, 480, L"Yaffe", true))
@@ -846,6 +856,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	CloseHandle(work_queue.Semaphore);
 	UnregisterClassW(WINDOW_CLASS, hInstance);
 	UnregisterClassW(OVERLAY_CLASS, hInstance);
+
+	YaffeLogInfo("Exiting \n\n");
+	CloseLogger();
 
 	return 0;
 }

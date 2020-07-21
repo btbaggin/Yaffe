@@ -222,6 +222,8 @@ static void LoadAsset(Assets* pAssets, AssetSlot* pSlot, void* pData = nullptr)
 {
 	if (_InterlockedCompareExchange(&pSlot->state, ASSET_STATE_Queued, ASSET_STATE_Unloaded) == ASSET_STATE_Unloaded)
 	{
+		YaffeLogInfo("Loading asset %s", pSlot->load_path.c_str());
+
 		LoadAssetWork* work = new LoadAssetWork();
 		work->load_info = pSlot->load_path.c_str();
 		work->slot = pSlot;
@@ -388,6 +390,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 		DisplayErrorMessage("Unable to create assets directory", ERROR_TYPE_Error);
 		return nullptr;
 	}
+	YaffeLogInfo("Asset path %s", assets_path);
 
 	Assets* assets = new Assets();
 	assets->memory = CreateMemoryPool(pStack, pSize);
@@ -525,4 +528,6 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 	}
 	assert(find != g_assets->display_images.end());
 	*pBanner = &find->second;
+
+	YaffeLogInfo("Asset paths for %s: Banner - %s, Boxart - %s", pExe->display_name, banner_string.c_str(), boxart_string.c_str());
 }

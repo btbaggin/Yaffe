@@ -59,13 +59,13 @@ static bool operator>(v2 l, v2 r)
 	return l.X > r.X && l.Y > r.Y;
 }
 
-static void GetTime(char* pBuffer, u32 pBufferSize)
+static void GetTime(char* pBuffer, u32 pBufferSize, const char* pFormat = "%I:%M%p")
 {
 	time_t t;
 	struct tm* timeinfo;
 	time(&t);
 	timeinfo = localtime(&t);
-	strftime(pBuffer, pBufferSize, "%I:%M%p", timeinfo);
+	strftime(pBuffer, pBufferSize, pFormat, timeinfo);
 }
 
 #define ArrayCount(a) sizeof(a) / sizeof(a[0])
