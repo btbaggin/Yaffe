@@ -414,6 +414,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	text->textures[9] = { BITMAP_Emulator, "emulator.png" };
 	text->textures[10] = { BITMAP_Recent, "recents.png" };
 	text->textures[11] = { BITMAP_Speaker, "speaker.png" };
+	text->textures[12] = { BITMAP_Settings, "settings.png" };
 	text->config = ".\\Assets\\atlas.tex";
 	text->image = ".\\Assets\\packed.png";
 	LoadPackedTexture(assets, BITMAP_TexturePack, text);

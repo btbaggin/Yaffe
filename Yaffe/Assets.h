@@ -22,10 +22,13 @@ enum ASSET_TYPES : u8
 
 enum BITMAPS : u8
 {
+	//Unpacked textures go here
 	BITMAP_None,
 	BITMAP_Background,
 	BITMAP_Placeholder,
 	BITMAP_TexturePack,
+
+	//Packed textures go here
 	BITMAP_Error,
 	BITMAP_Question,
 	BITMAP_ArrowUp,
@@ -38,6 +41,7 @@ enum BITMAPS : u8
 	BITMAP_Emulator,
 	BITMAP_Recent,
 	BITMAP_Speaker,
+	BITMAP_Settings,
 
 	BITMAP_COUNT
 };

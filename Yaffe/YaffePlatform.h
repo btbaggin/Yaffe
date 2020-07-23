@@ -15,13 +15,18 @@ enum INPUT_ACTIONS
 	INPUT_ACTION_Mouse,
 	INPUT_ACTION_Cursor,
 };
-
+enum STARTUP_INFOS
+{
+	STARTUP_INFO_Get,
+	STARTUP_INFO_Set,
+};
 
 #define WORK_QUEUE_CALLBACK(name)void name(PlatformWorkQueue* pQueue, void* pData)
 typedef WORK_QUEUE_CALLBACK(work_queue_callback);
 
 static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData);
 static void StartProgram(YaffeState* pState, char* pCommand, char* pExe);
+static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue);
 
 static void GetFullPath(const char* pPath, char* pBuffer);
 static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional);
@@ -31,7 +36,7 @@ static bool CopyFileTo(const char* pOld, const char* pNew);
 static bool OpenFileSelector(char* pPath, bool pFiles);
 
 static void SendInputMessage(INPUT_ACTIONS pAction, PlatformInputMessage* pMessage);
-static void GetAndSetVolume(float* pVolume, float pDelta);
+static bool GetAndSetVolume(float* pVolume, float pDelta);
 
 static void SwapBuffers(PlatformWindow* pWindow);
 

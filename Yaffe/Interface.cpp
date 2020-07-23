@@ -101,7 +101,10 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::stri
 	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose, "Ok");
 }
 
-static MODAL_CLOSE(ErrorModalClose) { if (pState->error_is_critical) pState->is_running = false; }
+static MODAL_CLOSE(ErrorModalClose) 
+{ 
+	if (pState->error_is_critical) pState->is_running = false; 
+}
 static MODAL_CLOSE(ExitModalClose)
 { 
 	if (pResult == MODAL_RESULT_Ok)
@@ -140,6 +143,15 @@ static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
 {
 	float title = GetFontSize(FONT_Title);
 	v2 menu_position = pMain.size - V2(UI_MARGIN, UI_MARGIN + title);
+
+	//Settings icon
+	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_Settings, 24, FONT_Normal, "");
+	v2 pos = GetMousePosition();
+	if (pos > menu_position && pos < menu_position + V2(24) && IsButtonPressed(BUTTON_Left))
+	{
+		DisplayModalWindow(&g_state, "Settings", new YaffeSettingsModal(), BITMAP_None, YaffeSettingsModalClose, "Save");
+	}
+	menu_position.X -= UI_MARGIN;
 
 	//Time
 	char buffer[20];

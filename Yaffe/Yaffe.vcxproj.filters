@@ -38,6 +38,10 @@
       <Filter>Interface</Filter>
     </ClCompile>
     <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="Win32YaffePlatform.cpp" />
+    <ClCompile Include="YaffeSettingsModal.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="typedefs.h" />
