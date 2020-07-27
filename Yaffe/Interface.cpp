@@ -57,6 +57,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Platform
 
 	//Window
 	PushSizedQuad(pState, window_position, size, MODAL_BACKGROUND);
+
 	//Tilebar
 	PushSizedQuad(pState, window_position, V2(size.Width, TITLEBAR_SIZE), MODAL_TITLE);
 	PushText(pState, FONT_Subtext, pModal->title, window_position + V2(UI_MARGIN, 0), TEXT_FOCUSED);
@@ -144,15 +145,6 @@ static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
 	float title = GetFontSize(FONT_Title);
 	v2 menu_position = pMain.size - V2(UI_MARGIN, UI_MARGIN + title);
 
-	//Settings icon
-	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_Settings, 24, FONT_Normal, "");
-	v2 pos = GetMousePosition();
-	if (pos > menu_position && pos < menu_position + V2(24) && IsButtonPressed(BUTTON_Left))
-	{
-		DisplayModalWindow(&g_state, "Settings", new YaffeSettingsModal(), BITMAP_None, YaffeSettingsModalClose, "Save");
-	}
-	menu_position.X -= UI_MARGIN;
-
 	//Time
 	char buffer[20];
 	GetTime(buffer, 20);
@@ -232,6 +224,15 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 	RenderElement(UI_Search, filter_region);
 
 	RenderElement(UI_Info, main);
+
+	//Settings icon
+	v2 settings_location = V2(list_region.size.Width - 24, 0);
+	PushSizedQuad(pRender, settings_location, V2(24), GetBitmap(pAssets, BITMAP_Settings));
+	v2 pos = GetMousePosition();
+	if (pos > settings_location && pos < settings_location + V2(24) && IsButtonPressed(BUTTON_Left))
+	{
+		DisplayModalWindow(&g_state, "Settings", new YaffeSettingsModal(), BITMAP_None, YaffeSettingsModalClose, "Save");
+	}
 
 	DisplayToolbar(main, pRender);
 	if (pState->current_modal >= 0)
