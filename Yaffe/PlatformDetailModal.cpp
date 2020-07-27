@@ -5,7 +5,6 @@ class PlatformDetailModal : public ModalContent
 	Textbox args;
 	FilePathBox roms;
 	Checkbox application;
-	const float WIDTH = 720;
 
 	void Render(RenderState* pState, v2 pPosition)
 	{
@@ -35,7 +34,9 @@ public:
 
 	PlatformDetailModal(Platform* pPlatform)
 	{
-		float width = WIDTH - LABEL_WIDTH - UI_MARGIN * 2;
+		SetSize(MODAL_SIZE_Full, 5);
+
+		float width = size.Width - LABEL_WIDTH - UI_MARGIN * 2;
 		name = CreateTextbox(width, FONT_Normal);
 		path = CreateFilePathBox(width, FONT_Normal, true);
 		args = CreateTextbox(width, FONT_Normal);
@@ -57,7 +58,7 @@ public:
 			application.enabled = false;
 			name.enabled = false;
 		}
-		size = V2(WIDTH, 480);
+
 	}
 
 	char* GetName() { return name.string; }

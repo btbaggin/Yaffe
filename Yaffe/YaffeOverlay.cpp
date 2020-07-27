@@ -4,7 +4,6 @@ const float CURSOR_SPEED = 400.0F;
 class OverlayModal : public ModalContent
 {
 	const float ICON_SIZE = 24.0F;
-	const float MODAL_WIDTH = 720.0F;
 	float volume;
 	MODAL_RESULTS Update(float pDeltaTime)
 	{
@@ -21,14 +20,14 @@ class OverlayModal : public ModalContent
 	{
 		float x = ICON_SIZE + UI_MARGIN;
 		PushSizedQuad(pState, pPosition, V2(ICON_SIZE), GetBitmap(g_assets, BITMAP_Speaker));
-		PushSizedQuad(pState, pPosition + V2(x, 0), V2(MODAL_WIDTH - x, ICON_SIZE), ELEMENT_BACKGROUND);
-		PushSizedQuad(pState, pPosition + V2(x, 0), V2((MODAL_WIDTH - x) * volume, ICON_SIZE), ACCENT_COLOR);
+		PushSizedQuad(pState, pPosition + V2(x, 0), V2(size.Width - x, ICON_SIZE), ELEMENT_BACKGROUND);
+		PushSizedQuad(pState, pPosition + V2(x, 0), V2((size.Width - x) * volume, ICON_SIZE), ACCENT_COLOR);
 	}
 
 public:
 	OverlayModal()
 	{
-		size = V2(MODAL_WIDTH, ICON_SIZE);
+		SetSize(MODAL_SIZE_Half, 1);
 	}
 };
 

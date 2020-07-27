@@ -1,7 +1,5 @@
 class YaffeSettingsModal : public ModalContent
 {
-	const float WIDTH = 720;
-
 	void Render(RenderState* pState, v2 pPosition)
 	{
 		float size = GetFontSize(FONT_Normal);
@@ -16,7 +14,7 @@ public:
 	{
 		run_at_startup = CreateCheckbox();
 		run_at_startup.checked = RunAtStartUp(STARTUP_INFO_Get, false);
-		size = V2(WIDTH, 100);
+		SetSize(MODAL_SIZE_Half, 1);
 	}
 };
 

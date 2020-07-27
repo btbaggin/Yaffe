@@ -1,4 +1,11 @@
 #pragma once
+enum MODAL_SIZES
+{
+	MODAL_SIZE_Full,
+	MODAL_SIZE_Half,
+	MODAL_SIZE_Third,
+};
+
 class ModalContent
 {
 public:
@@ -11,6 +18,16 @@ public:
 		return MODAL_RESULT_None;
 	}
 	virtual void Render(RenderState* pState, v2 pPosition) = 0;
+
+	void SetSize(MODAL_SIZES pSize, int pRows)
+	{
+		float width = 740;
+		if (pSize == MODAL_SIZE_Half) width /= 2.0F;
+		else if (pSize == MODAL_SIZE_Third) width /= 3.0F;
+
+		float height = GetFontSize(FONT_Normal) + UI_MARGIN;
+		size = V2(width, height * pRows);
+	}
 };
 
 class StringModal : public ModalContent

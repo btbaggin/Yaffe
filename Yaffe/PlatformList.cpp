@@ -100,6 +100,7 @@ public:
 				type = app->type;
 			}
 
+			//Selected highlight
 			v2 item_position = { pRegion.position.X + OFFSET, current_y};
 			if (i == g_state.selected_platform)
 			{
