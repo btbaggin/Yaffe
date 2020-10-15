@@ -164,8 +164,9 @@ static void GetPlatformInfo(s32 pPlatform, char* pPath, char* pArgs, char* pRoms
 		BindIntParm(stmt, pPlatform);
 		Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
 
-		if (pPath) strcpy(pPath, GetTextColumn(stmt, 1));
-		if (pArgs) strcpy(pArgs, GetTextColumn(stmt, 2));
+		if (pPath) strcpy(pPath, GetTextColumn(stmt, 1)); else pPath[0] = 0;
+		if (pArgs) strcpy(pArgs, GetTextColumn(stmt, 2)); else pArgs[0] = 0;
+		pRoms[0] = 0;
 	}
 	else
 	{
@@ -173,9 +174,9 @@ static void GetPlatformInfo(s32 pPlatform, char* pPath, char* pArgs, char* pRoms
 		BindIntParm(stmt, pPlatform);
 		Verify(ExecuteReader(stmt), "Unable to locate platform", ERROR_TYPE_Error);
 
-		if (pPath) strcpy(pPath, GetTextColumn(stmt, 1));
-		if (pArgs) strcpy(pArgs, GetTextColumn(stmt, 2));
-		if (pRoms) strcpy(pRoms, GetTextColumn(stmt, 3));
+		if (pPath) strcpy(pPath, GetTextColumn(stmt, 1)); else pPath[0] = 0;
+		if (pArgs) strcpy(pArgs, GetTextColumn(stmt, 2)); else pArgs[0] = 0;
+		if (pRoms) strcpy(pRoms, GetTextColumn(stmt, 3)); else pRoms[0] = 0;
 	}
 }
 

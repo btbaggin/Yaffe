@@ -156,6 +156,7 @@ static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 		if (GetLastError() == ERROR_ELEVATION_REQUIRED) DisplayErrorMessage("Operation requires administrator permissions", ERROR_TYPE_Warning);
 		else DisplayErrorMessage("Unable to open rom", ERROR_TYPE_Warning);
 	}
+	ShowCursor(pState->overlay.allow_input);
 }
 static void ShowOverlay(Overlay* pOverlay)
 {

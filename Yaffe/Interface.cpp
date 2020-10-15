@@ -102,7 +102,8 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, std::stri
 	return DisplayModalWindow(pState, pTitle, new StringModal(pMessage), pImage, pClose, "Ok");
 }
 
-static MODAL_CLOSE(ErrorModalClose) 
+static MODAL_CLOSE(OnAddApplicationModalClose);
+static MODAL_CLOSE(ErrorModalClose)
 { 
 	if (pState->error_is_critical) pState->is_running = false; 
 }
@@ -111,14 +112,28 @@ static MODAL_CLOSE(ExitModalClose)
 	if (pResult == MODAL_RESULT_Ok)
 	{
 		ListModal<std::string>* content = (ListModal<std::string>*)pContent;
-		if (content->GetSelected() == "Exit Yaffe")
+		
+		if (content->GetSelected() == "Add Emulator")
+		{
+			DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr, false), BITMAP_None, OnAddApplicationModalClose, "Save");
+		}
+		else if (content->GetSelected() == "Add Application")
+		{
+			DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr, true), BITMAP_None, OnAddApplicationModalClose, "Save");
+		}
+		else if (content->GetSelected() == "Settings")
+		{
+			DisplayModalWindow(&g_state, "Settings", new YaffeSettingsModal(), BITMAP_None, YaffeSettingsModalClose, "Save");
+		}
+		else if (content->GetSelected() == "Exit Yaffe")
 		{
 			pState->is_running = false;
 		}
-		else
+		else if (content->GetSelected() == "Shut Down")
 		{
 			Verify(Shutdown(), "Unable to initiate shutdown", ERROR_TYPE_Warning);
 		}
+		else assert(false);
 	}
 }
 
@@ -180,7 +195,10 @@ static void DisplayQuitMessage(YaffeState* pState)
 		std::vector<std::string> options;
 		options.push_back("Exit Yaffe");
 		options.push_back("Shut Down");
-		DisplayModalWindow(pState, "Menu", new ListModal<std::string>(options, "", nullptr), BITMAP_None, ExitModalClose);
+		options.push_back("Settings");
+		options.push_back("Add Emulator");
+		options.push_back("Add Application");
+		DisplayModalWindow(pState, "Menu", new ListModal<std::string>(options, "", nullptr, MODAL_SIZE_Third), BITMAP_None, ExitModalClose);
 	}
 }
 
@@ -225,15 +243,6 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 
 	RenderElement(UI_Info, main);
 
-	//Settings icon
-	v2 settings_location = V2(list_region.size.Width - 24, 0);
-	PushSizedQuad(pRender, settings_location, V2(24), GetBitmap(pAssets, BITMAP_Settings));
-	v2 pos = GetMousePosition();
-	if (pos > settings_location && pos < settings_location + V2(24) && IsButtonPressed(BUTTON_Left))
-	{
-		DisplayModalWindow(&g_state, "Settings", new YaffeSettingsModal(), BITMAP_None, YaffeSettingsModalClose, "Save");
-	}
-
 	DisplayToolbar(main, pRender);
 	if (pState->current_modal >= 0)
 	{
@@ -253,8 +262,8 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		MODAL_RESULTS result = modal->content->Update(pDeltaTime);
 		if (result != MODAL_RESULT_None)
 		{
-			if(modal->on_close) modal->on_close(pState, result, modal->content);
 			InterlockedDecrement(&pState->current_modal);
+			if(modal->on_close) modal->on_close(pState, result, modal->content);
 			delete modal->content;
 			delete modal;
 		}

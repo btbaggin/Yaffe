@@ -48,38 +48,19 @@ class ListModal : public ModalContent
 		for (u32 i = 0; i < items.size(); i++)
 		{
 			std::string text = GetDisplayString(items.data() + i);
-			v2 position = pPosition + V2(0, (font_size + UI_MARGIN * 2) * i);
+			v2 position = pPosition + V2(0, (font_size + UI_MARGIN) * i);
 			if (i == index)
 			{
-				PushSizedQuad(pState, position, V2(size.Width, font_size + UI_MARGIN * 2), ACCENT_COLOR);
+				PushSizedQuad(pState, position, V2(size.Width, font_size + UI_MARGIN), ACCENT_COLOR);
 			}
 
 			PushText(pState, FONT_Normal, text.c_str(), position, TEXT_FOCUSED);
 		}
 	}
 
-	void CalculateSize()
-	{
-		size = {};
-		v2 font_size = MeasureString(FONT_Normal, title);
-		if (has_title)
-		{
-			size = font_size;
-			size.Height += UI_MARGIN;
-		}
-
-		size.Height += items.size() * (font_size.Height + UI_MARGIN * 2);
-		for (u32 i = 0; i < items.size(); i++)
-		{
-			std::string text = GetDisplayString(items.data() + i);
-			v2 font_width = MeasureString(FONT_Normal, text.c_str());
-			size.Width = max(font_width.Width + UI_MARGIN * 2, size.Width);
-		}
-	}
-
 public:
 	std::string old_value;
-	ListModal(std::vector<T> pItems, std::string pData, const char* pTitle)
+	ListModal(std::vector<T> pItems, std::string pData, const char* pTitle, MODAL_SIZES pSize = MODAL_SIZE_Full)
 	{
 		items = pItems;
 		index = 0;
@@ -89,7 +70,7 @@ public:
 			has_title = true;
 			strcpy(title, pTitle);
 		}
-		CalculateSize();
+		SetSize(pSize, ((u32)pItems.size() + (pTitle ? 1 : 0)));
 	}
 
 	T GetSelected()

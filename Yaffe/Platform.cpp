@@ -46,6 +46,7 @@ static void CleanFileName(char* pName, char* pDest)
 		if (pName[i] == ')' || pName[i] == ']')
 			in_bracket = false;
 	}
+	pDest[j] = '\0';
 
 	//Trim right whitespace
 	while (j > 0 && isspace(pDest[--j]))

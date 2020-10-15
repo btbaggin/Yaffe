@@ -147,11 +147,12 @@ public:
 			char path[MAX_PATH], args[100], roms[MAX_PATH];
 			GetPlatformInfo(exe->platform, path, args, roms);
 
+			g_state.overlay.allow_input = (exe->platform < 0);
+
 			char buffer[1000];
 			BuildCommandLine(buffer, exe, path, roms, args);
 			StartProgram(&g_state, buffer, path);
 
-			g_state.overlay.allow_input = (exe->platform < 0);
 		}
 		else if (IsInfoPressed())
 		{

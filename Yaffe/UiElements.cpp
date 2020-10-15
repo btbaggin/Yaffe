@@ -160,7 +160,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 			for (int i = KEY_Backspace; i <= KEY_Quote; i++)
 			{
 				int key = i;
-				if (IsKeyPressed((KEYS)key))
+				if (IsKeyPressedWithoutDelay((KEYS)key))
 				{
 					if (shift) key |= STB_TEXTEDIT_K_SHIFT;
 					if (control) key |= STB_TEXTEDIT_K_CONTROL;
@@ -201,8 +201,8 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	//Text
 	if (tc->string)
 	{
-		v2 pos = pPosition - V2(tc->font_x, 0);
-		PushClippedText(pState, tc->font, tc->string, pos, TEXT_FOCUSED, pPosition, V2(tc->width, font_size));
+		v2 position = pPosition - V2(tc->font_x, 0);
+		PushClippedText(pState, tc->font, tc->string, position, TEXT_FOCUSED, pPosition, V2(tc->width, font_size));
 	}
 
 	//Cursor
@@ -222,8 +222,8 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 			tc->font_x -= tc->font_x - state.x;
 		}
 
-		v2 pos = pPosition - V2(tc->font_x, 0) + V2(state.x, state.y);
-		PushSizedQuad(pState, pos, V2(2, font_size), V4(1));
+		v2 position = pPosition - V2(tc->font_x, 0) + V2(state.x, state.y);
+		PushSizedQuad(pState, position, V2(2, font_size), V4(1));
 	}
 }
 
@@ -289,15 +289,12 @@ static void RenderFilePathBox(RenderState* pState, FilePathBox* pBox, v2 pPositi
 	v2 pos = GetMousePosition() - pPosition;
 	float font_size = GetFontSize(pBox->font);
 
-	if (pBox->enabled)
+	if (pBox->enabled && IsButtonPressed(BUTTON_Left))
 	{
-		if (IsButtonPressed(BUTTON_Left))
+		//Toggle focus
+		if(pos.X > 0 && pos.Y > 0 && pos < V2(pBox->width, font_size))
 		{
-			//Toggle focus
-			if(pos.X > 0 && pos.Y > 0 && pos < V2(pBox->width, font_size))
-			{
-				OpenFileSelector(pBox->string, pBox->files);
-			}
+			OpenFileSelector(pBox->string, pBox->files);
 		}
 	}
 

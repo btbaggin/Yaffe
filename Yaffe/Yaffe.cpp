@@ -580,14 +580,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 
 		glViewport(0, 0, (int)g_state.form->width, (int)g_state.form->height);
-		return 0;
+		break;
 	}
 
 	case WM_ACTIVATE:
 	{
 		//Scale down FPS to 10 when not focused
 		UPDATE_FREQUENCY = wParam == WA_INACTIVE ? 15 : 30;
-		ExpectedSecondsPerFrame = 1.0F / UPDATE_FREQUENCY;
+		ExpectedSecondsPerFrame = 1.0F / (float)UPDATE_FREQUENCY;
+		break;
 	}
 
 	default:

@@ -3,7 +3,7 @@ const s32 GLOBAL_INPUT_DELAY = 100;
 #define InputDown(state, input) (g_input.state[input] & 0x80) != 0
 #define InputUp(state, input) (g_input.state[input] & 0x80) == 0
 #define CHECK_KEY_INPUT(expression) if(expression) { g_input.last_input = clock(); return true; } else { return false; }
-#define XINPUT_INPUT_DEADZONE  7849
+const float XINPUT_INPUT_DEADZONE = 7849.0F;
 
 #define IsUpPressed() (IsKeyPressed(KEY_Up) || IsLeftStickPushed(DIRECTION_Up) || IsControllerPressed(CONTROLLER_DPAD_UP))
 #define IsDownPressed() (IsKeyPressed(KEY_Down) || IsLeftStickPushed(DIRECTION_Down) || IsControllerPressed(CONTROLLER_DPAD_DOWN))

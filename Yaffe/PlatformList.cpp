@@ -73,15 +73,6 @@ public:
 		//Title
 		PushQuad(pRender, pRegion.position, pRegion.size, MENU_BACKGROUND);
 		PushText(pRender, FONT_Title, "Yaffe", pRegion.position + V2(UI_MARGIN), TEXT_FOCUSED);
-
-		//Add link
-		v2 add_size = MeasureString(FONT_Subtext, "Add");
-		float add_x = pRegion.position.X + pRegion.size.Width - add_size.Width - UI_MARGIN;
-		if (g_state.selected_platform == -1)
-		{
-			PushSizedQuad(pRender, V2(add_x, current_y), add_size, foreground);
-		}
-		PushText(pRender, FONT_Subtext, "Add", V2(add_x, current_y), font);
 		
 		//List of platforms
 		const float OFFSET = ICON_SIZE + UI_MARGIN * 2;
@@ -125,8 +116,8 @@ public:
 		if (IsUpPressed())
 		{
 			pState->selected_platform--;
-			if (pState->selected_platform < -1) pState->selected_platform = -1;
-			if (pState->selected_platform > -1) RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
+			if (pState->selected_platform < 0) pState->selected_platform = 0;
+			RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
 		}
 		else if (IsDownPressed())
 		{
@@ -137,21 +128,14 @@ public:
 			}
 		}
 
-		if (pState->selected_platform == -1 && IsEnterPressed())
+		if (IsEnterPressed()) FocusElement(UI_Roms);
+		else if (IsInfoPressed())
 		{
-			DisplayModalWindow(pState, "Add Platform", new PlatformDetailModal(nullptr), BITMAP_None, OnAddApplicationModalClose, "Save");
-		}
-		else
-		{
-			if (IsEnterPressed()) FocusElement(UI_Roms);
-			else if (IsInfoPressed())
+			Platform* platform = GetSelectedPlatform();
+			if (platform && platform->type != PLATFORM_Recents)
 			{
-				Platform* platform = GetSelectedPlatform();
-				if (platform && platform->type != PLATFORM_Recents)
-				{
-					DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform()), BITMAP_None, OnUpdateApplicationModalClose, "Save");
+				DisplayModalWindow(pState, "Platform Info", new PlatformDetailModal(GetSelectedPlatform(), false), BITMAP_None, OnUpdateApplicationModalClose, "Save");
 
-				}
 			}
 		}
 	}
