@@ -4,6 +4,7 @@
 TODO
 Modals not centered for 1 frame?
 Don't hardcode emulator allocation count
+High prio background queue
 */
 
 #define GLEW_STATIC
@@ -423,7 +424,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	LARGE_INTEGER i;
 	QueryPerformanceFrequency(&i);
-	double computer_frequency = double(i.QuadPart);
+	double computer_frequency = (double)i.QuadPart;
 
 	glewExperimental = true; // Needed for core profile
 	glewInit();
@@ -454,6 +455,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	RenderState render_state = {};
 	InitializeRenderer(&render_state);
 	g_assets = LoadAssets(asset_memory, asset_size);
+	if (!g_assets) return 1;
+
 	InitializeUI(&g_state);
 	InitailizeDatbase(&g_state);
 

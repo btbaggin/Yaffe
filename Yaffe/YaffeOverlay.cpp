@@ -51,12 +51,6 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 			{
 				ShowOverlay(pOverlay);
 
-				if (pOverlay->modal)
-				{
-					delete pOverlay->modal->content;
-					delete pOverlay->modal;
-				}
-
 				pOverlay->modal = new ModalWindow();
 				pOverlay->modal->title = "Yaffe";
 				pOverlay->modal->icon = BITMAP_None;

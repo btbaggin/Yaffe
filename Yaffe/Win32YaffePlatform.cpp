@@ -171,37 +171,73 @@ static void ShowOverlay(Overlay* pOverlay)
 	UpdateWindow(pOverlay->form->handle);
 }
 
+// retrieves the (first) process ID of the given executable (or zero if not found)
+DWORD GetProcessID(const TCHAR* pszExePathName) {
+	// attempt to create a snapshot of the currently running processes
+	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (!snapshot) return 0;
+
+	PROCESSENTRY32 entry = { sizeof(PROCESSENTRY32), 0 };
+	for (BOOL bContinue = Process32First(snapshot, &entry); bContinue; bContinue = Process32Next(snapshot, &entry)) {
+#if (_WIN32_WINNT >= 0x0600)
+		HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
+		DWORD dwSize = MAX_PATH;
+		if (!QueryFullProcessImageName(hProcess, 0, entry.szExeFile, &dwSize))
+			continue;
+#else
+		// since we require elevation, go ahead and try to read what we need directly out of the process' virtual memory
+		if (auto hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, entry.th32ProcessID)) {
+			if (!GetModuleFileNameEx(hProcess, nullptr, entry.szExeFile, countof(entry.szExeFile)))
+				continue;
+		}
+#endif
+		//if(std::equal(a.begin(), a.end(), b.begin(), [](char a, char b) { return tolower(a) == tolower(b); });
+		if (wcscmp(entry.szExeFile, pszExePathName) == 0)
+			return entry.th32ProcessID; // FOUND
+	}
+
+	return 0; // NOT FOUND
+}
+
+
 static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 {
 	ShowWindow(pOverlay->form->handle, SW_HIDE);
 
 	if (pTerminate)
 	{
-		//Try the nice way of closing the process
-		bool success = PostThreadMessage(pOverlay->process->thread_id, WM_QUIT, 0, 0);
+		WCHAR path[MAX_PATH];
+		mbstowcs(path, pOverlay->process->path, MAX_PATH);
+		if (DWORD dwProcessID = GetProcessID(path)) 
+		{
+			//Send WM_QUIT to all top level windows and the process thread
+			BOOL success = PostThreadMessage(pOverlay->process->thread_id, WM_QUIT, 0, 0);
 
-		if (success)
-		{
-			YaffeLogInfo("Able to sucessfully post WM_QUIT");
-		}
-		else
-		{
-			//Go nuclear
-			//Find the exe and force kill it
-			HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-			if (hProcessSnap != INVALID_HANDLE_VALUE)
-			{
-				PROCESSENTRY32 pe32;
-				pe32.dwSize = sizeof(PROCESSENTRY32);
-				if (Process32First(hProcessSnap, &pe32))
+			for (HWND hwnd = GetTopWindow(NULL); hwnd; hwnd = ::GetNextWindow(hwnd, GW_HWNDNEXT)) {
+				DWORD dwWindowProcessID;
+				DWORD dwThreadID = ::GetWindowThreadProcessId(hwnd, &dwWindowProcessID);
+				if (dwWindowProcessID == dwProcessID)
 				{
-					//Get the name of the exe from the path
-					wchar_t wcstring[MAX_PATH];
-					mbstowcs_s(0, wcstring, strlen(pOverlay->process->path) + 1, pOverlay->process->path, _TRUNCATE);
-					LPWSTR exe_name = PathFindFileNameW(wcstring);
+					success &= PostThreadMessage(dwThreadID, WM_QUIT, 0, 0);
+				}
+			}
 
-					do
+			if (success) YaffeLogInfo("Able to sucessfully post WM_QUIT");
+			else
+			{
+				YaffeLogInfo("Unable to post WM_QUIT, attempting to force close");
+
+				//Go nuclear
+				//Find the exe and force kill it
+				HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+				if (hProcessSnap != INVALID_HANDLE_VALUE)
+				{
+					LPWSTR exe_name = PathFindFileNameW(path);
+					PROCESSENTRY32 pe32;
+					pe32.dwSize = sizeof(PROCESSENTRY32);
+					for (bool process = Process32First(hProcessSnap, &pe32); process; process = Process32Next(hProcessSnap, &pe32))
 					{
+						//Get the name of the exe from the path
 						if (StrCmpW(pe32.szExeFile, exe_name) == 0)
 						{
 							HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
@@ -213,17 +249,16 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 							}
 							break;
 						}
-					} while (Process32Next(hProcessSnap, &pe32));
+					}
+					CloseHandle(hProcessSnap);
 				}
-				CloseHandle(hProcessSnap);
 			}
-		}
 
-		if (!success)
+			if (!success) DisplayErrorMessage("Unable to terminate process: %d", ERROR_TYPE_Warning, (int)GetLastError());
+		}
+		else
 		{
-			char* error = new char[100];
-			sprintf(error, "Unable to terminate process: %d", (int)GetLastError());
-			DisplayErrorMessage(error, ERROR_TYPE_Warning);
+			YaffeLogError("Unable to retrieve process ID %s", pOverlay->process->path);
 		}
 	}
 }

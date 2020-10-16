@@ -5,7 +5,6 @@
 
 #define HANDMADE_MATH_IMPLEMENTATION
 #include "HandmadeMath/HandmadeMath.h"
-//#include "glm/glm.hpp"
 
 typedef uint64_t u64;
 typedef uint32_t u32;

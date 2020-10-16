@@ -387,7 +387,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	GetFullPath(".\\Assets\\", assets_path);
 	if (!CreateDirectoryIfNotExists(assets_path))
 	{
-		DisplayErrorMessage("Unable to create assets directory", ERROR_TYPE_Error);
+		YaffeLogError("Unable to create assets directory");
 		return nullptr;
 	}
 	YaffeLogInfo("Asset path %s", assets_path);
@@ -434,17 +434,20 @@ void FreeAsset(AssetSlot* pSlot)
 {
 	if (pSlot->state == ASSET_STATE_Loaded)
 	{
+		Free(pSlot->data);
 		switch (pSlot->type)
 		{
 			case ASSET_TYPE_Bitmap:
-				Free(pSlot->bitmap);
+			case ASSET_TYPE_TexturePack:
 				glDeleteTextures(1, &pSlot->bitmap->texture);
 				break;
 
 			case ASSET_TYPE_Font:
-				Free(pSlot->font);
 				glDeleteTextures(1, &pSlot->font->texture);
 				break;
+
+			default:
+				assert(false);
 		}
 		pSlot->last_requested = 0;
 		InterlockedExchange(&pSlot->state, ASSET_STATE_Unloaded);
@@ -515,6 +518,7 @@ static void SetAssetPaths(const char* pPlatName, Executable* pExe, AssetSlot** p
 	assert(find != g_assets->display_images.end());
 	*pBoxart = &find->second;
 
+	//Same thing for banners
 	char* banner = new char[MAX_PATH];
 	CombinePath(banner, rom_asset_path, "banner.jpg");
 	std::string banner_string = std::string(banner);

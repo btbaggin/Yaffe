@@ -119,13 +119,10 @@ public:
 			if (pState->selected_platform < 0) pState->selected_platform = 0;
 			RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
 		}
-		else if (IsDownPressed())
+		else if (IsDownPressed() && pState->selected_platform < (s32)applications->count - 1)
 		{
-			if (pState->selected_platform < (s32)applications->count - 1)
-			{
-				pState->selected_platform++;
-				RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
-			}
+			pState->selected_platform++;
+			RefreshExecutables(pState, applications->GetItem(pState->selected_platform));
 		}
 
 		if (IsEnterPressed()) FocusElement(UI_Roms);
@@ -140,7 +137,7 @@ public:
 		}
 	}
 
-	PlatformList(YaffeState* pState) : UiControl(UI_Emulators)
+	explicit PlatformList(YaffeState* pState) : UiControl(UI_Emulators)
 	{
 		applications = &pState->platforms;
 	}

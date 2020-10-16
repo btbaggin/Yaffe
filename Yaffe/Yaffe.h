@@ -95,5 +95,5 @@ inline void Tick(YaffeTime* pTime)
 	pTime->current_time = current_time;
 }
 
-void DisplayErrorMessage(const char* pError, ERROR_TYPE pType);
+void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...);
 #define Verify(condition, message, type) if (!condition) { DisplayErrorMessage(message, type); return; }

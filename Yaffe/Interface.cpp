@@ -25,12 +25,21 @@ inline static UI_NAMES GetFocusedElement()
 	return g_ui.focus[g_ui.focus_index - 1];
 }
 
-static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType)
+static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 {
 	if (g_state.error_count < MAX_ERROR_COUNT)
 	{
-		g_state.errors[g_state.error_count++] = pError;
+		va_list args;
+		va_start(args, pType);
+
+		char* buffer = new char[1000];
+		vsprintf(buffer, pError, args);
+
+		g_state.errors[g_state.error_count++] = buffer;
 		if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
+
+		va_end(args);
+
 	}
 }
 
@@ -148,6 +157,7 @@ static void DisplayApplicationErrors(YaffeState* pState)
 		{
 			message += std::string(pState->errors[i]);
 			if (i < errors - 1) message += '\n';
+			delete pState->errors[i];
 		}
 
 		DisplayModalWindow(pState, "Error", message, BITMAP_Error, ErrorModalClose);

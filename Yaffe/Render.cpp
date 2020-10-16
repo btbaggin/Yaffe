@@ -252,9 +252,9 @@ static void _PushText(RenderState* pState, FONTS pFont, const char* pText, v2 pP
 			GlyphQuad info = GetGlyph(font, c, pColor, &x, &y);
 
 			Vertex* v = PushArray(pState->vertices, Vertex, 4);
-			for (u32 i = 0; i < 4; i++)
+			for (u32 j = 0; j < 4; j++)
 			{
-				v[i] = info.vertices[i];
+				v[j] = info.vertices[j];
 			}
 
 			u16* indices = PushArray(pState->indices, u16, 6);

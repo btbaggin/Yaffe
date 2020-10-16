@@ -17,67 +17,74 @@ public:
 	void Render(RenderState* pState, UiRegion pRegion)
 	{
 		Platform* plat = GetSelectedPlatform();
+		if (!plat) return;
 
-		if (plat)
+		List<ExecutableDisplay> roms = plat->file_display;
+		for (s32 i = max(0, GetFirstVisibleTile()); i < GetLastVisibleTile(); i++)
 		{
-			List<ExecutableDisplay> roms = plat->file_display;
-			for (s32 i = max(0, GetFirstVisibleTile()); i < GetLastVisibleTile(); i++)
-			{
-				if (i >= (s32)roms.count) break;
+			if (i >= (s32)roms.count) break;
 
-				ExecutableDisplay* rom = roms.GetItem(i);
-				if (!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
-				{
-					Bitmap* b = GetBitmap(g_assets, rom->boxart);
-					if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
-
-					if (i != g_state.selected_rom) //We are going to draw selected item last
-					{
-						PushSizedQuad(pState, rom->position, rom->size, b);
-					}
-				}
-			}
-
-			//Render selected rom last so it's on top of everything else
-			ExecutableDisplay* rom = g_state.platforms.GetItem(g_state.selected_platform)->file_display.GetItem(g_state.selected_rom);
-			Executable* rom2 = GetSelectedExecutable();
-			if (rom && !HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
+			ExecutableDisplay* rom = roms.GetItem(i);
+			if (!HasFlag(rom->flags, EXECUTABLE_FLAG_Filtered))
 			{
 				Bitmap* b = GetBitmap(g_assets, rom->boxart);
 				if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
-				if (IsFocused())
+				if (i != g_state.selected_rom) //We are going to draw selected item last
 				{
-					//Have alpha fade in as the item grows to full size
-					//It is important we use Y here instead of X since X can scale in the recents platform if image sizes differ
-					float alpha = (1 - (rom->target_size.Y - rom->size.Y) / 2.0F);
+					PushSizedQuad(pState, rom->position, rom->size, b);
+				}
+			}
+		}
 
-					float height = GetFontSize(FONT_Subtext) + UI_MARGIN;
-					v2 menu_position = rom->position + rom->size;
+		//Render selected rom last so it's on top of everything else
+		ExecutableDisplay* rom_display_info = GetSelectedPlatform()->file_display.GetItem(g_state.selected_rom);
+		Executable* rom = GetSelectedExecutable();
+		if (rom_display_info && !HasFlag(rom_display_info->flags, EXECUTABLE_FLAG_Filtered))
+		{
+			Bitmap* b = GetBitmap(g_assets, rom_display_info->boxart);
+			if (!b) b = GetBitmap(g_assets, BITMAP_Placeholder);
 
-					//Check if we need to push the buttons below the text due to overlap
-					float text_width = MeasureString(FONT_Subtext, rom2->display_name).Width + MeasureString(FONT_Subtext, "InfoRun").Width + 40;
-					if (text_width > rom->target_size.Width)
-					{
-						menu_position.Y += height;
-						height *= 2;
-					}
+			if (IsFocused())
+			{
+				//Have alpha fade in as the item grows to full size
+				//It is important we use Y here instead of X since X can scale in the recents platform if image sizes differ
+				float alpha = (1 - (rom_display_info->target_size.Y - rom_display_info->size.Y) / 2.0F);
 
-					//Selected background
-					PushSizedQuad(pState,
-						rom->position - V2(ROM_OUTLINE_SIZE),
-						rom->size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height),
-						V4(MODAL_BACKGROUND, alpha * 0.94F));
-					//Name
-					PushText(pState, FONT_Subtext, rom2->display_name, rom->position + V2(0, rom->size.Height), V4(TEXT_FOCUSED, alpha));
+				float height = GetFontSize(FONT_Subtext);
+				v2 menu_position = rom_display_info->position + rom_display_info->size;
 
-					//Help
-					PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
-					PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", V4(1, 1, 1, alpha));
+				//We need to copy the name so we can text wrap and things
+				char render_name[80];
+				strcpy(render_name, rom->display_name);
+				WrapText(render_name, strlen(render_name), FONT_Subtext, rom_display_info->size.Width);
+
+				v2 name_size = MeasureString(FONT_Subtext, render_name);
+				height = max(height, name_size.Height);
+
+				//Check if we need to push the buttons below the text due to overlap
+				float text_width = name_size.Width + MeasureString(FONT_Subtext, "InfoRun").Width + 40;
+				if (text_width > rom_display_info->target_size.Width)
+				{
+					menu_position.Y += height;
+					height += GetFontSize(FONT_Subtext);
 				}
 
-				PushSizedQuad(pState, rom->position, rom->size, b);
+				//Selected background
+				PushSizedQuad(pState,
+					rom_display_info->position - V2(ROM_OUTLINE_SIZE),
+					rom_display_info->size + V2(ROM_OUTLINE_SIZE * 2, ROM_OUTLINE_SIZE * 2 + height),
+					V4(MODAL_BACKGROUND, alpha * 0.94F));
+
+				//Name
+				PushText(pState, FONT_Subtext, render_name, rom_display_info->position + V2(0, rom_display_info->size.Height), V4(TEXT_FOCUSED, alpha));
+
+				//Help
+				PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
+				PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", V4(1, 1, 1, alpha));
 			}
+
+			PushSizedQuad(pState, rom_display_info->position, rom_display_info->size, b);
 		}
 	}
 

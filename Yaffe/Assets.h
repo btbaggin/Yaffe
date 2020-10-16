@@ -83,6 +83,7 @@ struct AssetSlot
 	u64 last_requested;
 	union 
 	{
+		void* data;
 		Bitmap* bitmap;
 		FontInfo* font;
 	};
