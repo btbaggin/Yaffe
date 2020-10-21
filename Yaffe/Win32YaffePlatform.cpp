@@ -387,9 +387,7 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 	GetFullPath(".", working_path);
 	GetFullPath(".\\Yaffe.exe", path);
 
-	//  ------------------------------------------------------
 	//  Create an instance of the Task Service. 
-
 	ITaskService *pService = nullptr;
 	hr = CoCreateInstance(CLSID_TaskScheduler, nullptr, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
 	CHECK_COM_ERROR(hr, "Failed to create an instance of ITaskService: %x", {
@@ -454,7 +452,6 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 				pRootFolder->Release();
 				});
 
-			//  ------------------------------------------------------
 			//  Create the settings for the task
 			ITaskSettings *pSettings = nullptr;
 			hr = pTask->get_Settings(&pSettings);
@@ -471,7 +468,6 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 				pRootFolder->Release();
 				});
 
-			//  ------------------------------------------------------
 			//  Add the logon trigger to the task.
 			ITriggerCollection *pTriggerCollection = nullptr;
 			hr = pTask->get_Triggers(&pTriggerCollection);
@@ -488,21 +484,6 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 				pRootFolder->Release();
 				});
 
-			//ILogonTrigger *pLogonTrigger = NULL;
-			//hr = pTrigger->QueryInterface(IID_ILogonTrigger, (void**)&pLogonTrigger);
-			//pTrigger->Release();
-			//CHECK_COM_ERROR(hr, "QueryInterface call failed for ILogonTrigger: %x", hr);
-
-			////  Define the user.  The task will execute when the user logs on.
-			////  The specified user must be a user on this computer.  
-			//hr = pLogonTrigger->put_UserId(_bstr_t(L"DOMAIN\\UserName"));
-			//pLogonTrigger->Release();
-			//CHECK_COM_ERROR(hr, "Cannot add user ID to logon trigger: %x", {
-			//		pRootFolder->Release();
-			//		pTask->Release();
-			//	}))
-
-			//  ------------------------------------------------------
 			//  Add an Action to the task.
 			IActionCollection *pActionCollection = nullptr;
 			hr = pTask->get_Actions(&pActionCollection);
@@ -541,7 +522,6 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 				pRootFolder->Release();
 				});
 
-			//  ------------------------------------------------------
 			//  Save the task in the root folder.
 			IRegisteredTask *pRegisteredTask = nullptr;
 			hr = pRootFolder->RegisterTaskDefinition(_bstr_t(task_name), pTask, TASK_CREATE_OR_UPDATE, _variant_t(L"Builtin\\Administrators"), 
