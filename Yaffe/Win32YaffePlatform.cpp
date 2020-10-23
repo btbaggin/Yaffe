@@ -222,6 +222,16 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 				}
 			}
 
+			//We think we posted WM_QUIT
+			//Lets check if the process is still running in case a crash occurred
+			if (success && WaitForSingleObject(pOverlay->process->handle, 1000) == WAIT_TIMEOUT)
+			{
+				DWORD n = 0;
+				bool exit = GetExitCodeProcess(pOverlay->process->handle, &n);
+				if (exit && n == STILL_ACTIVE) success = false;
+				else if(!exit) YaffeLogError("Unable to GetExitCodeProcess: %d", GetLastError());
+			}
+
 			if (success) YaffeLogInfo("Able to sucessfully post WM_QUIT");
 			else
 			{
