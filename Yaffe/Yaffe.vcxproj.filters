@@ -6,40 +6,54 @@
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Assets.cpp" />
     <ClCompile Include="Input.cpp" />
-    <ClCompile Include="Interface.cpp" />
-    <ClCompile Include="RomMenu.cpp">
-      <Filter>Interface</Filter>
-    </ClCompile>
     <ClCompile Include="Database.cpp" />
     <ClCompile Include="YaffeOverlay.cpp">
-      <Filter>Interface</Filter>
+      <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Modal.cpp">
-      <Filter>Interface</Filter>
+      <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="FilterBar.cpp">
-      <Filter>Interface</Filter>
-    </ClCompile>
-    <ClCompile Include="UiElements.cpp">
-      <Filter>Interface</Filter>
+      <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="InfoPane.cpp">
-      <Filter>Interface</Filter>
+      <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Server.cpp" />
     <ClCompile Include="ListModal.cpp">
-      <Filter>Interface</Filter>
+      <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Platform.cpp" />
-    <ClCompile Include="PlatformList.cpp">
-      <Filter>Interface</Filter>
-    </ClCompile>
     <ClCompile Include="PlatformDetailModal.cpp">
-      <Filter>Interface</Filter>
+      <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="Win32YaffePlatform.cpp" />
     <ClCompile Include="YaffeSettingsModal.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Background.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="TileFlexBox.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformList.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="ExecutableTile.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Toolbar.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="Div.cpp">
+      <Filter>Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="UiElements.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="Interface.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
   </ItemGroup>
@@ -50,16 +64,24 @@
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Assets.h" />
     <ClInclude Include="Input.h" />
-    <ClInclude Include="Interface.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Render.h" />
     <ClInclude Include="Database.h" />
     <ClInclude Include="YaffePlatform.h" />
     <ClInclude Include="Platform.h" />
+    <ClInclude Include="Interface.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="Colors.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="Interface">
+    <Filter Include="Widgets">
       <UniqueIdentifier>{d267c52b-2e00-45ce-9007-d8fb130f79ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{e24b8f45-6948-4d0e-8ed7-c33570a3d68e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

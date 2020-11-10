@@ -18,17 +18,6 @@ enum PLATFORM_TYPE : u8
 	PLATFORM_App,
 };
 
-//Information about how to render the executable
-struct ExecutableDisplay
-{
-	v2 position;
-	v2 size;
-	v2 target_size;
-	u8 flags;
-	AssetSlot* boxart;
-	AssetSlot* banner;
-};
-
 //Information about the executable
 struct Executable
 {
@@ -38,6 +27,8 @@ struct Executable
 	s32 platform; //Duplicated from Platform so we always know it, even if launching from recents
 	u8 players;
 	bool invalid;
+	AssetSlot* boxart;
+	AssetSlot* banner;
 };
 
 struct Platform
@@ -48,7 +39,6 @@ struct Platform
 	s32 id;
 
 	List<Executable> files;
-	List<ExecutableDisplay> file_display;
 };
 
 

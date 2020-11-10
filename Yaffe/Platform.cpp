@@ -70,12 +70,10 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 			YaffeLogInfo("Found %d platform items", (u32)files.size());
 
 			pApp->files.Initialize((u32)files.size());
-			pApp->file_display.Initialize((u32)files.size());
 
 			for (u32 j = 0; j < files.size(); j++)
 			{
 				Executable* exe = pApp->files.AddItem();
-				ExecutableDisplay* exe_display = pApp->file_display.AddItem();
 
 				char file_name[MAX_PATH];
 				strcpy(file_name, files[j].c_str());
@@ -89,22 +87,18 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 
 				YaffeLogInfo("Processing file %s, name %s", file_name, clean_file_name);
 
-				GetGameInfo(pApp, exe, exe_display, clean_file_name);
+				GetGameInfo(pApp, exe, clean_file_name);
 			}
 		}
 		break;
 
 	case PLATFORM_App:
 		GetAllApplications(pState, pApp);
-		pApp->file_display.Initialize(pApp->files.count);
-		pApp->file_display.count = pApp->files.count;
 		
 		break;
 
 	case PLATFORM_Recents:
 		GetRecentGames(pApp, platform_names);
-		pApp->file_display.Initialize(pApp->files.count);
-		pApp->file_display.count = pApp->files.count;
 		break;
 	}
 
@@ -113,12 +107,11 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 	for (u32 i = 0; i < pApp->files.count; i++)
 	{
 		Executable* exe = pApp->files.GetItem(i);
-		ExecutableDisplay* exe_display = pApp->file_display.GetItem(i);
 
 		if (!exe->invalid)
 		{
 			const char* name = pApp->type == PLATFORM_Recents ? platform_names[i] : pApp->name;
-			SetAssetPaths(name, exe, &exe_display->banner, &exe_display->boxart);
+			SetAssetPaths(name, exe, &exe->banner, &exe->boxart);
 		}
 	}
 }

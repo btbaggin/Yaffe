@@ -2,8 +2,9 @@
 
 /*
 TODO
-Modals not centered for 1 frame?
+Get Yaffe placeholder boxart and banner images
 Don't hardcode emulator allocation count
+Don't hardcode Widget children count
 High prio background queue
 */
 
@@ -20,6 +21,7 @@ High prio background queue
 #include <WinInet.h>
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
+
 
 #include "Yaffe.h"
 #include "Memory.h"
@@ -47,9 +49,6 @@ struct PlatformWorkQueue
 
 struct PlatformWindow
 {
-	float width;
-	float height;
-
 	HWND handle;
 	HGLRC rc;
 	HDC dc;
@@ -112,7 +111,7 @@ const LPCWSTR OVERLAY_CLASS = L"Overlay";
 
 LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeight, LPCWSTR pTitle, bool pFullscreen)
+bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeight, LPCWSTR pTitle, bool pFullscreen)
 {
 	WNDCLASSW wcex = {};
 	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -169,21 +168,21 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 		y = (u32)(primaryDisplaySize.bottom - pForm->height) / 2;
 	}
 
-	pForm->handle = CreateWindowW(WINDOW_CLASS, pTitle, style, x, y, (int)pForm->width, (int)pForm->height, NULL, NULL, hInstance, NULL);
-	pForm->dc = GetDC(pForm->handle);
+	pForm->platform->handle = CreateWindowW(WINDOW_CLASS, pTitle, style, x, y, (int)pForm->width, (int)pForm->height, NULL, NULL, hInstance, NULL);
+	pForm->platform->dc = GetDC(pForm->platform->handle);
 
 	if (pFullscreen)
 	{
-		SetWindowLong(pForm->handle, GWL_STYLE, wcex.style & ~(WS_CAPTION | WS_THICKFRAME));
+		SetWindowLong(pForm->platform->handle, GWL_STYLE, wcex.style & ~(WS_CAPTION | WS_THICKFRAME));
 
 		// On expand, if we're given a window_rect, grow to it, otherwise do
 		// not resize.
 		MONITORINFO mi = { sizeof(mi) };
-		GetMonitorInfo(MonitorFromWindow(pForm->handle, MONITOR_DEFAULTTONEAREST), &mi);
+		GetMonitorInfo(MonitorFromWindow(pForm->platform->handle, MONITOR_DEFAULTTONEAREST), &mi);
 		pForm->width = (float)(mi.rcMonitor.right - mi.rcMonitor.left);
 		pForm->height = (float)(mi.rcMonitor.bottom - mi.rcMonitor.top);
 
-		SetWindowPos(pForm->handle, NULL, mi.rcMonitor.left, mi.rcMonitor.top,
+		SetWindowPos(pForm->platform->handle, NULL, mi.rcMonitor.left, mi.rcMonitor.top,
 			(int)pForm->width, (int)pForm->height,
 			SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	}
@@ -204,12 +203,12 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 	};
 
 	int pixelFormatID; UINT numFormats;
-	const bool status = wglChoosePixelFormatARB(pForm->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
+	const bool status = wglChoosePixelFormatARB(pForm->platform->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
 	if (!status || !numFormats) return false;
 
 	PIXELFORMATDESCRIPTOR PFD;
-	DescribePixelFormat(pForm->dc, pixelFormatID, sizeof(PFD), &PFD);
-	SetPixelFormat(pForm->dc, pixelFormatID, &PFD);
+	DescribePixelFormat(pForm->platform->dc, pixelFormatID, sizeof(PFD), &PFD);
+	SetPixelFormat(pForm->platform->dc, pixelFormatID, &PFD);
 
 	const int major_min = 4, minor_min = 0;
 	const int contextAttribs[] = {
@@ -220,8 +219,8 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 				0
 	};
 
-	pForm->rc = wglCreateContextAttribsARB(pForm->dc, 0, contextAttribs);
-	if (!pForm->rc) return false;
+	pForm->platform->rc = wglCreateContextAttribsARB(pForm->platform->dc, 0, contextAttribs);
+	if (!pForm->platform->rc) return false;
 
 	// delete temporary context and window
 	wglMakeCurrent(NULL, NULL);
@@ -229,12 +228,12 @@ bool CreateOpenGLWindow(PlatformWindow* pForm, HINSTANCE hInstance, u32 pWidth, 
 	ReleaseDC(fakeHwnd, fakeDc);
 	DestroyWindow(fakeHwnd);
 
-	if (!wglMakeCurrent(pForm->dc, pForm->rc)) return false;
+	if (!wglMakeCurrent(pForm->platform->dc, pForm->platform->rc)) return false;
 
 	return true;
 }
 
-static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
+static bool CreateOverlayWindow(Form* pOverlay, HINSTANCE hInstance)
 {
 	WNDCLASSW wcex = {};
 	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -245,14 +244,14 @@ static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
 	RegisterClassW(&wcex);
 
 	// | WS_EX_LAYERED
-	pOverlay->form->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, (int)pOverlay->form->width, (int)pOverlay->form->height, NULL, NULL, hInstance, NULL);
-	pOverlay->form->dc = GetDC(pOverlay->form->handle);
+	pOverlay->platform->handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OVERLAY_CLASS, L"Yaffe Overlay", WS_POPUP, 0, 0, (int)pOverlay->width, (int)pOverlay->height, NULL, NULL, hInstance, NULL);
+	pOverlay->platform->dc = GetDC(pOverlay->platform->handle);
 
 	DWM_BLURBEHIND bb = { 0 };
 	bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
 	bb.fEnable = true;
 	bb.hRgnBlur = CreateRectRgn(0, 0, 1, 1);
-	if (!SUCCEEDED(DwmEnableBlurBehindWindow(pOverlay->form->handle, &bb))) return false;
+	if (!SUCCEEDED(DwmEnableBlurBehindWindow(pOverlay->platform->handle, &bb))) return false;
 
 	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = nullptr;
 	wglChoosePixelFormatARB = reinterpret_cast<PFNWGLCHOOSEPIXELFORMATARBPROC>(wglGetProcAddress("wglChoosePixelFormatARB"));
@@ -278,14 +277,12 @@ static bool CreateOverlayWindow(Overlay* pOverlay, HINSTANCE hInstance)
 	};
 
 	int pixelFormatID; UINT numFormats;
-	const bool status = wglChoosePixelFormatARB(pOverlay->form->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
+	const bool status = wglChoosePixelFormatARB(pOverlay->platform->dc, pixelAttribs, NULL, 1, &pixelFormatID, &numFormats);
 	if (!status || !numFormats) return false;
 
 	PIXELFORMATDESCRIPTOR PFD;
-	DescribePixelFormat(pOverlay->form->dc, pixelFormatID, sizeof(PFD), &PFD);
-	SetPixelFormat(pOverlay->form->dc, pixelFormatID, &PFD);
-
-	pOverlay->showing = false;
+	DescribePixelFormat(pOverlay->platform->dc, pixelFormatID, sizeof(PFD), &PFD);
+	SetPixelFormat(pOverlay->platform->dc, pixelFormatID, &PFD);
 
 	return true;
 }
@@ -387,19 +384,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	InitializeLogger();
 
-	PlatformWindow form = {};
+	Form form = {};
+	PlatformWindow platform = {};
 	g_state.form = &form;
-	if (!CreateOpenGLWindow(g_state.form, hInstance, 720, 480, L"Yaffe", true))
+	g_state.form->platform = &platform;
+	if (!CreateOpenGLWindow(&form, hInstance, 720, 480, L"Yaffe", true))
 	{
 		MessageBoxA(nullptr, "Unable to initialize window", "Error", MB_OK);
 		return 1;
 	}
-	ShowWindow(g_state.form->handle, nCmdShow);
-	UpdateWindow(g_state.form->handle);
+	ShowWindow(g_state.form->platform->handle, nCmdShow);
+	UpdateWindow(g_state.form->platform->handle);
 
-	PlatformWindow overlay = {};
+	Form overlay = {};
+	PlatformWindow overlay_platform = {};
 	g_state.overlay.form = &overlay;
-	if (!CreateOverlayWindow(&g_state.overlay, hInstance))
+	g_state.overlay.form->platform = &overlay_platform;
+	if (!CreateOverlayWindow(&overlay, hInstance))
 	{
 		MessageBoxA(nullptr, "Unable to initialize overlay", "Error", MB_OK);
 		return 1;
@@ -457,7 +458,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	g_assets = LoadAssets(asset_memory, asset_size);
 	if (!g_assets) return 1;
 
-	InitializeUI(&g_state);
+	InitializeUI(&g_state, &g_ui);
 	InitailizeDatbase(&g_state);
 
 	g_state.has_connection = InternetGetConnectedState(0, 0);
@@ -504,7 +505,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			if (msg.message == WM_QUIT) g_state.is_running = false;
 		}
 
-		Win32GetInput(&g_input, g_state.form->handle);
+		Win32GetInput(&g_input, g_state.form->platform->handle);
 		Tick(&time);
 
 		UpdateUI(&g_state, time.delta_time);
@@ -518,7 +519,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		RenderUI(&g_state, &render_state, g_assets);
 
 		EndRenderPass(size, &render_state);
-		SwapBuffers(g_state.form);
+		SwapBuffers(g_state.form->platform);
 
 		UpdateOverlay(&g_state.overlay, time.delta_time);
 		RenderOverlay(&g_state, &render_state);
@@ -539,7 +540,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ShutdownYaffeService(g_state.service);
 	FreeAllAssets(g_assets);
 	DisposeRenderState(&render_state);
-	DestroyGlWindow(g_state.form);
+	DestroyGlWindow(g_state.form->platform);
 	CloseHandle(work_queue.Semaphore);
 	UnregisterClassW(WINDOW_CLASS, hInstance);
 	UnregisterClassW(OVERLAY_CLASS, hInstance);

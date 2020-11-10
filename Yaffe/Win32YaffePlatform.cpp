@@ -161,14 +161,14 @@ static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 static void ShowOverlay(Overlay* pOverlay)
 {
 	MONITORINFO mi = { sizeof(mi) };
-	GetMonitorInfo(MonitorFromWindow(pOverlay->form->handle, MONITOR_DEFAULTTONEAREST), &mi);
+	GetMonitorInfo(MonitorFromWindow(pOverlay->form->platform->handle, MONITOR_DEFAULTTONEAREST), &mi);
 	pOverlay->form->width = (float)(mi.rcMonitor.right - mi.rcMonitor.left);
 	pOverlay->form->height = (float)(mi.rcMonitor.bottom - mi.rcMonitor.top);
 
-	SetWindowPos(pOverlay->form->handle, 0, mi.rcMonitor.left, mi.rcMonitor.top, (int)pOverlay->form->width, (int)pOverlay->form->height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	SetWindowPos(pOverlay->form->platform->handle, 0, mi.rcMonitor.left, mi.rcMonitor.top, (int)pOverlay->form->width, (int)pOverlay->form->height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
-	ShowWindow(pOverlay->form->handle, SW_SHOW);
-	UpdateWindow(pOverlay->form->handle);
+	ShowWindow(pOverlay->form->platform->handle, SW_SHOW);
+	UpdateWindow(pOverlay->form->platform->handle);
 }
 
 // retrieves the (first) process ID of the given executable (or zero if not found)
@@ -202,7 +202,7 @@ DWORD GetProcessID(const TCHAR* pszExePathName) {
 
 static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 {
-	ShowWindow(pOverlay->form->handle, SW_HIDE);
+	ShowWindow(pOverlay->form->platform->handle, SW_HIDE);
 
 	if (pTerminate)
 	{

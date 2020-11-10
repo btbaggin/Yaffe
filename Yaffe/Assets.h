@@ -26,6 +26,7 @@ enum BITMAPS : u8
 	BITMAP_None,
 	BITMAP_Background,
 	BITMAP_Placeholder,
+	BITMAP_PlaceholderBanner,
 	BITMAP_TexturePack,
 
 	//Packed textures go here

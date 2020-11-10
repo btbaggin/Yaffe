@@ -3,20 +3,16 @@
 #define STB_TEXTEDIT_CHARTYPE   char
 #define STB_TEXTEDIT_STRING     Textbox
 
-// get the base type
 #include "stb/stb_textedit.h"
+#include "Colors.h"
 
-const float EMU_MENU_PERCENT = 0.2F;
-const float ROM_PAGE_PADDING = 0.075F;
 const float UI_MARGIN = 5.0F;
-const float SELECTED_ROM_SIZE = 0.2F;
-const float INFO_PANE_WIDTH = 0.33F;
 const float LABEL_WIDTH = 220;
-const float ROM_OUTLINE_SIZE = 5;
 const float ANIMATION_SPEED = 5;
 
 enum UI_NAMES
 {
+	UI_None,
 	UI_Emulators,
 	UI_Roms,
 	UI_Info,
@@ -32,12 +28,6 @@ enum MODAL_RESULTS : u8
 	MODAL_RESULT_Cancel,
 };
 
-enum UI_ELEMENT_TYPE : u8
-{
-	UI_TYPE_Checkbox,
-	UI_TYPE_Textbox,
-};
-
 class ModalContent;
 #define MODAL_CLOSE(name) void name(YaffeState* pState, MODAL_RESULTS pResult, ModalContent* pContent)
 typedef MODAL_CLOSE(modal_window_close);
@@ -51,37 +41,111 @@ struct ModalWindow
 };
 
 extern YaffeState g_state;
-class UiControl;
+class Widget;
 struct Interface
 {
-	UiControl* elements[UI_COUNT];
+	Widget* elements[UI_COUNT];
+	Widget* root;
 
 	UI_NAMES focus[8];
 	u32 focus_index;
 };
 
-struct UiRegion
-{
-	v2 position;
-	v2 size;
-};
-
-
+#define RelativeToAbsolute(x, y) V2(x, y) * V2(g_state.form->width, g_state.form->height)
 inline static UI_NAMES GetFocusedElement();
-class UiControl
+static bool IsWidgetVisible(Widget* pWidget);
+class Widget
 {
-public:
 	UI_NAMES tag;
+	v2 ratio_size;
+	v2 position;
 
-	UiControl(UI_NAMES pTag)
+protected:
+	Widget* parent;
+	Widget* children[48];
+	u32 child_count;
+
+	Widget(UI_NAMES pTag, Interface* pInterface)
 	{
 		tag = pTag;
+		child_count = 0;
+		position = {};
+		size = {};
+		if (pTag != UI_None)
+		{
+			pInterface->elements[pTag] = this;
+		}
 	}
 
-	virtual void Render(RenderState* pState, UiRegion pRegion) = 0;
+public:
+	v2 size;
+	virtual void Render(RenderState* pState) = 0;
 	virtual void Update(YaffeState* pState, float pDeltaTime) = 0;
-	virtual void UnfocusedUpdate(YaffeState* pState, float pDeltaTime) { };
-	virtual void OnFocusGained() {}
+	virtual void OnFocusGained() { }
+	virtual void OnAdded() { }
+
+	void AddChild(Widget* pWidget)
+	{
+		pWidget->parent = this;
+		children[child_count++] = pWidget;
+		pWidget->OnAdded();
+	}
+
+	void ClearChildren()
+	{
+		for (u32 i = 0; i < child_count; i++)
+		{
+			delete children[i];
+		}
+		child_count = 0;
+	}
+
+	void SetSize(float pWidth, float pHeight)
+	{
+		ratio_size = V2(pWidth, pHeight);
+		OnParentSizeChanged(parent ? parent->size : V2(g_state.form->width, g_state.form->height));
+	}
+
+	void OnParentSizeChanged(v2 pNewSize)
+	{
+		size = V2(pNewSize.Width * ratio_size.Width, pNewSize.Height * ratio_size.Height);
+		for (u32 i = 0; i < child_count; i++)
+		{
+			children[i]->OnParentSizeChanged(size);
+		}
+	}
+
+	void SetPosition(v2 pPosition)
+	{
+		position = pPosition;
+		//We just don't care about children right now since nothing moves
+	}
+
+	v2 GetPosition()
+	{
+		if (parent) return parent->GetPosition() + position;
+		return position;
+	}
+
+	v2 GetRelativePosition() { return position; }
+
+	virtual void DoRender(RenderState* pState)
+	{
+		if(IsWidgetVisible(this)) Render(pState);
+		for (u32 i = 0; i < child_count; i++)
+		{
+			children[i]->DoRender(pState);
+		}
+	}
+
+	void DoUpdate(YaffeState* pState, float pDeltaTime)
+	{
+		for (u32 i = 0; i < child_count; i++)
+		{
+			children[i]->DoUpdate(pState, pDeltaTime);
+		}
+		Update(pState, pDeltaTime);
+	}
 
 	bool IsFocused()
 	{
@@ -117,21 +181,5 @@ struct FilePathBox
 	bool enabled;
 	bool files;
 };
-
-const v4 MENU_BACKGROUND = { 0.25F, 0.25F, 0.25F, 0.5F };
-const v4 TEXT_FOCUSED = { 0.95F, 0.95F, 0.95F, 1 };
-const v4 TEXT_UNFOCUSED = { 0.6F, 0.6F, 0.6F, 1 };
-
-const v4 MODAL_BACKGROUND = { 0.1F, 0.1F, 0.1F, 1 };
-const v4 MODAL_TITLE = { 0.6F, 0.6F, 0.6F, 1 };
-
-const v4 ACCENT_COLOR = V4(0.25F, 0.3F, 1, 1);
-const v4 ACCENT_UNFOCUSED = V4(0.2F, 0.25F, 0.75F, 1);
-
-const v4 OVERLAY_COLOR = V4(0.0F, 0.0F, 0.0F, 0.9F);
-const v4 MODAL_OVERLAY_COLOR = V4(0.0F, 0.0F, 0.0F, 0.4F);
-
-const v4 ELEMENT_BACKGROUND = V4(0.5F, 0.5F, 0.5F, 1.0F);
-const v4 ELEMENT_BACKGROUND_NOT_ENABLED = V4(0.2F, 0.2F, 0.2F, 0.5F);
 
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose, const char* pButton = nullptr);

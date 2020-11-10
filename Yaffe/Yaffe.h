@@ -44,12 +44,20 @@ struct TaskCallbackQueue
 	u64 i;
 };
 
+struct Form
+{
+	float width;
+	float height;
+	PlatformWindow* platform;
+};
+
 struct ModalWindow;
 struct Overlay
 {
-	PlatformWindow* form;
+	Form* form;
 	bool showing;
 	bool allow_input;
+	float guide_hold;
 
 	ModalWindow* modal;
 	PlatformProcess* process;
@@ -63,11 +71,11 @@ struct YaffeTime
 
 struct YaffeState
 {
-	PlatformWindow* form;
+	Form* form;
 	Overlay overlay;
 
 	List<Platform> platforms;
-	s32 selected_platform;
+	u32 selected_platform;
 	s32 selected_rom;
 
 	const char* errors[MAX_ERROR_COUNT];

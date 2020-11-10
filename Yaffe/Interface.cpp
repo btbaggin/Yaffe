@@ -25,6 +25,20 @@ inline static UI_NAMES GetFocusedElement()
 	return g_ui.focus[g_ui.focus_index - 1];
 }
 
+static bool IsWidgetVisible(Widget* pWidget)
+{
+	v2 min = pWidget->GetPosition();
+	v2 max = min + pWidget->size;
+
+	return min.X < g_state.form->width - 1 && min.Y < g_state.form->height - 1 && max.X > 1 && max.Y > 1;
+}
+
+template<typename T>
+inline T GetWidget(UI_NAMES pName)
+{
+	return (T)g_ui.elements[pName];
+}
+
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 {
 	if (g_state.error_count < MAX_ERROR_COUNT)
@@ -43,7 +57,7 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 	}
 }
 
-static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, PlatformWindow* pWindow)
+static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pWindow)
 {
 	const float TITLEBAR_SIZE = 32.0F;
 	const float ICON_SIZE = 32.0F;
@@ -165,39 +179,9 @@ static void DisplayApplicationErrors(YaffeState* pState)
 	}
 }
 
-static void DisplayToolbar(UiRegion pMain, RenderState* pRender)
-{
-	float title = GetFontSize(FONT_Title);
-	v2 menu_position = pMain.size - V2(UI_MARGIN, UI_MARGIN + title);
-
-	//Time
-	char buffer[20];
-	GetTime(buffer, 20);
-	PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED); menu_position.X -= UI_MARGIN;
-
-	//Action buttons
-	menu_position.Y += (title - GetFontSize(FONT_Normal));
-	switch (GetFocusedElement())
-	{
-		case UI_Roms:
-		PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonY, 24, FONT_Normal, "Filter"); menu_position.X -= UI_MARGIN;
-		PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonB, 24, FONT_Normal, "Back"); menu_position.X -= UI_MARGIN;
-		break;
-
-		case UI_Emulators:
-		Platform* plat = GetSelectedPlatform();
-		if (plat && plat->type != PLATFORM_Recents)
-		{
-			PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonX, 24, FONT_Normal, "Info"); menu_position.X -= UI_MARGIN;
-		}
-		PushRightAlignedTextWithIcon(pRender, &menu_position, BITMAP_ButtonA, 24, FONT_Normal, "Select"); menu_position.X -= UI_MARGIN;
-		break;
-	}
-}
-
 static void DisplayQuitMessage(YaffeState* pState)
 {
-	if (GetForegroundWindow() == g_state.form->handle &&
+	if (GetForegroundWindow() == g_state.form->platform->handle &&
 		g_state.current_modal < 0 &&
 		(IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
 	{
@@ -212,48 +196,17 @@ static void DisplayQuitMessage(YaffeState* pState)
 	}
 }
 
-static UiRegion CreateRegion()
-{
-	UiRegion region;
-	region.position = V2(0);
-	region.size = V2(g_state.form->width, g_state.form->height);
-
-	return region;
-}
-
-static UiRegion CreateRegion(UiRegion pRegion, v2 pSize)
-{
-	UiRegion region;
-	region.position = pRegion.position;
-	region.size = pRegion.size * pSize;
-
-	return region;
-}
-
+#include "ExecutableTile.cpp"
+#include "TileFlexBox.cpp"
 #include "PlatformList.cpp"
-#include "RomMenu.cpp"
 #include "FilterBar.cpp"
 #include "InfoPane.cpp"
+#include "Background.cpp"
+#include "Toolbar.cpp"
+#include "Div.cpp"
 static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 {
-	//Render background
-	UiRegion main = CreateRegion();
-	Bitmap* b = GetBitmap(g_assets, BITMAP_Background);
-	PushQuad(pRender, main.position, main.size, b);
-
-	UiRegion list_region = CreateRegion(main, V2(EMU_MENU_PERCENT, 1));
-	RenderElement(UI_Emulators, list_region);
-
-	UiRegion menu_region = CreateRegion(main, V2(1 - EMU_MENU_PERCENT, 1)); 
-	menu_region.position.X += list_region.size.Width;
-	RenderElement(UI_Roms, menu_region);
-
-	UiRegion filter_region = CreateRegion(menu_region, V2(1, 0.05F));
-	RenderElement(UI_Search, filter_region);
-
-	RenderElement(UI_Info, main);
-
-	DisplayToolbar(main, pRender);
+	g_ui.root->DoRender(pRender);
 	if (pState->current_modal >= 0)
 	{
 		RenderModalWindow(pRender, pState->modals[pState->current_modal], pState->form);
@@ -280,24 +233,21 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		return;
 	}
 
-	UI_NAMES focused = GetFocusedElement();
-	for (u32 i = 0; i < (u32)focused; i++)
-	{
-		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
-	}
-	g_ui.elements[focused]->Update(pState, pDeltaTime);
-	for (u32 i = focused + 1; i < UI_COUNT; i++)
-	{
-		g_ui.elements[i]->UnfocusedUpdate(pState, pDeltaTime);
-	}
+	g_ui.root->DoUpdate(pState, pDeltaTime);
 }
 
-static void InitializeUI(YaffeState* pState)
+static void InitializeUI(YaffeState* pState, Interface* pInterface)
 {
-	g_ui.elements[UI_Emulators] = new PlatformList(pState);
-	g_ui.elements[UI_Roms] = new RomMenu();
-	g_ui.elements[UI_Info] = new InfoPane();
-	g_ui.elements[UI_Search] = new FilterBar();
+	const float EMU_MENU_PERCENT = 0.2F;
+	Div* div = new Div(RelativeToAbsolute(EMU_MENU_PERCENT, 0), 1 - EMU_MENU_PERCENT, 1, pInterface);
+	pInterface->root = new Background(pInterface);
+	pInterface->root->AddChild(new PlatformList(pInterface, EMU_MENU_PERCENT));
+	pInterface->root->AddChild(div);
+
+	div->AddChild(new TileFlexBox(pInterface));
+	div->AddChild(new FilterBar(pInterface));
+	div->AddChild(new InfoPane(pInterface));
+	div->AddChild(new Toolbar(pInterface));
 
 	FocusElement(UI_Emulators);
 

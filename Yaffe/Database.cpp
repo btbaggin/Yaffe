@@ -259,7 +259,6 @@ static void GetRecentGames(Platform* pPlat, char pNames[RECENT_COUNT][35])
 	while (ExecuteReader(stmt))
 	{
 		Executable* exe = pPlat->files.AddItem();
-		ExecutableDisplay* exe_display = pPlat->file_display.AddItem();
 
 		strcpy(exe->display_name, GetTextColumn(stmt, 0));
 		exe->overview = GetTextColumn(stmt, 1);
@@ -283,11 +282,11 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 {
 	//We now know exactly what game we wanted, write the values we didn't know
 	strcpy(pInfo->exe->display_name, pInfo->name.c_str());
-	SetAssetPaths(pInfo->platform_name, pInfo->exe, &pInfo->exe_display->banner, &pInfo->exe_display->boxart);
+	SetAssetPaths(pInfo->platform_name, pInfo->exe, &pInfo->exe->banner, &pInfo->exe->boxart);
 
 	std::string url_base = "https://cdn.thegamesdb.net/images/medium/";
-	if (!pInfo->boxart_url.empty()) DownloadImage((url_base + pInfo->boxart_url).c_str(), pInfo->exe_display->boxart);
-	if (!pInfo->banner_url.empty()) DownloadImage((url_base + pInfo->banner_url).c_str(), pInfo->exe_display->banner);
+	if (!pInfo->boxart_url.empty()) DownloadImage((url_base + pInfo->boxart_url).c_str(), pInfo->exe->boxart);
+	if (!pInfo->banner_url.empty()) DownloadImage((url_base + pInfo->banner_url).c_str(), pInfo->exe->banner);
 
 	{
 		DatabaseConnection con;
@@ -339,7 +338,6 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 			pi.banner_url = game.get("banner").get<std::string>();
 			pi.boxart_url = game.get("boxart").get<std::string>();
 			pi.exe = work->exe;
-			pi.exe_display = work->exe_display;
 			pi.platform = work->platform;
 			strcpy(pi.platform_name, work->platform_name);
 			items.push_back(pi);
@@ -359,7 +357,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	
 	delete work;
 }
-static void GetGameInfo(Platform* pApp, Executable* pExe, ExecutableDisplay* pDisplay, const char* pName)
+static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 {
 	DatabaseConnection con;
 	SqlStatement stmt(&con, qs_GetGame);
@@ -379,7 +377,6 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, ExecutableDisplay* pDi
 		//However, it seems unlikely due to the circumstances that would need to occur
 		GameInfoWork* work = new GameInfoWork();
 		work->exe = pExe;
-		work->exe_display = pDisplay;
 		work->name = pName;
 		work->platform = pApp->id;
 		strcpy(work->platform_name, pApp->name);

@@ -155,11 +155,11 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 
 static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 {
-	PlatformWindow* overlay = pState->overlay.form;
+	Form* overlay = pState->overlay.form;
 	if (pState->overlay.showing)
 	{
 		//Render to overlay window
-		wglMakeCurrent(overlay->dc, pState->form->rc);
+		wglMakeCurrent(overlay->platform->dc, pState->form->platform->rc);
 
 		v2 size = V2(overlay->width, overlay->height);
 		BeginRenderPass(size, pRender);
@@ -175,9 +175,9 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		PushRightAlignedTextWithIcon(pRender, &position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
 
 		EndRenderPass(size, pRender);
-		SwapBuffers(overlay);
+		SwapBuffers(overlay->platform);
 
 		//Switch back to normal window
-		wglMakeCurrent(pState->form->dc, pState->form->rc);
+		wglMakeCurrent(pState->form->platform->dc, pState->form->platform->rc);
 	}
 }

@@ -19,10 +19,10 @@ static void SendTextureToGraphicsCard(void* pData)
 	{
 		Bitmap* bitmap = (Bitmap*)pData;
 
-		GLenum format;
-		if (bitmap->channels == 1) format = GL_RED;
-		else if (bitmap->channels == 3) format = GL_RGB;
-		else if (bitmap->channels == 4) format = GL_RGBA;
+		//GLenum format;
+		//if (bitmap->channels == 1) format = GL_RED;
+		//else if (bitmap->channels == 3) format = GL_RGB;
+		//else if (bitmap->channels == 4) format = GL_RGBA;
 
 		glGenTextures(1, &bitmap->texture);
 		glBindTexture(GL_TEXTURE_2D, bitmap->texture);
@@ -399,7 +399,8 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	AddFontAsset(assets, FONT_Normal, ".\\Assets\\roboto-regular.ttf", 25);
 	AddFontAsset(assets, FONT_Title, ".\\Assets\\roboto-black.ttf", 36);
 	AddBitmapAsset(assets, BITMAP_Background, ".\\Assets\\background.jpg");
-	AddBitmapAsset(assets, BITMAP_Placeholder, ".\\Assets\\placeholder.jpg");
+	AddBitmapAsset(assets, BITMAP_Placeholder, ".\\Assets\\placeholder.png");
+	AddBitmapAsset(assets, BITMAP_PlaceholderBanner, ".\\Assets\\banner.png");
 
 	PackedTexture* text = new PackedTexture();
 	text->textures[0] = { BITMAP_Error, "error.png" };
