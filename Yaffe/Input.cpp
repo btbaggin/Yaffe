@@ -19,6 +19,24 @@ inline static bool IsControllerPressed(CONTROLLER_BUTTONS pController)
 	CHECK_KEY_INPUT((g_input.current_controller_buttons & pController) != 0 &&
 					(g_input.previous_controller_buttons & pController) == 0);
 }
+inline static u32 GetPressedButton()
+{
+	for (u32 i = CONTROLLER_DPAD_UP; i <= CONTROLLER_Y; i++)
+	{
+		if (IsControllerPressed((CONTROLLER_BUTTONS)i)) return i;
+	}
+	return 0;
+}
+
+inline static u32 GetPressedKey()
+{
+	for (u32 i = KEY_Zero; i <= KEY_Z; i++)
+	{
+		if (IsKeyPressedWithoutDelay((KEYS)i)) return i;
+	}
+	return 0;
+}
+
 
 inline static bool IsKeyReleased(KEYS pKey)
 {
@@ -87,9 +105,6 @@ inline static v2 NormalizeStickInput(v2 pStick)
 	//check if the controller is outside a circular dead zone
 	if (magnitude > XINPUT_INPUT_DEADZONE)
 	{
-		if (magnitude > 32767) magnitude = 32767;
-		magnitude -= XINPUT_INPUT_DEADZONE;
-
 		//giving a magnitude value of 0.0 to 1.0
 		v2 normalizedDir = dir / (32767 - XINPUT_INPUT_DEADZONE);
 		normalizedDir.Y *= -1;
