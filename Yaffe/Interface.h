@@ -65,9 +65,8 @@ protected:
 	Widget* children[48];
 	u32 child_count;
 
-	Widget(UI_NAMES pTag, Interface* pInterface)
+	Widget(UI_NAMES pTag, Interface* pInterface) : tag(pTag)
 	{
-		tag = pTag;
 		child_count = 0;
 		position = {};
 		size = {};
@@ -81,8 +80,8 @@ public:
 	v2 size;
 	virtual void Render(RenderState* pState) = 0;
 	virtual void Update(YaffeState* pState, float pDeltaTime) = 0;
-	virtual void OnFocusGained() { }
-	virtual void OnAdded() { }
+	virtual void OnFocusGained() { /* Do nothing by default*/ }
+	virtual void OnAdded() { /* Do nothing by default*/ }
 
 	void AddChild(Widget* pWidget)
 	{

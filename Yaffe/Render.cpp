@@ -103,6 +103,15 @@ static void BeginRenderPass(v2 pFormSize, RenderState* pState)
 	pState->memory = BeginTemporaryMemory(pState->arena);
 }
 
+static v2 BeginRenderPassAndClear(Form* pForm, RenderState* pState, float pAlpha = 1)
+{
+	v2 size = V2(pForm->width, pForm->height);
+	BeginRenderPass(size, pState);
+	glClearColor(1, 1, 1, pAlpha);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	return size;
+}
 
 static void EndRenderPass(v2 pFormSize, RenderState* pState)
 {
