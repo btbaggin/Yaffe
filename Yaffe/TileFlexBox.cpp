@@ -19,8 +19,6 @@ public:
 		SetSize(1 - PAGE_PADDING * 2, 1 - PAGE_PADDING * 2);
 	}
 
-	inline s32 GetFirstVisibleTile() { return first_visible - tiles_x * 2; }
-	inline s32 GetLastVisibleTile() { return first_visible + (tiles_x * tiles_y) + tiles_x * 2; }
 	float GetDefaultItemSize(float pDimension, float pAmount) { return (pDimension - pDimension * PAGE_PADDING * 2) / pAmount; }
 
 	inline void SetTileFlags(EXECUTABLE_FLAGS pFlags, u32 pIndex)
@@ -36,7 +34,7 @@ public:
 		}
 	}
 
-	void Render(RenderState* pState) { }
+	void Render(RenderState* pState) { /* Each box renders itself, this just sizes */ }
 	void DoRender(RenderState* pState)
 	{
 		Platform* plat = GetSelectedPlatform();

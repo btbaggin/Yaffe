@@ -106,47 +106,50 @@ private:
 
 	void Update(YaffeState* pState, float pDeltaTime) 
 	{
-		//Cycle the index until we get to one that exists, or the filter bar
-		if (IsLeftPressed() && mode != FILTER_MODE_None)
+		if (IsFocused())
 		{
-			if (selected_index < 0) selected_index = ArrayCount(exists) - 1;
-			while (!exists[--selected_index] && selected_index != -1);
-			FilterRoms();
-		}
-		else if (IsRightPressed() && mode != FILTER_MODE_None)
-		{
-			while (!exists[++selected_index] && selected_index != -1)
+			//Cycle the index until we get to one that exists, or the filter bar
+			if (IsLeftPressed() && mode != FILTER_MODE_None)
 			{
-				if (selected_index == ArrayCount(exists) - 1) selected_index = -2; //-2 because we will increment once before checking the loop
+				if (selected_index < 0) selected_index = ArrayCount(exists) - 1;
+				while (!exists[--selected_index] && selected_index != -1);
+				FilterRoms();
 			}
-			FilterRoms();
-		}
-		else if (IsEnterPressed())
-		{
-			is_active = true;
-			FocusElement(UI_Roms);
-		}
-		else if (IsEscPressed())
-		{
-			is_active = false;
-			RevertFocus();
-
-			TileFlexBox* box = GetWidget<TileFlexBox*>(UI_Roms);
-			box->SetTileFlags(EXECUTABLE_FLAG_None);
-		}
-
-		//selected_index == -1, means we are currently on the filter name
-		if (selected_index < 0)
-		{
-			if (IsDownPressed())
+			else if (IsRightPressed() && mode != FILTER_MODE_None)
 			{
-				mode = min(mode + 1, FILTER_MODE_COUNT - 1);
-				SetExists();
+				while (!exists[++selected_index] && selected_index != -1)
+				{
+					if (selected_index == ArrayCount(exists) - 1) selected_index = -2; //-2 because we will increment once before checking the loop
+				}
+				FilterRoms();
 			}
-			else if (IsUpPressed())
+			else if (IsEnterPressed())
 			{
-				mode = max(0, mode - 1);
-				SetExists();
+				is_active = true;
+				FocusElement(UI_Roms);
+			}
+			else if (IsEscPressed())
+			{
+				is_active = false;
+				RevertFocus();
+
+				TileFlexBox* box = GetWidget<TileFlexBox*>(UI_Roms);
+				box->SetTileFlags(EXECUTABLE_FLAG_None);
+			}
+
+			//selected_index == -1, means we are currently on the filter name
+			if (selected_index < 0)
+			{
+				if (IsDownPressed())
+				{
+					mode = min(mode + 1, FILTER_MODE_COUNT - 1);
+					SetExists();
+				}
+				else if (IsUpPressed())
+				{
+					mode = max(0, mode - 1);
+					SetExists();
+				}
 			}
 		}
 
