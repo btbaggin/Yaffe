@@ -41,7 +41,7 @@ inline T GetWidget(UI_NAMES pName)
 
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 {
-	if (g_state.error_count < MAX_ERROR_COUNT)
+	if (g_state.errors.CanAdd())
 	{
 		va_list args;
 		va_start(args, pType);
@@ -49,7 +49,7 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 		char* buffer = new char[1000];
 		vsprintf(buffer, pError, args);
 
-		g_state.errors[g_state.error_count++] = buffer;
+		g_state.errors.AddItem(buffer);
 		if (pType == ERROR_TYPE_Error) g_state.error_is_critical = true;
 
 		va_end(args);
@@ -57,6 +57,18 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 	}
 }
 
+static bool UpdateModalWindow(ModalWindow* pModal, YaffeState* pState, float pDeltaTime)
+{
+	MODAL_RESULTS result = pModal->content->Update(pDeltaTime);
+	if (result != MODAL_RESULT_None)
+	{
+		if (pModal->on_close) pModal->on_close(pState, result, pModal->content);
+		delete pModal->content;
+		delete pModal;
+		return true;
+	}
+	return false;
+}
 static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pWindow)
 {
 	const float TITLEBAR_SIZE = 32.0F;
@@ -106,9 +118,11 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pW
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose, const char* pButtons)
 {
 	_WriteBarrier();
-	if (pState->current_modal < MAX_MODAL_COUNT)
+	if (pState->modals.CanAdd())
 	{
-		s32 modal_index = InterlockedIncrement(&pState->current_modal);
+		volatile long count = pState->modals.count;
+		volatile long new_count = count + 1;
+		volatile long modal_index = InterlockedCompareExchange(&pState->modals.count, new_count, count);
 		ModalWindow* modal = new ModalWindow();
 		modal->title = pTitle;
 		modal->icon = pImage;
@@ -156,6 +170,14 @@ static MODAL_CLOSE(ExitModalClose)
 		{
 			Verify(Shutdown(), "Unable to initiate shutdown", ERROR_TYPE_Warning);
 		}
+		else if (content->GetSelected() == "Enable Restricted Mode")
+		{
+			EnableRestrictedMode(pState, pState->restrictions);
+		}
+		else if (content->GetSelected() == "Disable Restricted Mode")
+		{
+			DisableRestrictedMode(pState, pState->restrictions);
+		}
 		else assert(false);
 	}
 }
@@ -163,7 +185,7 @@ static MODAL_CLOSE(ExitModalClose)
 static void DisplayApplicationErrors(YaffeState* pState)
 {
 	//Check for and display any errors
-	u32 errors = pState->error_count;
+	u32 errors = pState->errors.count;
 	if (errors > 0)
 	{
 		std::string message;
@@ -175,23 +197,27 @@ static void DisplayApplicationErrors(YaffeState* pState)
 		}
 
 		DisplayModalWindow(pState, "Error", message, BITMAP_Error, ErrorModalClose);
-		pState->error_count = 0;
+		pState->errors.Clear();
 	}
 }
 
 static void DisplayQuitMessage(YaffeState* pState)
 {
 	if (GetForegroundWindow() == g_state.form->platform->handle &&
-		g_state.current_modal < 0 &&
+		g_state.modals.count == 0 &&
 		(IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
 	{
 		//Only allow quitting when current window is focused
 		std::vector<std::string> options;
 		options.push_back("Exit Yaffe");
 		options.push_back("Shut Down");
+		if (pState->restrictions->state == RESTRICTED_MODE_Off) options.push_back("Enable Restricted Mode");
+		else if (pState->restrictions->state == RESTRICTED_MODE_On) options.push_back("Disable Restricted Mode");
+
 		options.push_back("Settings");
 		options.push_back("Add Emulator");
 		options.push_back("Add Application");
+
 		DisplayModalWindow(pState, "Menu", new ListModal<std::string>(options, "", nullptr, MODAL_SIZE_Third), BITMAP_None, ExitModalClose);
 	}
 }
@@ -207,29 +233,29 @@ static void DisplayQuitMessage(YaffeState* pState)
 static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 {
 	g_ui.root->DoRender(pRender);
-	if (pState->current_modal >= 0)
+	if (pState->modals.count > 0)
 	{
-		RenderModalWindow(pRender, pState->modals[pState->current_modal], pState->form);
+		RenderModalWindow(pRender, pState->modals.CurrentItem(), pState->form);
 	}
 }
 
 static void UpdateUI(YaffeState* pState, float pDeltaTime)
 {
-	if (pState->overlay.process) return;
+	if (pState->restrictions->modal &&
+		UpdateModalWindow(pState->restrictions->modal, pState, pDeltaTime))
+	{
+		pState->restrictions->modal = nullptr;
+		return;
+	}
+
+	if (pState->overlay.process || pState->restrictions->modal) return;
 	DisplayApplicationErrors(pState);
 	DisplayQuitMessage(pState);
 
-	if (pState->current_modal >= 0)
+	if (pState->modals.count > 0)
 	{
-		ModalWindow* modal = pState->modals[pState->current_modal];
-		MODAL_RESULTS result = modal->content->Update(pDeltaTime);
-		if (result != MODAL_RESULT_None)
-		{
-			InterlockedDecrement(&pState->current_modal);
-			if(modal->on_close) modal->on_close(pState, result, modal->content);
-			delete modal->content;
-			delete modal;
-		}
+		ModalWindow* modal = pState->modals.CurrentItem();
+		if (UpdateModalWindow(modal, pState, pDeltaTime)) InterlockedDecrement(&pState->modals.count);
 		return;
 	}
 
@@ -250,6 +276,4 @@ static void InitializeUI(YaffeState* pState, Interface* pInterface)
 	div->AddChild(new Toolbar(pInterface));
 
 	FocusElement(UI_Emulators);
-
-	pState->current_modal = -1;
 }

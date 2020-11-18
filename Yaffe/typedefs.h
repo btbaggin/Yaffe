@@ -60,10 +60,10 @@ static bool operator>(v2 l, v2 r)
 
 static void GetTime(char* pBuffer, u32 pBufferSize, const char* pFormat = "%I:%M%p")
 {
-	time_t t;
-	struct tm* timeinfo;
-	time(&t);
-	timeinfo = localtime(&t);
+	time_t now;
+
+	now = time(0);
+	struct tm* timeinfo = localtime(&now);
 	strftime(pBuffer, pBufferSize, pFormat, timeinfo);
 }
 
@@ -95,4 +95,22 @@ public:
 		count = 0;
 		ZeroMemory(items, sizeof(T) * pCount);
 	}
+};
+
+template<typename T, unsigned N>
+class StaticList
+{
+	T items[N];
+public:
+	volatile long count;
+
+	void AddItem(T item) { items[count++] = item; }
+
+	void Clear() { count = 0; }
+
+	bool CanAdd() { return count < N; }
+
+	T CurrentItem() { return items[count - 1]; }
+
+	T& operator[](int index) { return items[index]; }
 };

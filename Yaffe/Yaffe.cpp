@@ -22,8 +22,8 @@ High prio background queue
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
-
 #include "Yaffe.h"
+#include "RestrictedMode.h"
 #include "Memory.h"
 #include "Assets.h"
 #include "Input.h"
@@ -100,6 +100,7 @@ Interface g_ui = {};
 #include "Platform.cpp"
 #include "Interface.cpp"
 #include "YaffeOverlay.cpp"
+#include "RestrictedMode.cpp"
 
 #include "Win32YaffePlatform.cpp"
 
@@ -164,8 +165,8 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeigh
 
 		RECT primaryDisplaySize;
 		SystemParametersInfo(SPI_GETWORKAREA, 0, &primaryDisplaySize, 0);	// system taskbar and application desktop toolbars not included
-		x = (u32)(primaryDisplaySize.right - pForm->width) / 2;
-		y = (u32)(primaryDisplaySize.bottom - pForm->height) / 2;
+		x = (u32)((float)primaryDisplaySize.right - pForm->width) / 2;
+		y = (u32)((float)primaryDisplaySize.bottom - pForm->height) / 2;
 	}
 
 	pForm->platform->handle = CreateWindowW(WINDOW_CLASS, pTitle, style, x, y, (int)pForm->width, (int)pForm->height, NULL, NULL, hInstance, NULL);
@@ -488,6 +489,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	g_input.layout = GetKeyboardLayout(0);
 
 	YaffeTime time = {};
+	g_state.restrictions = new RestrictedMode();
 
 	//Game loop
 	MSG msg;
@@ -509,14 +511,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		Tick(&time);
 
 		UpdateUI(&g_state, time.delta_time);
-
-		v2 size = V2(g_state.form->width, g_state.form->height);
 		ProcessTaskCallbacks(&g_state.callbacks);
-		BeginRenderPass(size, &render_state);
-		glClearColor(1, 1, 1, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		RenderUI(&g_state, &render_state, g_assets);
+		v2 size = BeginRenderPassAndClear(g_state.form, &render_state);
+
+		RenderUI(&g_state, &render_state, g_assets);		
+		if (!g_state.overlay.showing && g_state.restrictions->modal) RenderModalWindow(&render_state, g_state.restrictions->modal, g_state.form);
 
 		EndRenderPass(size, &render_state);
 		SwapBuffers(g_state.form->platform);

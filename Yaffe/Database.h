@@ -10,6 +10,7 @@ struct GameInfo
 	std::string boxart_url;
 	Executable* exe;
 	s32 platform;
+	u8 rating;
 	char platform_name[100];
 };
 
@@ -76,9 +77,9 @@ const char* qs_GetAllPlatforms = "SELECT ID, Platform, Roms FROM Platforms";
 const char* qs_AddPlatform = "INSERT INTO Platforms ( ID, Platform, Path, Args, Roms ) VALUES ( @PlatformId, @Platform, @Path, @Args, @Roms )";
 const char* qs_UpdatePlatform = "UPDATE Platforms SET Path = @Path, Args = @Args, Roms = @Roms WHERE ID = @ID";
 
-const char* qs_GetGame = "SELECT ID, Name, Overview, Players, FileName FROM Games WHERE Platform = @Platform AND FileName = @Game";
-const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.FileName, p.ID, p.Platform FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT " RECENT_COUNT_STRING;
-const char* qs_AddGame = "INSERT INTO Games (ID, Platform, Name, Overview, Players, FileName) VALUES ( @GameId, @Platform, @Name, @Overview, @Players, @FileName )";
+const char* qs_GetGame = "SELECT ID, Name, Overview, Players, Rating, FileName FROM Games WHERE Platform = @Platform AND FileName = @Game";
+const char* qs_GetRecentGames = "SELECT g.Name, g.Overview, g.Players, g.Rating, g.FileName, p.ID, p.Platform FROM Games g, Platforms p WHERE g.Platform = p.ID AND LastRun IS NOT NULL ORDER BY LastRun DESC LIMIT " RECENT_COUNT_STRING;
+const char* qs_AddGame = "INSERT INTO Games (ID, Platform, Name, Overview, Players, Rating, FileName) VALUES ( @GameId, @Platform, @Name, @Overview, @Players, @Rating, @FileName )";
 const char* qs_UpdateGameLastRun = "UPDATE Games SET LastRun = strftime('%s', 'now', 'localtime') WHERE Platform = @Platform AND FileName = @Game";
 
 const char* qs_GetAllApplications = "SELECT ID, Name FROM Applications";
@@ -88,5 +89,5 @@ const char* qs_UpdateApplication = "UPDATE Applications Set Path = @Path, Args =
 const char* qs_GetApplicationID = "SELECT COALESCE(MIN(ID), 0) - 1 from Applications";
 
 const char* qs_CreateApplicationTable = "CREATE TABLE \"Applications\" ( \"ID\" INTEGER, \"Name\" TEXT, \"Path\" TEXT, \"Args\"	TEXT )";
-const char* qs_CreateGamesTable = "CREATE TABLE \"Games\" ( \"ID\" INTEGER, \"Platform\" INTEGER, \"Name\" TEXT, \"Overview\" TEXT, \"Players\" INTEGER, \"FileName\" TEXT, \"LastRun\" INTEGER )";
+const char* qs_CreateGamesTable = "CREATE TABLE \"Games\" ( \"ID\" INTEGER, \"Platform\" INTEGER, \"Name\" TEXT, \"Overview\" TEXT, \"Players\" INTEGER, \"Rating\" INTEGER, \"FileName\" TEXT, \"LastRun\" INTEGER )";
 const char* qs_CreatePlatformsTable = "CREATE TABLE \"Platforms\" ( \"ID\" INTEGER, \"Platform\" TEXT, \"Path\" TEXT, \"Args\" TEXT, \"Roms\" TEXT )";

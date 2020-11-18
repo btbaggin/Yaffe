@@ -69,6 +69,7 @@ struct YaffeTime
 	long current_time;
 };
 
+struct RestrictedMode;
 struct YaffeState
 {
 	Form* form;
@@ -78,12 +79,10 @@ struct YaffeState
 	u32 selected_platform;
 	s32 selected_rom;
 
-	const char* errors[MAX_ERROR_COUNT];
-	u32 error_count;
+	StaticList<const char*, MAX_ERROR_COUNT> errors;
 	bool error_is_critical;
 
-	ModalWindow* modals[MAX_MODAL_COUNT];
-	volatile long current_modal;
+	StaticList<ModalWindow*, MAX_MODAL_COUNT> modals;
 
 	PlatformWorkQueue* work_queue;
 	TaskCallbackQueue callbacks;
@@ -92,6 +91,7 @@ struct YaffeState
 	bool has_connection;
 
 	PlatformService* service;
+	RestrictedMode* restrictions;
 
 	std::mutex db_mutex;
 };

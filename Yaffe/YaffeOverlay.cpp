@@ -5,12 +5,20 @@ class OverlayModal : public ModalContent
 {
 	const float ICON_SIZE = 24.0F;
 	float volume;
+	float delta = 0.0F;
+	bool up;
+	static RESTRICTED_ACTION(ChangeVolume)
+	{
+		OverlayModal* overlay = (OverlayModal*)pData;
+		if (overlay->up) overlay->delta = VOLUME_DELTA;
+		else overlay->delta = -VOLUME_DELTA;
+	}
 	MODAL_RESULTS Update(float pDeltaTime)
 	{
-		float delta = 0.0F;
-		if (IsLeftPressed()) delta = -VOLUME_DELTA;
-		else if (IsRightPressed()) delta = VOLUME_DELTA;
-
+		delta = 0.0F;
+		if (IsLeftPressed()) { up = false; VerifyRestrictedAction(&g_state, ChangeVolume, this); }
+		else if (IsRightPressed()) { up = true; VerifyRestrictedAction(&g_state, ChangeVolume, this); }
+		
 		GetAndSetVolume(&volume, delta);
 
 		return ModalContent::Update(pDeltaTime);
@@ -161,13 +169,12 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		//Render to overlay window
 		wglMakeCurrent(overlay->platform->dc, pState->form->platform->rc);
 
-		v2 size = V2(overlay->width, overlay->height);
-		BeginRenderPass(size, pRender);
-		glClearColor(1, 1, 1, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		v2 size = BeginRenderPassAndClear(overlay, pRender, 0);
 
 		PushQuad(pRender, V2(0), size, OVERLAY_COLOR);
+
 		RenderModalWindow(pRender, pState->overlay.modal, overlay);
+		if (pState->restrictions->modal) RenderModalWindow(pRender, pState->restrictions->modal, overlay);
 
 		char buffer[20];
 		GetTime(buffer, 20);

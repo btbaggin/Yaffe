@@ -1,7 +1,7 @@
 #define ExecuteUpdate(pStatement) (sqlite3_step(pStatement.stmt) == SQLITE_DONE)
 #define ExecuteReader(pStatement) (sqlite3_step(pStatement.stmt) == SQLITE_ROW)
 #define GetTextColumn(pStatement, pColumn) ((const char*)sqlite3_column_text(pStatement.stmt, pColumn))
-#define GetIntColumn(pStatement, pColumn) sqlite3_column_int(pStatement.stmt, pColumn);
+#define GetIntColumn(pStatement, pColumn) sqlite3_column_int(pStatement.stmt, pColumn)
 #define BindIntParm(pStatement, pValue) sqlite3_bind_int(pStatement.stmt, pStatement.parm_index++, pValue)
 #define BindTextParm(pStatement, pValue) sqlite3_bind_text(pStatement.stmt, pStatement.parm_index++, pValue, -1, nullptr)
 
@@ -34,6 +34,15 @@ static void InitailizeDatbase(YaffeState* pState)
 	}
 }
 
+static u8 GetRatingFromName(std::string pRating)
+{
+	if (pRating == "E - Everyone") return PLATFORM_RATING_Everyone;
+	else if (pRating == "E10+ - Everyone 10+") return PLATFORM_RATING_Everyone10;
+	else if (pRating == "T - Teen") return PLATFORM_RATING_Teen;
+	else if (pRating == "M - Mature 17+") return PLATFORM_RATING_Mature;
+	else if (pRating == "AO - Adult Only 18+") return PLATFORM_RATING_AdultOnly;
+	return PLATFORM_RATING_Pending;
+}
 
 
 //
@@ -262,10 +271,11 @@ static void GetRecentGames(Platform* pPlat, char pNames[RECENT_COUNT][35])
 
 		strcpy(exe->display_name, GetTextColumn(stmt, 0));
 		exe->overview = GetTextColumn(stmt, 1);
-		exe->players = GetIntColumn(stmt, 2);
-		strcpy(exe->file, GetTextColumn(stmt, 3));
-		exe->platform = GetIntColumn(stmt, 4);
-		strcpy(pNames[i++], GetTextColumn(stmt, 5));
+		exe->players = max(1, GetIntColumn(stmt, 2)); //Some games might not report players so it's null (0), assume it's 1
+		exe->rating = (PLATFORM_RATINGS)GetIntColumn(stmt, 3);
+		strcpy(exe->file, GetTextColumn(stmt, 4));
+		exe->platform = GetIntColumn(stmt, 5);
+		strcpy(pNames[i++], GetTextColumn(stmt, 6));
 	}
 }
 static void UpdateGameLastRun(Executable* pGame)
@@ -296,6 +306,7 @@ static void WriteGameToDB(GameInfo* pInfo, std::string pOld)
 		BindTextParm(stmt, pInfo->exe->display_name);
 		BindTextParm(stmt, pInfo->overview.c_str());
 		BindIntParm(stmt, pInfo->players);
+		BindIntParm(stmt, pInfo->rating);
 		BindTextParm(stmt, pOld.c_str());
 
 		std::lock_guard<std::mutex> guard(g_state.db_mutex);
@@ -338,6 +349,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 			pi.banner_url = game.get("banner").get<std::string>();
 			pi.boxart_url = game.get("boxart").get<std::string>();
 			pi.exe = work->exe;
+			pi.rating = GetRatingFromName(game.get("rating").get<std::string>());
 			pi.platform = work->platform;
 			strcpy(pi.platform_name, work->platform_name);
 			items.push_back(pi);
@@ -367,7 +379,8 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 	{
 		strcpy(pExe->display_name, GetTextColumn(stmt, 1));
 		pExe->overview = GetTextColumn(stmt, 2);
-		pExe->players = GetIntColumn(stmt, 3);
+		pExe->players = max(1, GetIntColumn(stmt, 3)); //Some games might not report players so it's null (0), assume it's 1
+		pExe->rating = (PLATFORM_RATINGS)GetIntColumn(stmt, 4);
 	}
 	else
 	{

@@ -93,6 +93,20 @@ public:
 		assert(*pIndex >= 0);
 	}
 
+	static RESTRICTED_ACTION(StartGame)
+	{
+		Executable* exe = (Executable*)pData;
+		if (exe->platform > 0) UpdateGameLastRun(exe);
+
+		char path[MAX_PATH], args[100], roms[MAX_PATH];
+		GetPlatformInfo(exe->platform, path, args, roms);
+
+		g_state.overlay.allow_input = (exe->platform < 0);
+
+		char buffer[1000];
+		BuildCommandLine(buffer, exe, path, roms, args);
+		StartProgram(&g_state, buffer, path);
+	}
 	void Update(YaffeState* pState, float pDeltaTime)
 	{
 		Platform* e = GetSelectedPlatform();
@@ -132,16 +146,8 @@ public:
 			if (IsEnterPressed())
 			{
 				Executable* exe = GetSelectedExecutable();
-				if (exe->platform > 0) UpdateGameLastRun(exe);
-
-				char path[MAX_PATH], args[100], roms[MAX_PATH];
-				GetPlatformInfo(exe->platform, path, args, roms);
-
-				g_state.overlay.allow_input = (exe->platform < 0);
-
-				char buffer[1000];
-				BuildCommandLine(buffer, exe, path, roms, args);
-				StartProgram(&g_state, buffer, path);
+				if (exe->rating >= PLATFORM_RATING_Mature) VerifyRestrictedAction(pState, StartGame, exe, false);
+				else StartGame(exe);
 
 			}
 			else if (IsInfoPressed())

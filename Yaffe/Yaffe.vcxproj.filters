@@ -2,15 +2,10 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="Yaffe.cpp" />
-    <ClCompile Include="Render.cpp" />
-    <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Assets.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Database.cpp" />
     <ClCompile Include="YaffeOverlay.cpp">
-      <Filter>Widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="Modal.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
     <ClCompile Include="FilterBar.cpp">
@@ -27,7 +22,6 @@
     <ClCompile Include="PlatformDetailModal.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
-    <ClCompile Include="Logger.cpp" />
     <ClCompile Include="Win32YaffePlatform.cpp" />
     <ClCompile Include="YaffeSettingsModal.cpp">
       <Filter>Widgets</Filter>
@@ -56,16 +50,24 @@
     <ClCompile Include="Interface.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
+    <ClCompile Include="Render.cpp">
+      <Filter>Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Memory.cpp">
+      <Filter>Utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>Utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="Modal.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="RestrictedMode.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="typedefs.h" />
     <ClInclude Include="Yaffe.h" />
-    <ClInclude Include="shaders.h" />
-    <ClInclude Include="Memory.h" />
     <ClInclude Include="Assets.h" />
     <ClInclude Include="Input.h" />
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="Render.h" />
     <ClInclude Include="Database.h" />
     <ClInclude Include="YaffePlatform.h" />
     <ClInclude Include="Platform.h" />
@@ -75,6 +77,22 @@
     <ClInclude Include="Colors.h">
       <Filter>Interface</Filter>
     </ClInclude>
+    <ClInclude Include="Render.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders.h">
+      <Filter>Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Memory.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="typedefs.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="RestrictedMode.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Widgets">
@@ -82,6 +100,12 @@
     </Filter>
     <Filter Include="Interface">
       <UniqueIdentifier>{e24b8f45-6948-4d0e-8ed7-c33570a3d68e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics">
+      <UniqueIdentifier>{af1bb57c-b6cd-4305-8f46-a515bc1c6b20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utilities">
+      <UniqueIdentifier>{0d4dc41c-727b-466f-a558-aec42fdebe7f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

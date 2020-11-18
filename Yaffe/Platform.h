@@ -18,12 +18,23 @@ enum PLATFORM_TYPE : u8
 	PLATFORM_App,
 };
 
+enum PLATFORM_RATINGS : u8
+{
+	PLATFORM_RATING_Pending,
+	PLATFORM_RATING_Everyone,
+	PLATFORM_RATING_Everyone10,
+	PLATFORM_RATING_Teen,
+	PLATFORM_RATING_Mature,
+	PLATFORM_RATING_AdultOnly,
+};
+
 //Information about the executable
 struct Executable
 {
 	char file[100];
 	char display_name[80];
 	std::string overview;
+	PLATFORM_RATINGS rating;
 	s32 platform; //Duplicated from Platform so we always know it, even if launching from recents
 	u8 players;
 	bool invalid;
