@@ -19,11 +19,10 @@ struct RestrictedMode
 	RESTRICTED_MODE_STATES state;
 	PIN_CODE pin[PIN_SIZE];
 	u32 pin_length;
-	u64 last_attempt;
+	u64 last_access;
 	ModalWindow* modal;
-	bool access_granted;
 };
 
 static void EnableRestrictedMode(YaffeState* pState, RestrictedMode* pRestrictions);
 static void DisableRestrictedMode(YaffeState* pState, RestrictedMode* pRestrictions);
-static void VerifyRestrictedAction(YaffeState* pState, restricted_action pResult, void* pData, bool pCheckTimeout = true);
+static void VerifyRestrictedAction(YaffeState* pState, restricted_action pResult, void* pData);

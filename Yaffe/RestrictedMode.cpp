@@ -74,7 +74,6 @@ class VerifyActionModal : public ModalContent
 	{
 		if (IsKeyPressed(KEY_Escape) || IsControllerPressed(CONTROLLER_BACK) || tries == 3)
 		{
-			state->restrictions->last_attempt = clock();
 			return MODAL_RESULT_Cancel;
 		}
 
@@ -85,14 +84,12 @@ class VerifyActionModal : public ModalContent
 		}
 
 		u32 key = GetPressedKey() | GetPressedButton();
-		if (key)
-		{
-			pin[index++] = key;
-		}
+		if (key) pin[index++] = key;
+
 		if (index == state->restrictions->pin_length &&
 			memcmp(pin, state->restrictions->pin, sizeof(PIN_CODE) * state->restrictions->pin_length) == 0)
 		{
-			state->restrictions->access_granted = true;
+			state->restrictions->last_access = clock();
 			action(data);
 			return MODAL_RESULT_Ok;
 		}
@@ -102,7 +99,7 @@ class VerifyActionModal : public ModalContent
 
 	void Render(RenderState* pState, v2 pPosition)
 	{
-		PushText(pState, FONT_Normal, "Enter PIN", pPosition, TEXT_FOCUSED);
+		PushText(pState, FONT_Normal, "This action requires approval. Enter PIN:", pPosition, TEXT_FOCUSED);
 
 		v2 char_size = MeasureString(FONT_Normal, "*");
 		pPosition.Y += char_size.Height + UI_MARGIN;
@@ -127,20 +124,18 @@ public:
 	}
 };
 
-static void VerifyRestrictedAction(YaffeState* pState, restricted_action pResult, void* pData, bool pCheckTimeout)
+static void VerifyRestrictedAction(YaffeState* pState, restricted_action pResult, void* pData)
 {
 	RestrictedMode* mode = pState->restrictions;
-	if (mode->state == RESTRICTED_MODE_On && !mode->access_granted)
+	if (mode->state == RESTRICTED_MODE_On && 
+		(clock() - mode->last_access) / (float)CLOCKS_PER_SEC > SECONDS_BEFORE_RETRY_VERIFY)
 	{
-		if (!pCheckTimeout || ((clock() - mode->last_attempt) / (float)CLOCKS_PER_SEC) > SECONDS_BEFORE_RETRY_VERIFY)
-		{
-			mode->modal = new ModalWindow();
-			mode->modal->title = "Enter PIN";
-			mode->modal->icon = BITMAP_None;
-			mode->modal->button = nullptr;
-			mode->modal->content = new VerifyActionModal(pState, pResult, pData);
-			mode->modal->on_close = nullptr;
-		}
+		mode->modal = new ModalWindow();
+		mode->modal->title = "Enter PIN";
+		mode->modal->icon = BITMAP_None;
+		mode->modal->button = nullptr;
+		mode->modal->content = new VerifyActionModal(pState, pResult, pData);
+		mode->modal->on_close = nullptr;
 	}
 	else
 	{
@@ -153,8 +148,7 @@ static void EnableRestrictedMode(YaffeState* pState, RestrictedMode* pRestrictio
 	assert(pRestrictions->state == RESTRICTED_MODE_Off);
 
 	pRestrictions->state = RESTRICTED_MODE_Pending;
-	pRestrictions->last_attempt = (u64)(CLOCKS_PER_SEC * SECONDS_BEFORE_RETRY_VERIFY);
-	pRestrictions->access_granted = false;
+	pRestrictions->last_access = (u64)(CLOCKS_PER_SEC * SECONDS_BEFORE_RETRY_VERIFY); //Force request on first try
 
 	pRestrictions->modal = new ModalWindow();
 	pRestrictions->modal->title = "Enter PIN";

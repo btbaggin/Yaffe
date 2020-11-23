@@ -60,9 +60,7 @@ static bool operator>(v2 l, v2 r)
 
 static void GetTime(char* pBuffer, u32 pBufferSize, const char* pFormat = "%I:%M%p")
 {
-	time_t now;
-
-	now = time(0);
+	time_t now = time(0);
 	struct tm* timeinfo = localtime(&now);
 	strftime(pBuffer, pBufferSize, pFormat, timeinfo);
 }

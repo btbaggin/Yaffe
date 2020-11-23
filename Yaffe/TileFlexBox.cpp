@@ -146,7 +146,7 @@ public:
 			if (IsEnterPressed())
 			{
 				Executable* exe = GetSelectedExecutable();
-				if (exe->rating >= PLATFORM_RATING_Mature) VerifyRestrictedAction(pState, StartGame, exe, false);
+				if (exe->rating >= PLATFORM_RATING_Mature) VerifyRestrictedAction(pState, StartGame, exe);
 				else StartGame(exe);
 
 			}
