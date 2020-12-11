@@ -51,7 +51,6 @@ static GLProgram CreateProgram(GLuint pVertex, GLuint pFragment)
 	return prog;
 }
 
-#define Megabytes(size) size * 1024 * 1024
 static void InitializeRenderer(RenderState* pState)
 {
 	void* render = malloc(Megabytes(6));

@@ -21,7 +21,7 @@ public:
 
 	void SetSize(MODAL_SIZES pSize, int pRows)
 	{
-		float width = 740;
+		float width = g_state.form->width;
 		if (pSize == MODAL_SIZE_Half) width /= 2.0F;
 		else if (pSize == MODAL_SIZE_Third) width /= 3.0F;
 

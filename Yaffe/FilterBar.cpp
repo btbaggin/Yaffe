@@ -142,12 +142,12 @@ private:
 			{
 				if (IsDownPressed())
 				{
-					mode = min(mode + 1, FILTER_MODE_COUNT - 1);
+					mode = std::min(mode + 1, FILTER_MODE_COUNT - 1);
 					SetExists();
 				}
 				else if (IsUpPressed())
 				{
-					mode = max(0, mode - 1);
+					mode = std::max(0, mode - 1);
 					SetExists();
 				}
 			}

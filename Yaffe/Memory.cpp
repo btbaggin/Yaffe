@@ -166,7 +166,7 @@ void* Alloc(Assets* pAssets, u64 pSize)
 		if (remaining > 1024)
 		{
 			InsertBlock(block, remaining, (char*)result + pSize);
-			InterlockedExchangeAdd(&block->size, -(s64)remaining);
+			AtomicAdd(&block->size, -(s64)remaining);
 		}
 	}
 

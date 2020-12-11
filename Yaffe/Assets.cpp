@@ -164,7 +164,7 @@ static void ProcessTaskCallbacks(TaskCallbackQueue* pQueue)
 	u32 array = (u32)(pQueue->i >> 32);
 	u64 newArray = ((u64)array ^ 1) << 32;
 
-	u64 event = InterlockedExchange(&pQueue->i, newArray);
+	u64 event = AtomicExchange(&pQueue->i, newArray);
 	u32 count = (u32)event;
 
 	for (u32 i = 0; i < count; i++)
@@ -176,8 +176,7 @@ static void ProcessTaskCallbacks(TaskCallbackQueue* pQueue)
 
 static void AddTaskCallback(TaskCallbackQueue* pQueue, TaskCompleteCallback* pFunc, void* pData)
 {
-	u64 arrayIndex = InterlockedIncrement(&pQueue->i);
-	arrayIndex--;
+	u64 arrayIndex = AtomicAdd(&pQueue->i, 1);
 
 	u32 array = (u32)(arrayIndex >> 32);
 	u32 index = (u32)arrayIndex;
@@ -214,13 +213,13 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 			AddTaskCallback(work->queue, SendFontToGraphicsCard, work->slot->font);
 			break;
 	}
-	_InterlockedExchange(&work->slot->state, ASSET_STATE_Loaded);
+	AtomicExchange(&work->slot->state, ASSET_STATE_Loaded);
 	delete work;
 }
 
 static void LoadAsset(Assets* pAssets, AssetSlot* pSlot, void* pData = nullptr)
 {
-	if (_InterlockedCompareExchange(&pSlot->state, ASSET_STATE_Queued, ASSET_STATE_Unloaded) == ASSET_STATE_Unloaded)
+	if (AtomicCompareExchange(&pSlot->state, ASSET_STATE_Queued, ASSET_STATE_Unloaded) == ASSET_STATE_Unloaded)
 	{
 		YaffeLogInfo("Loading asset %s", pSlot->load_path.c_str());
 
@@ -290,7 +289,7 @@ static v2 MeasureString(FONTS pFont, const char* pText)
 			{
 				assert(c - ' ' >= 0);
 				stbtt_GetPackedQuad(font->charInfo, font->atlasWidth, font->atlasHeight, c - ' ', &x, &y, &quad, 1);
-				size.Width = max(size.Width, x);
+				size.Width = std::max(size.Width, x);
 			}
 		}
 	}
@@ -451,7 +450,7 @@ void FreeAsset(AssetSlot* pSlot)
 				assert(false);
 		}
 		pSlot->last_requested = 0;
-		InterlockedExchange(&pSlot->state, ASSET_STATE_Unloaded);
+		AtomicExchange(&pSlot->state, ASSET_STATE_Unloaded);
 	}
 }
 

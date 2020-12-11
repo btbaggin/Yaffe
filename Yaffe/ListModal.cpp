@@ -25,12 +25,12 @@ class ListModal : public ModalContent
 		if (IsDownPressed())
 		{
 			index++;
-			index = min(index, (s32)items.size() - 1);
+			index = std::min(index, (s32)items.size() - 1);
 		}
 		else if (IsUpPressed())
 		{
 			index--;
-			index = max(index, 0);
+			index = std::max(index, 0);
 		}
 		return ModalContent::Update(pDeltaTime);
 	}

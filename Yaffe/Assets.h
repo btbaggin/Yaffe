@@ -1,10 +1,10 @@
 #pragma once
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb\stb_truetype.h"
+#include "stb/stb_truetype.h"
 #include "typedefs.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_GIF
-#include "stb\stb_image.h"
+#include "stb/stb_image.h"
 
 enum ASSET_STATE
 {

@@ -184,17 +184,17 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 	//Selection
 	if (tc->focused)
 	{
-		int start_index = min(tc->state.select_start, tc->state.select_end);
-		int end_index = max(tc->state.select_start, tc->state.select_end);
-		start_index = min(start_index, tc->stringlen);
-		end_index = min(end_index, tc->stringlen);
+		int start_index = std::min(tc->state.select_start, tc->state.select_end);
+		int end_index = std::max(tc->state.select_start, tc->state.select_end);
+		start_index = std::min(start_index, tc->stringlen);
+		end_index = std::min(end_index, tc->stringlen);
 		if (end_index > 0)
 		{
 			StbFindState start = {};
 			StbFindState end = {};
 			stb_textedit_find_charpos(&start, tc, start_index, true);
 			stb_textedit_find_charpos(&end, tc, end_index, true);
-			PushQuad(pState, pPosition + V2(max(start.x - tc->font_x, 0), start.y), pPosition + V2(min(end.x, tc->width), end.y + font_size), V4(0, 0.5F, 1, 1));
+			PushQuad(pState, pPosition + V2(std::max(start.x - tc->font_x, 0.0F), start.y), pPosition + V2(std::min(end.x, tc->width), end.y + font_size), V4(0, 0.5F, 1, 1));
 		}
 	}
 

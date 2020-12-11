@@ -79,7 +79,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pW
 	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pModal->content->size;
 	if (pModal->icon != BITMAP_None)
 	{
-		size.Height = max(ICON_SIZE_WITH_MARGIN, size.Height);
+		size.Height = std::max(ICON_SIZE_WITH_MARGIN, size.Height);
 		size.Width += ICON_SIZE_WITH_MARGIN;
 	}
 
@@ -122,7 +122,7 @@ static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalCont
 	{
 		volatile long count = pState->modals.count;
 		volatile long new_count = count + 1;
-		volatile long modal_index = InterlockedCompareExchange(&pState->modals.count, new_count, count);
+		volatile long modal_index = AtomicCompareExchange(&pState->modals.count, new_count, count);
 		ModalWindow* modal = new ModalWindow();
 		modal->title = pTitle;
 		modal->icon = pImage;
@@ -255,7 +255,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 	if (pState->modals.count > 0)
 	{
 		ModalWindow* modal = pState->modals.CurrentItem();
-		if (UpdateModalWindow(modal, pState, pDeltaTime)) InterlockedDecrement(&pState->modals.count);
+		if (UpdateModalWindow(modal, pState, pDeltaTime)) AtomicAdd(&pState->modals.count, -1);
 		return;
 	}
 

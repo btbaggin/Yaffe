@@ -9,6 +9,7 @@ High prio background queue
 */
 
 #define GLEW_STATIC
+#define NOMINMAX
 #include <glew/glew.h>
 #include <gl/GL.h>
 #include "gl/wglext.h"
@@ -22,15 +23,15 @@ High prio background queue
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
-#include "Yaffe.h"
-#include "RestrictedMode.h"
-#include "Memory.h"
-#include "Assets.h"
-#include "Input.h"
-#include "Render.h"
-#include "Interface.h"
-#include "Platform.h"
-#include "Database.h"
+#include "../Yaffe.h"
+#include "../RestrictedMode.h"
+#include "../Memory.h"
+#include "../Assets.h"
+#include "Win32Input.h"
+#include "../Render.h"
+#include "../Interface.h"
+#include "../Platform.h"
+#include "../Database.h"
 #include <json.h>
 #include "TextureAtlas.h"
 
@@ -85,22 +86,22 @@ YaffeInput g_input = {};
 Assets* g_assets;
 Interface g_ui = {};
 
-#include "Logger.cpp"
-#include "Memory.cpp"
-#include "Assets.cpp"
-#include "Input.cpp"
-#include "Render.cpp"
-#include "UiElements.cpp"
-#include "Modal.cpp"
-#include "ListModal.cpp"
-#include "PlatformDetailModal.cpp"
-#include "YaffeSettingsModal.cpp"
-#include "Server.cpp"
-#include "Database.cpp"
-#include "Platform.cpp"
-#include "Interface.cpp"
-#include "YaffeOverlay.cpp"
-#include "RestrictedMode.cpp"
+#include "../Logger.cpp"
+#include "../Memory.cpp"
+#include "../Assets.cpp"
+#include "../Input.cpp"
+#include "../Render.cpp"
+#include "../UiElements.cpp"
+#include "../Modal.cpp"
+#include "../ListModal.cpp"
+#include "../PlatformDetailModal.cpp"
+#include "../YaffeSettingsModal.cpp"
+#include "../Server.cpp"
+#include "../Database.cpp"
+#include "../Platform.cpp"
+#include "../Interface.cpp"
+#include "../YaffeOverlay.cpp"
+#include "../RestrictedMode.cpp"
 
 #include "Win32YaffePlatform.cpp"
 
@@ -220,6 +221,7 @@ bool CreateOpenGLWindow(Form* pForm, HINSTANCE hInstance, u32 pWidth, u32 pHeigh
 				0
 	};
 
+
 	pForm->platform->rc = wglCreateContextAttribsARB(pForm->platform->dc, 0, contextAttribs);
 	if (!pForm->platform->rc) return false;
 
@@ -302,13 +304,13 @@ bool Win32DoNextWorkQueueEntry(PlatformWorkQueue* pQueue)
 	u32 newnext = (oldnext + 1) % QUEUE_ENTRIES;
 	if (oldnext != pQueue->NextEntryToWrite)
 	{
-		u32 index = InterlockedCompareExchange((LONG volatile*)&pQueue->NextEntryToRead, newnext, oldnext);
+		u32 index = AtomicCompareExchange((LONG volatile*)&pQueue->NextEntryToRead, newnext, oldnext);
 		if (index == oldnext)
 		{
 			WorkQueueEntry entry = pQueue->entries[index];
 			entry.callback(pQueue, entry.data);
 
-			InterlockedIncrement((LONG volatile*)&pQueue->CompletionCount);
+			AtomicAdd((LONG volatile*)&pQueue->CompletionCount, 1);
 		}
 	}
 	else
@@ -345,7 +347,7 @@ DWORD WINAPI ThreadProc(LPVOID pParameter)
 
 void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 {
-	memcpy(pInput->previous_keyboard_state, pInput->current_keyboard_state, 256);
+	memcpy(pInput->previous_keyboard_state, pInput->current_keyboard_state, INPUT_SIZE);
 	pInput->previous_controller_buttons = pInput->current_controller_buttons;
 
 	GetKeyboardState((PBYTE)pInput->current_keyboard_state);

@@ -271,7 +271,7 @@ static void GetRecentGames(Platform* pPlat, char pNames[RECENT_COUNT][35])
 
 		strcpy(exe->display_name, GetTextColumn(stmt, 0));
 		exe->overview = GetTextColumn(stmt, 1);
-		exe->players = max(1, GetIntColumn(stmt, 2)); //Some games might not report players so it's null (0), assume it's 1
+		exe->players = std::max(1, GetIntColumn(stmt, 2)); //Some games might not report players so it's null (0), assume it's 1
 		exe->rating = (PLATFORM_RATINGS)GetIntColumn(stmt, 3);
 		strcpy(exe->file, GetTextColumn(stmt, 4));
 		exe->platform = GetIntColumn(stmt, 5);
@@ -379,7 +379,7 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 	{
 		strcpy(pExe->display_name, GetTextColumn(stmt, 1));
 		pExe->overview = GetTextColumn(stmt, 2);
-		pExe->players = max(1, GetIntColumn(stmt, 3)); //Some games might not report players so it's null (0), assume it's 1
+		pExe->players = std::max(1, GetIntColumn(stmt, 3)); //Some games might not report players so it's null (0), assume it's 1
 		pExe->rating = (PLATFORM_RATINGS)GetIntColumn(stmt, 4);
 	}
 	else

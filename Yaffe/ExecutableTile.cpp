@@ -41,7 +41,7 @@ public:
 		{
 			float animation_remainder = (ANIMATION_TIME - time) / ANIMATION_TIME;
 			//Have alpha fade in as the item grows to full size
-			float alpha = pow(animation_remainder, 2);
+			float alpha = pow(animation_remainder, 2.0F);
 
 			float height = GetFontSize(FONT_Subtext);
 			target_size *= 1 + animation_remainder * SELECTED_SCALAR;
@@ -52,10 +52,10 @@ public:
 			//We need to copy the name so we can text wrap and things
 			char render_name[80];
 			strcpy(render_name, exe->display_name);
-			WrapText(render_name, strlen(render_name), FONT_Subtext, target_size.Width);
+			WrapText(render_name, (u32)strlen(render_name), FONT_Subtext, target_size.Width);
 
 			v2 name_size = MeasureString(FONT_Subtext, render_name);
-			height = max(height, name_size.Height);
+			height = std::max(height, name_size.Height);
 
 			//Check if we need to push the buttons below the text due to overlap
 			float text_width = name_size.Width + MeasureString(FONT_Subtext, "Info Run").Width + 40;
@@ -97,6 +97,6 @@ public:
 			focused = false;
 		}
 
-		time = max(0, time - pDeltaTime);
+		time = std::max(0.0F, time - pDeltaTime);
 	}
 };

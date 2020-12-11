@@ -1,18 +1,4 @@
 #pragma once
-const s32 GLOBAL_INPUT_DELAY = 100;
-#define InputDown(state, input) (g_input.state[input] & 0x80) != 0
-#define InputUp(state, input) (g_input.state[input] & 0x80) == 0
-#define CHECK_KEY_INPUT(expression) if(expression) { g_input.last_input = clock(); return true; } else { return false; }
-const float XINPUT_INPUT_DEADZONE = 7849.0F;
-
-#define IsUpPressed() (IsKeyPressed(KEY_Up) || IsLeftStickPushed(DIRECTION_Up) || IsControllerPressed(CONTROLLER_DPAD_UP))
-#define IsDownPressed() (IsKeyPressed(KEY_Down) || IsLeftStickPushed(DIRECTION_Down) || IsControllerPressed(CONTROLLER_DPAD_DOWN))
-#define IsLeftPressed() (IsKeyPressed(KEY_Left) || IsLeftStickPushed(DIRECTION_Left) || IsControllerPressed(CONTROLLER_DPAD_LEFT))
-#define IsRightPressed() (IsKeyPressed(KEY_Right) || IsLeftStickPushed(DIRECTION_Right) || IsControllerPressed(CONTROLLER_DPAD_RIGHT))
-#define IsEnterPressed() (IsKeyPressed(KEY_Enter) || IsControllerPressed(CONTROLLER_A))
-#define IsEscPressed() (IsKeyPressed(KEY_Escape) || IsControllerPressed(CONTROLLER_B))
-#define IsFilterPressed() (IsKeyPressed(KEY_F1) || IsControllerPressed(CONTROLLER_Y))
-#define IsInfoPressed() (IsKeyPressed(KEY_I) || IsControllerPressed(CONTROLLER_X))
 
 typedef struct
 {
@@ -26,24 +12,26 @@ typedef struct
 	SHORT                               sThumbRY;
 } XINPUT_GAMEPAD_EX;
 
+#define XBOX_BUTTON DWORD
+#define INPUT_SIZE 256
 // returns 0 on success, 1167 on not connected. Might be others.
-typedef int(__stdcall * get_gamepad_ex)(int, XINPUT_GAMEPAD_EX*);
-typedef void(__stdcall * gamepad_enable)(bool);
+typedef int(__stdcall* get_gamepad_ex)(int, XINPUT_GAMEPAD_EX*);
 
 
 //https://forums.tigsource.com/index.php?topic=26792.0
 struct YaffeInput
 {
-	char current_keyboard_state[256];
-	char previous_keyboard_state[256];
+	char current_keyboard_state[INPUT_SIZE];
+	char previous_keyboard_state[INPUT_SIZE];
 	v2 mouse_position;
 
-	DWORD current_controller_buttons;
-	DWORD previous_controller_buttons;
+	XBOX_BUTTON current_controller_buttons;
+	XBOX_BUTTON previous_controller_buttons;
 	v2 left_stick;
 	v2 right_stick;
 
 	get_gamepad_ex XInputGetState;
+	//TODO
 	HKL layout;
 
 	long last_input;
@@ -193,3 +181,12 @@ enum DIRECTIONS
 	DIRECTION_Left,
 	DIRECTION_Right,
 };
+
+inline static bool InputDown(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
+{
+	return (pInput[pKey] & 0x80) != 0;
+} 
+inline static bool InputUp(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
+{
+	return (pInput[pKey] & 0x80) == 0;
+}

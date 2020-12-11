@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Yaffe.cpp" />
     <ClCompile Include="Assets.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Database.cpp" />
@@ -22,7 +21,6 @@
     <ClCompile Include="PlatformDetailModal.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
-    <ClCompile Include="Win32YaffePlatform.cpp" />
     <ClCompile Include="YaffeSettingsModal.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
@@ -63,6 +61,8 @@
       <Filter>Interface</Filter>
     </ClCompile>
     <ClCompile Include="RestrictedMode.cpp" />
+    <ClCompile Include="Windows\Win32Yaffe.cpp" />
+    <ClCompile Include="Windows\Win32YaffePlatform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Yaffe.h" />
@@ -93,6 +93,7 @@
       <Filter>Utilities</Filter>
     </ClInclude>
     <ClInclude Include="RestrictedMode.h" />
+    <ClInclude Include="Windows\Win32Input.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Widgets">

@@ -179,18 +179,10 @@ DWORD GetProcessID(const TCHAR* pszExePathName) {
 
 	PROCESSENTRY32 entry = { sizeof(PROCESSENTRY32), 0 };
 	for (BOOL bContinue = Process32First(snapshot, &entry); bContinue; bContinue = Process32Next(snapshot, &entry)) {
-#if (_WIN32_WINNT >= 0x0600)
 		HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
 		DWORD dwSize = MAX_PATH;
-		if (!QueryFullProcessImageName(hProcess, 0, entry.szExeFile, &dwSize))
-			continue;
-#else
-		// since we require elevation, go ahead and try to read what we need directly out of the process' virtual memory
-		if (auto hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, entry.th32ProcessID)) {
-			if (!GetModuleFileNameEx(hProcess, nullptr, entry.szExeFile, countof(entry.szExeFile)))
-				continue;
-		}
-#endif
+		if (!QueryFullProcessImageName(hProcess, 0, entry.szExeFile, &dwSize)) continue;
+
 		//if(std::equal(a.begin(), a.end(), b.begin(), [](char a, char b) { return tolower(a) == tolower(b); });
 		if (wcscmp(entry.szExeFile, pszExePathName) == 0)
 			return entry.th32ProcessID; // FOUND
@@ -370,7 +362,7 @@ static bool GetAndSetVolume(float* pVolume, float pDelta)
 
 	if (pDelta != 0)
 	{
-		*pVolume = min(1.0F, max(0.0F, *pVolume + pDelta));
+		*pVolume = std::min(1.0F, std::max(0.0F, *pVolume + pDelta));
 		hr = endpointVolume->SetMasterVolumeLevelScalar(*pVolume, NULL);
 		CHECK_COM_ERROR(hr, "Unable to set volume level: %x", {
 			defaultDevice->Release();
