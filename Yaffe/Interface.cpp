@@ -56,19 +56,14 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 
 	}
 }
-
-static bool UpdateModalWindow(ModalWindow* pModal, YaffeState* pState, float pDeltaTime)
+static void CloseModalWindow(ModalWindow* pModal, MODAL_RESULTS pResult, YaffeState* pState)
 {
-	MODAL_RESULTS result = pModal->content->Update(pDeltaTime);
-	if (result != MODAL_RESULT_None)
-	{
-		if (pModal->on_close) pModal->on_close(pState, result, pModal->content);
-		delete pModal->content;
-		delete pModal;
-		return true;
-	}
-	return false;
+	if (pModal->on_close) pModal->on_close(pState, pResult, pModal->content);
+	delete pModal->content;
+	delete pModal;
+	pModal = nullptr;
 }
+
 static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pWindow)
 {
 	const float TITLEBAR_SIZE = 32.0F;
@@ -117,7 +112,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pW
 
 static bool DisplayModalWindow(YaffeState* pState, const char* pTitle, ModalContent* pContent, BITMAPS pImage, modal_window_close* pClose, const char* pButtons)
 {
-	_WriteBarrier();
+	WriteBarrier();
 	if (pState->modals.CanAdd())
 	{
 		volatile long count = pState->modals.count;
@@ -203,8 +198,8 @@ static void DisplayApplicationErrors(YaffeState* pState)
 
 static void DisplayQuitMessage(YaffeState* pState)
 {
-	if (GetForegroundWindow() == g_state.form->platform->handle &&
-		g_state.modals.count == 0 &&
+	if (WindowIsForeground(pState) &&
+		pState->modals.count == 0 &&
 		(IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
 	{
 		//Only allow quitting when current window is focused
@@ -241,10 +236,10 @@ static void RenderUI(YaffeState* pState, RenderState* pRender, Assets* pAssets)
 
 static void UpdateUI(YaffeState* pState, float pDeltaTime)
 {
-	if (pState->restrictions->modal &&
-		UpdateModalWindow(pState->restrictions->modal, pState, pDeltaTime))
+	if (pState->restrictions->modal)
 	{
-		pState->restrictions->modal = nullptr;
+		MODAL_RESULTS result = pState->restrictions->modal->content->Update(pDeltaTime);
+		if(result != MODAL_RESULT_None) CloseModalWindow(pState->restrictions->modal, result, pState);
 		return;
 	}
 
@@ -255,7 +250,12 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 	if (pState->modals.count > 0)
 	{
 		ModalWindow* modal = pState->modals.CurrentItem();
-		if (UpdateModalWindow(modal, pState, pDeltaTime)) AtomicAdd(&pState->modals.count, -1);
+		MODAL_RESULTS result = modal->content->Update(pDeltaTime);
+		if (result != MODAL_RESULT_None)
+		{
+			AtomicAdd(&pState->modals.count, -1);
+			CloseModalWindow(modal, result, pState);
+		} 
 		return;
 	}
 

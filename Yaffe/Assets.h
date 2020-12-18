@@ -27,7 +27,7 @@ enum BITMAPS : u8
 	BITMAP_Background,
 	BITMAP_Placeholder,
 	BITMAP_PlaceholderBanner,
-	BITMAP_TexturePack,
+	BITMAP_IconPack,
 
 	//Packed textures go here
 	BITMAP_Error,
@@ -43,6 +43,12 @@ enum BITMAPS : u8
 	BITMAP_Recent,
 	BITMAP_Speaker,
 	BITMAP_Settings,
+
+	BITMAP_ERSB_Everyone,
+	BITMAP_ERSB_Everyone10,
+	BITMAP_ERSB_Teen,
+	BITMAP_ERSB_Mature,
+	BITMAP_ERSB_AdultOnly,
 
 	BITMAP_COUNT
 };
@@ -122,7 +128,7 @@ struct PackedTextureEntry
 
 struct PackedTexture
 {
-	PackedTextureEntry textures[BITMAP_COUNT - BITMAP_TexturePack - 1];
+	PackedTextureEntry textures[32];
 
 	const char* image;
 	const char* config;

@@ -12,6 +12,18 @@ const float XINPUT_INPUT_DEADZONE = 7849.0F;
 #define IsFilterPressed() (IsKeyPressed(KEY_F1) || IsControllerPressed(CONTROLLER_Y))
 #define IsInfoPressed() (IsKeyPressed(KEY_I) || IsControllerPressed(CONTROLLER_X))
 
+struct InputMessage
+{
+	v2 cursor;
+	bool down;
+	union
+	{
+		MOUSE_BUTTONS button;
+		KEYS key;
+	};
+	float scroll;
+};
+
 
 inline static bool IsKeyPressed(KEYS pKey)
 {

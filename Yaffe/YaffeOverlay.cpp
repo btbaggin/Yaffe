@@ -90,7 +90,7 @@ static void UpdateOverlay(Overlay* pOverlay, float pDeltaTime)
 		//Allow us to control the mouse with XInput
 		if (pOverlay->allow_input && !pOverlay->showing)
 		{
-			PlatformInputMessage message;
+			InputMessage message;
 			
 			v2 mouse = GetMousePosition();
 			v2 move = NormalizeStickInput(g_input.left_stick);
@@ -167,7 +167,7 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 	if (pState->overlay.showing)
 	{
 		//Render to overlay window
-		wglMakeCurrent(overlay->platform->dc, pState->form->platform->rc);
+		SetContext(overlay->platform, pState->form->platform);
 
 		v2 size = BeginRenderPassAndClear(overlay, pRender, 0);
 
@@ -181,10 +181,9 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		v2 position = V2(overlay->width, overlay->height) - V2(UI_MARGIN, GetFontSize(FONT_Title) + UI_MARGIN);
 		PushRightAlignedTextWithIcon(pRender, &position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
 
-		EndRenderPass(size, pRender);
-		SwapBuffers(overlay->platform);
+		EndRenderPass(size, pRender, overlay->platform);
 
 		//Switch back to normal window
-		wglMakeCurrent(pState->form->platform->dc, pState->form->platform->rc);
+		SetContext(pState->form->platform, pState->form->platform);
 	}
 }

@@ -17,6 +17,8 @@ typedef signed char s8;
 typedef hmm_vec4 v4;
 typedef hmm_vec2 v2;
 typedef hmm_mat4 mat4;
+typedef picojson::value json;
+typedef picojson::array jarray;
 
 static v2 V2(float xy)
 {
@@ -91,7 +93,7 @@ public:
 		if (items) delete[] items;
 		items = new T[pCount];
 		count = 0;
-		ZeroMemory(items, sizeof(T) * pCount);
+		memset(items, 0, sizeof(T) * pCount);
 	}
 };
 

@@ -9,6 +9,8 @@
 #include "YaffePlatform.h"
 #include "Memory.h"
 #include "sqlite/sqlite3.h"
+#include "TinyFileDialog/tinyfiledialogs.h"
+#include "TinyFileDialog/tinyfiledialogs.c"
 
 const u32 QUEUE_ENTRIES = 256;
 const u32 MAX_ERROR_COUNT = 16;
@@ -22,8 +24,8 @@ enum ERROR_TYPE
 	ERROR_TYPE_Warning
 };
 
-typedef bool add_work_queue_entry(PlatformWorkQueue* pQueue, work_queue_callback pCallback, void* pData);
-typedef void complete_all_work(PlatformWorkQueue* pQueue);
+typedef bool add_work_queue_entry(WorkQueue* pQueue, work_queue_callback pCallback, void* pData);
+typedef void complete_all_work(WorkQueue* pQueue);
 
 struct WorkQueueEntry
 {
@@ -84,7 +86,7 @@ struct YaffeState
 
 	StaticList<ModalWindow*, MAX_MODAL_COUNT> modals;
 
-	PlatformWorkQueue* work_queue;
+	WorkQueue* work_queue;
 	TaskCallbackQueue callbacks;
 
 	bool is_running;
@@ -103,5 +105,5 @@ inline void Tick(YaffeTime* pTime)
 	pTime->current_time = current_time;
 }
 
-void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...);
+static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...);
 #define Verify(condition, message, type) if (!condition) { DisplayErrorMessage(message, type); return; }

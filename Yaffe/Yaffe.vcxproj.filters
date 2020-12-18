@@ -13,7 +13,6 @@
     <ClCompile Include="InfoPane.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
-    <ClCompile Include="Server.cpp" />
     <ClCompile Include="ListModal.cpp">
       <Filter>Widgets</Filter>
     </ClCompile>
@@ -61,8 +60,24 @@
       <Filter>Interface</Filter>
     </ClCompile>
     <ClCompile Include="RestrictedMode.cpp" />
-    <ClCompile Include="Windows\Win32Yaffe.cpp" />
-    <ClCompile Include="Windows\Win32YaffePlatform.cpp" />
+    <ClCompile Include="Windows\Win32Yaffe.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Windows\Win32YaffePlatform.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Windows\Win32Server.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="Linux\LinuxServer.cpp">
+      <Filter>Linux</Filter>
+    </ClCompile>
+    <ClCompile Include="Linux\LinuxYaffe.cpp">
+      <Filter>Linux</Filter>
+    </ClCompile>
+    <ClCompile Include="Linux\LinuxYaffePlatform.cpp">
+      <Filter>Linux</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Yaffe.h" />
@@ -93,7 +108,13 @@
       <Filter>Utilities</Filter>
     </ClInclude>
     <ClInclude Include="RestrictedMode.h" />
-    <ClInclude Include="Windows\Win32Input.h" />
+    <ClInclude Include="WorkQueue.h" />
+    <ClInclude Include="Windows\Win32Input.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Linux\LinuxInput.h">
+      <Filter>Linux</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Widgets">
@@ -107,6 +128,12 @@
     </Filter>
     <Filter Include="Utilities">
       <UniqueIdentifier>{0d4dc41c-727b-466f-a558-aec42fdebe7f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{db1c092f-6444-4510-8c7b-826117f7d040}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Linux">
+      <UniqueIdentifier>{f893d705-779c-494d-be8f-39e69dae958e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

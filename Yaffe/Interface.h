@@ -58,18 +58,15 @@ class Widget
 {
 	UI_NAMES tag;
 	v2 ratio_size;
-	v2 position;
+	v2 position = {};
 
 protected:
-	Widget* parent;
+	Widget* parent = nullptr;
 	Widget* children[48];
-	u32 child_count;
+	u32 child_count = 0;
 
 	Widget(UI_NAMES pTag, Interface* pInterface) : tag(pTag)
 	{
-		child_count = 0;
-		position = {};
-		size = {};
 		if (pTag != UI_None)
 		{
 			pInterface->elements[pTag] = this;
@@ -77,7 +74,7 @@ protected:
 	}
 
 public:
-	v2 size;
+	v2 size = {};
 	virtual void Render(RenderState* pState) = 0;
 	virtual void Update(YaffeState* pState, float pDeltaTime) = 0;
 	virtual void OnFocusGained() { /* Do nothing by default*/ }

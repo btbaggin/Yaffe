@@ -19,11 +19,6 @@ static void SendTextureToGraphicsCard(void* pData)
 	{
 		Bitmap* bitmap = (Bitmap*)pData;
 
-		//GLenum format;
-		//if (bitmap->channels == 1) format = GL_RED;
-		//else if (bitmap->channels == 3) format = GL_RGB;
-		//else if (bitmap->channels == 4) format = GL_RGBA;
-
 		glGenTextures(1, &bitmap->texture);
 		glBindTexture(GL_TEXTURE_2D, bitmap->texture);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bitmap->width, bitmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bitmap->data);
@@ -84,7 +79,7 @@ static void LoadTexturePack(void* pData)
 		SendTextureToGraphicsCard(work->bitmap);
 
 		TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas->config);
-		for (u32 i = 0; i < ArrayCount(work->atlas->textures); i++)
+		for (u32 i = 0; i < atlas.count; i++)
 		{
 			PackedTextureEntry t = work->atlas->textures[i];
 			AddBitmapAsset(g_assets, work->bitmap, &atlas, t.bitmap, t.file);
@@ -92,8 +87,8 @@ static void LoadTexturePack(void* pData)
 
 		ta_DisposeTextureAtlas(&atlas);
 	}
-	delete pData;
-	delete work->atlas;
+	delete work;
+	work = nullptr;
 }
 
 static Bitmap* LoadBitmapAsset(Assets* pAssets, const char* pPath)
@@ -198,6 +193,7 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 			work->slot->bitmap = LoadBitmapAsset(work->assets, work->load_info);
 			AddTaskCallback(work->queue, SendTextureToGraphicsCard, work->slot->bitmap);
 			break;
+
 		case ASSET_TYPE_TexturePack:
 		{
 			work->slot->bitmap = LoadBitmapAsset(work->assets, work->load_info);
@@ -208,6 +204,7 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 			AddTaskCallback(work->queue, LoadTexturePack, ta_work);
 		}
 		break;
+		
 		case ASSET_TYPE_Font:
 			work->slot->font = LoadFontAsset(work->assets, work->load_info, work->slot->size);
 			AddTaskCallback(work->queue, SendFontToGraphicsCard, work->slot->font);
@@ -215,6 +212,7 @@ WORK_QUEUE_CALLBACK(LoadAssetBackground)
 	}
 	AtomicExchange(&work->slot->state, ASSET_STATE_Loaded);
 	delete work;
+	work = nullptr;
 }
 
 static void LoadAsset(Assets* pAssets, AssetSlot* pSlot, void* pData = nullptr)
@@ -380,26 +378,27 @@ static void LoadPackedTexture(Assets* pAssets, BITMAPS pName, PackedTexture* pAt
 	LoadAsset(pAssets, slot, pAtlas);
 }
 
-static Assets* LoadAssets(void* pStack, u64 pSize)
+static bool LoadAssets(void* pStack, u64 pSize, Assets** pAssets)
 {
 	char assets_path[MAX_PATH];
-	GetFullPath(".\\Assets\\", assets_path);
+	GetFullPath("./Assets/", assets_path);
 	if (!CreateDirectoryIfNotExists(assets_path))
 	{
 		YaffeLogError("Unable to create assets directory");
-		return nullptr;
+		return false;
 	}
 	YaffeLogInfo("Asset path %s", assets_path);
 
 	Assets* assets = new Assets();
+	*pAssets = assets;
 	assets->memory = CreateMemoryPool(pStack, pSize);
 	
-	AddFontAsset(assets, FONT_Subtext, ".\\Assets\\roboto-regular.ttf", 20);
-	AddFontAsset(assets, FONT_Normal, ".\\Assets\\roboto-regular.ttf", 25);
-	AddFontAsset(assets, FONT_Title, ".\\Assets\\roboto-black.ttf", 36);
-	AddBitmapAsset(assets, BITMAP_Background, ".\\Assets\\background.jpg");
-	AddBitmapAsset(assets, BITMAP_Placeholder, ".\\Assets\\placeholder.png");
-	AddBitmapAsset(assets, BITMAP_PlaceholderBanner, ".\\Assets\\banner.png");
+	AddFontAsset(assets, FONT_Subtext, "./Assets/Roboto-Regular.ttf", 20);
+	AddFontAsset(assets, FONT_Normal, "./Assets/Roboto-Regular.ttf", 25);
+	AddFontAsset(assets, FONT_Title, "./Assets/Roboto-Black.ttf", 36);
+	AddBitmapAsset(assets, BITMAP_Background, "./Assets/background.jpg");
+	AddBitmapAsset(assets, BITMAP_Placeholder, "./Assets/placeholder.png");
+	AddBitmapAsset(assets, BITMAP_PlaceholderBanner, "./Assets/banner.png");
 
 	PackedTexture* text = new PackedTexture();
 	text->textures[0] = { BITMAP_Error, "error.png" };
@@ -415,9 +414,14 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	text->textures[10] = { BITMAP_Recent, "recents.png" };
 	text->textures[11] = { BITMAP_Speaker, "speaker.png" };
 	text->textures[12] = { BITMAP_Settings, "settings.png" };
-	text->config = ".\\Assets\\atlas.tex";
-	text->image = ".\\Assets\\packed.png";
-	LoadPackedTexture(assets, BITMAP_TexturePack, text);
+	text->textures[13] = { BITMAP_ERSB_Everyone, "everyone.png" };
+	text->textures[14] = { BITMAP_ERSB_Everyone10, "everyone10.png" };
+	text->textures[15] = { BITMAP_ERSB_Teen, "teen.png" };
+	text->textures[16] = { BITMAP_ERSB_Mature, "mature.png" };
+	text->textures[17] = { BITMAP_ERSB_AdultOnly, "adults.png" };
+	text->config = "./Assets/atlas.tex";
+	text->image = "./Assets/packed.png";
+	LoadPackedTexture(assets, BITMAP_IconPack, text);
 
 	//Put a 1px white texture so we get fully lit instead of only ambient lighting
 	u8 data[] = { 255, 255, 255, 255 };
@@ -426,8 +430,7 @@ static Assets* LoadAssets(void* pStack, u64 pSize)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	return assets;
+	return true;
 }
 
 void FreeAsset(AssetSlot* pSlot)

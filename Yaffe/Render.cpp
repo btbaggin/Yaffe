@@ -1,4 +1,4 @@
-static GLuint LoadShader(const char* pShader, GLenum pType)
+static bool LoadShader(const char* pShader, GLenum pType, GLuint* pId)
 {
 	GLuint shader_id = glCreateShader(pType);
 
@@ -13,13 +13,15 @@ static GLuint LoadShader(const char* pShader, GLenum pType)
 	{
 		char* error = new char[info_log_length + 1];
 		glGetShaderInfoLog(shader_id, info_log_length, 0, error);
-		DisplayErrorMessage(error, ERROR_TYPE_Warning);
+		YaffeLogError(error);
+		return false;
 	}
 
-	return shader_id;
+	*pId = shader_id;
+	return true;
 }
 
-static GLProgram CreateProgram(GLuint pVertex, GLuint pFragment)
+static bool CreateProgram(GLuint pVertex, GLuint pFragment, GLProgram* pProg)
 {
 	GLuint program_id = glCreateProgram();
 	glAttachShader(program_id, pVertex);
@@ -34,7 +36,8 @@ static GLProgram CreateProgram(GLuint pVertex, GLuint pFragment)
 	{
 		char* error = new char[info_log_length + 1];
 		glGetProgramInfoLog(program_id, info_log_length, 0, error);
-		DisplayErrorMessage(error, ERROR_TYPE_Warning);
+		YaffeLogError(error);
+		return false;
 	}
 
 	glDetachShader(program_id, pVertex);
@@ -43,22 +46,27 @@ static GLProgram CreateProgram(GLuint pVertex, GLuint pFragment)
 	glDeleteShader(pVertex);
 	glDeleteShader(pFragment);
 
-	GLProgram prog;
-	prog.id = program_id;
-	prog.texture = glGetUniformLocation(program_id, "mainTex");
-	prog.mvp = glGetUniformLocation(program_id, "MVP");
-	prog.font = glGetUniformLocation(program_id, "font");
-	return prog;
+	pProg->id = program_id;
+	pProg->texture = glGetUniformLocation(program_id, "mainTex");
+	pProg->mvp = glGetUniformLocation(program_id, "MVP");
+	pProg->font = glGetUniformLocation(program_id, "font");
+	return true;
 }
 
-static void InitializeRenderer(RenderState* pState)
+static bool InitializeRenderer(RenderState* pState)
 {
+	glewExperimental = true; // Needed for core profile
+	glewInit();
+
+	const GLubyte* test = glGetString(GL_VERSION);
+	
 	void* render = malloc(Megabytes(6));
 	pState->arena = CreateMemoryStack(render, Megabytes(6));
 	pState->index_count = 0;
 	pState->vertex_count = 0;
+	//4 for vertex, 1 for indices, 1 for header record
 	pState->vertices = CreateSubStack(pState->arena, Megabytes(4));
-	pState->indices = CreateSubStack(pState->arena, Megabytes(1) - sizeof(MemoryStack));
+	pState->indices = CreateSubStack(pState->arena, Megabytes(1));
 
 	glGenVertexArrays(1, &pState->VAO);
 	glBindVertexArray(pState->VAO);
@@ -77,15 +85,18 @@ static void InitializeRenderer(RenderState* pState)
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
 
-	GLuint v_shader = LoadShader(VERTEX_SHADER, GL_VERTEX_SHADER);
-	GLuint f_shader = LoadShader(FRAGMENT_SHADER, GL_FRAGMENT_SHADER);
-	pState->program = CreateProgram(v_shader, f_shader);
+	GLuint v_shader, f_shader;
+	if (!LoadShader(VERTEX_SHADER, GL_VERTEX_SHADER, &v_shader)) return false;
+	if (!LoadShader(FRAGMENT_SHADER, GL_FRAGMENT_SHADER, &f_shader)) return false;
+	if (!CreateProgram(v_shader, f_shader, &pState->program)) return false;
 	glUseProgram(pState->program.id);
 
+	glDepthFunc(GL_LEQUAL);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	return true;
 }
 
 static void BeginRenderPass(v2 pFormSize, RenderState* pState)
@@ -112,7 +123,7 @@ static v2 BeginRenderPassAndClear(Form* pForm, RenderState* pState, float pAlpha
 	return size;
 }
 
-static void EndRenderPass(v2 pFormSize, RenderState* pState)
+static void EndRenderPass(v2 pFormSize, RenderState* pState, PlatformWindow* pWindow)
 {
 	glBindVertexArray(pState->VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, pState->VBO);
@@ -189,6 +200,8 @@ static void EndRenderPass(v2 pFormSize, RenderState* pState)
 
 	glBindVertexArray(0);
 	EndTemporaryMemory(pState->memory);
+
+	SwapBuffers(pWindow);
 }
 
 static inline

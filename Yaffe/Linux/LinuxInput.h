@@ -1,12 +1,11 @@
 #pragma once
 
-
 struct XINPUT_GAMEPAD_EX
 {
 };
 
 #define XBOX_BUTTON int
-#define INPUT_SIZE 32
+#define INPUT_SIZE 33
 
 // returns 0 on success, 1167 on not connected. Might be others.
 typedef int get_gamepad_ex(int, XINPUT_GAMEPAD_EX*);
@@ -141,8 +140,6 @@ enum MOUSE_BUTTONS
 	BUTTON_Left = 0x01,
 	BUTTON_Right = 0x02,
 	BUTTON_Middle = 0x04,
-	BUTTON_X1 = 0x05,
-	BUTTON_X2 = 0x06
 };
 
 enum CONTROLLER_BUTTONS
@@ -174,11 +171,25 @@ enum DIRECTIONS
 
 inline static bool InputDown(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
 {
-    KeyCode k = XKeysymToKeycode(pState->form->platform->display, pKey);
-    return (pInput[k>>3] & (1 << (k&7)));
+	if (pKey <= BUTTON_Middle)
+	{
+		return pInput[INPUT_SIZE - 1] & pKey;
+	}
+	else
+	{
+		KeyCode k = XKeysymToKeycode(pState->form->platform->display, pKey);
+    	return (pInput[k >> 3] & (1 << (k & 7)));
+	}
 } 
 inline static bool InputUp(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
 {
-    KeyCode k = XKeysymToKeycode(pState->form->platform->display, pKey);
-    return !(pInput[k>>3] & (1 << (k&7)));
+	if (pKey <= BUTTON_Middle)
+	{
+		return !(pInput[INPUT_SIZE - 1] & pKey);
+	}
+	else
+	{
+		KeyCode k = XKeysymToKeycode(pState->form->platform->display, pKey);
+    	return !(pInput[k >> 3] & (1 << (k & 7)));
+	}
 }

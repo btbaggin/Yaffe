@@ -36,6 +36,31 @@ private:
 			//Accent bar
 			PushSizedQuad(pState, position + V2(0, height), V2(UI_MARGIN, size.Height - height), ACCENT_COLOR);
 
+			//Game rating
+			BITMAPS rating = BITMAP_None;
+			switch (rom->rating)
+			{
+				case PLATFORM_RATING_Everyone:
+					rating = BITMAP_ERSB_Everyone;
+					break;
+				case PLATFORM_RATING_Everyone10:
+					rating = BITMAP_ERSB_Everyone10;
+					break;
+				case PLATFORM_RATING_Teen:
+					rating = BITMAP_ERSB_Teen;
+					break;
+				case PLATFORM_RATING_Mature:
+					rating = BITMAP_ERSB_Mature;
+					break;
+				case PLATFORM_RATING_AdultOnly:
+					rating = BITMAP_ERSB_AdultOnly;
+					break;
+			}
+			if (rating != BITMAP_None)
+			{
+				PushSizedQuad(pState, position + V2(size.Width - 64 - PADDING, height - 96), V2(64, 96), GetBitmap(g_assets, rating));
+			}
+
 			//Description
 			if (!overview.empty())
 			{

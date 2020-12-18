@@ -1,12 +1,12 @@
 #pragma once
 
 const char* FRAGMENT_SHADER = R"(
-#version 410 core
+#version 140
 
-layout(location = 0) in vec4 fragColor;
-layout(location = 1) in vec2 uvCoords;
+in vec4 fragColor;
+in vec2 uvCoords;
 
-layout(location = 0) out vec4 color;
+out vec4 color;
 
 uniform sampler2D mainTex;
 uniform bool font;
@@ -26,14 +26,14 @@ void main()
 )";
 
 const char* VERTEX_SHADER = R"(
-#version 410 core
+#version 140
 
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec4 color;
-layout(location = 2) in vec2 uv;
+in vec2 position;
+in vec4 color;
+in vec2 uv;
 
-layout(location = 0) out vec4 fragColor;
-layout(location = 1) out vec2 uvCoords;
+out vec4 fragColor;
+out vec2 uvCoords;
 
 uniform mat4 MVP;
 

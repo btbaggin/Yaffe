@@ -1,13 +1,13 @@
 #pragma once
 struct PlatformService;
-struct PlatformWorkQueue;
+struct WorkQueue;
 struct PlatformWindow;
 struct PlatformProcess;
 struct YaffeState;
 struct Platform;
 struct Executable;
 struct Overlay;
-struct PlatformInputMessage;
+struct InputMessage;
 enum INPUT_ACTIONS
 {
 	INPUT_ACTION_Scroll,
@@ -21,21 +21,21 @@ enum STARTUP_INFOS
 	STARTUP_INFO_Set,
 };
 
-#define WORK_QUEUE_CALLBACK(name)void name(PlatformWorkQueue* pQueue, void* pData)
+#define WORK_QUEUE_CALLBACK(name)void name(WorkQueue* pQueue, void* pData)
 typedef WORK_QUEUE_CALLBACK(work_queue_callback);
 
-static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData);
+static bool QueueUserWorkItem(WorkQueue* pQueue, work_queue_callback* pCallback, void* pData);
 static void StartProgram(YaffeState* pState, char* pCommand, char* pExe);
 static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue);
 
 static void GetFullPath(const char* pPath, char* pBuffer);
 static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional);
+static void RemovePathExtension(char* pBuffer);
 static std::vector<std::string> GetFilesInDirectory(char* pDirectory);
 static bool CreateDirectoryIfNotExists(const char* pDirectory);
 static bool CopyFileTo(const char* pOld, const char* pNew);
-static bool OpenFileSelector(char* pPath, bool pFiles);
 
-static void SendInputMessage(INPUT_ACTIONS pAction, PlatformInputMessage* pMessage);
+static void SendInputMessage(INPUT_ACTIONS pAction, InputMessage* pMessage);
 static bool GetAndSetVolume(float* pVolume, float pDelta);
 
 static void SwapBuffers(PlatformWindow* pWindow);
@@ -48,5 +48,9 @@ static void InitYaffeService(PlatformService* pService);
 static void ShutdownYaffeService(PlatformService* pService);
 
 static bool Shutdown();
+static bool WindowIsForeground(YaffeState* pState);
+
+static char* GetClipboardText(YaffeState* pState);
+static void SetContext(PlatformWindow* pSource, PlatformWindow* pDest);
 
 #define MAX_PATH 260 //Is this smart?

@@ -12,7 +12,7 @@
 static void InitailizeDatbase(YaffeState* pState)
 {
 	char path[MAX_PATH];
-	GetFullPath(".\\Yaffe.db", path);
+	GetFullPath("./Yaffe.db", path);
 	if (!FileExists(path))
 	{
 		DatabaseConnection con;
@@ -141,6 +141,7 @@ static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 		}
 	}
 	delete work;
+	work = nullptr;
 }
 static void InsertPlatform(char* pName, char* pPath, char* pArgs, char* pRom)
 {
@@ -336,7 +337,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	{
 		u32 count = (u32)response.get("count").get<double>();
 		bool exact = response.get("exact").get<bool>();
-		picojson::array games = response.get("games").get<picojson::array>();
+		jarray games = response.get("games").get<picojson::array>();
 		std::vector<GameInfo> items;
 		for (u32 i = 0; i < count; i++)
 		{
@@ -368,6 +369,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	}
 	
 	delete work;
+	work = nullptr;
 }
 static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 {

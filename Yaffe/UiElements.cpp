@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h> // memmove
 #include <ctype.h>  // isspace
-#include <WinUser.h>
 
 // define the functions we need
 void layout_func(StbTexteditRow *row, STB_TEXTEDIT_STRING *str, int start_i)
@@ -42,6 +41,7 @@ int insert_chars(STB_TEXTEDIT_STRING *str, int pos, STB_TEXTEDIT_CHARTYPE *newte
 	return 1; // always succeeds
 }
 
+#ifdef _WIN32
 static int MapKey(int key)
 {
 	if (IsKeyUp(KEY_Control))
@@ -53,6 +53,15 @@ static int MapKey(int key)
 	}
 	return -1;
 }
+#elif __linux__
+static int MapKey(int key)
+{
+	//TODO
+	return 'A';
+}
+#else
+static_assert(false);
+#endif
 // define all the #defines needed 
 
 #define KEYDOWN_BIT                    0x80000000
@@ -102,23 +111,7 @@ static Textbox CreateTextbox(float pWidth, FONTS pFont)
 	return tc;
 }
 
-static char* GetClipboardText()
-{
-	if (!OpenClipboard(nullptr)) return nullptr;
 
-	HANDLE hData = GetClipboardData(CF_TEXT);
-	if (hData == nullptr) return nullptr;
-
-	char * pszText = static_cast<char*>(GlobalLock(hData));
-	if (pszText == nullptr) return nullptr;
-
-	char* result = pszText;
-
-	GlobalUnlock(hData);
-	CloseClipboard();
-
-	return result;
-}
 
 static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 {
@@ -153,7 +146,7 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 
 			if (control && IsKeyPressedWithoutDelay(KEY_V))
 			{
-				char* text = GetClipboardText();
+				char* text = GetClipboardText(&g_state);
 				if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
 			}
 
@@ -294,7 +287,11 @@ static void RenderFilePathBox(RenderState* pState, FilePathBox* pBox, v2 pPositi
 		//Toggle focus
 		if(pos.X > 0 && pos.Y > 0 && pos < V2(pBox->width, font_size))
 		{
-			OpenFileSelector(pBox->string, pBox->files);
+			char* result = nullptr;
+			if (pBox->files) result = tinyfd_openFileDialog("Choose file", "", 0, NULL, NULL, 0);
+			else result = tinyfd_selectFolderDialog("Choose folder", NULL);
+			
+			if (result) strcpy(pBox->string, result);
 		}
 	}
 

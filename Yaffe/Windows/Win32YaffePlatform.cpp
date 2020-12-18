@@ -54,12 +54,20 @@ static bool CopyFileTo(const char* pOld, const char* pNew)
 {
 	return CopyFileA(pOld, pNew, false);
 }
+
 static bool IsValidRomFile(char* pFile)
 {
+	//TODO change this
 	char* extension = PathFindExtensionA(pFile);
 	if (strcmp(extension, ".srm") == 0) return false;
 	return true;
 }
+
+static void RemovePathExtension(char* pBuffer)
+{
+	PathRemoveExtensionA(pBuffer);
+}
+
 static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 {
 	char path[MAX_PATH];
@@ -86,54 +94,6 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 
 	return files;
 }
-
-static bool OpenFileSelector(char* pPath, bool pFiles)
-{
-	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-
-	IFileDialog *pfd = NULL;
-	CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
-	// Before setting, always get the options first in order 
-	// not to override existing options.
-	DWORD dwFlags;
-	pfd->GetOptions(&dwFlags);
-	if (pFiles)
-	{
-		COMDLG_FILTERSPEC rgSpec[] = { { L"Emulator", L"*.exe" } };
-		pfd->SetOptions(dwFlags | FOS_FORCEFILESYSTEM);
-		pfd->SetFileTypes(ArrayCount(rgSpec), rgSpec);
-	}
-	else
-	{
-		pfd->SetOptions(dwFlags | FOS_PICKFOLDERS);
-	}
-
-	bool result = false;
-	// Set the file types to display only. 
-	if (SUCCEEDED(pfd->Show(NULL)))
-	{
-		IShellItem *psiResult;
-		if (SUCCEEDED(pfd->GetResult(&psiResult)))
-		{
-			PWSTR pszFilePath = NULL;
-			if (SUCCEEDED(psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath)))
-			{
-				int len = WideCharToMultiByte(CP_ACP, 0, pszFilePath, lstrlenW(pszFilePath), NULL, 0, NULL, NULL);
-				WideCharToMultiByte(CP_ACP, 0, pszFilePath, lstrlenW(pszFilePath), pPath, len, NULL, NULL);
-				pPath[len] = '\0';
-				CoTaskMemFree(pszFilePath);
-
-				result = true;
-			}
-			psiResult->Release();
-		}
-	}
-	pfd->Release();
-	CoUninitialize();
-
-	return result;
-}
-
 
 static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 {
@@ -268,7 +228,7 @@ static bool ProcessIsRunning(PlatformProcess* pProcess)
 {
 	return WaitForSingleObject(pProcess->handle, 20) != 0;
 }
-static bool QueueUserWorkItem(PlatformWorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
+static bool QueueUserWorkItem(WorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
 {
 	u32 newnext = (pQueue->NextEntryToWrite + 1) % QUEUE_ENTRIES;
 	if (newnext == pQueue->NextEntryToRead) return false;
@@ -300,11 +260,18 @@ static bool Shutdown()
 	if (!AdjustTokenPrivileges(token, FALSE, &tkp, 0, NULL, 0)) return false;
 	return ExitWindowsEx(EWX_POWEROFF, SHTDN_REASON_FLAG_PLANNED);
 }
+
+static bool WindowIsForeground(YaffeState* pState)
+{
+	return GetForegroundWindow() == pState->form->platform->handle;
+}
+
 static void SwapBuffers(PlatformWindow* pWindow)
 {
 	SwapBuffers(pWindow->dc);
 }
-static void SendInputMessage(INPUT_ACTIONS pAction, PlatformInputMessage* pMessage)
+
+static void SendInputMessage(INPUT_ACTIONS pAction, InputMessage* pMessage)
 {
 	INPUT buffer = {};
 	switch (pAction)
@@ -543,4 +510,27 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 
 		return true;
 	}
+}
+
+static char* GetClipboardText(YaffeState* pState)
+{
+	if (!OpenClipboard(nullptr)) return nullptr;
+
+	HANDLE hData = GetClipboardData(CF_TEXT);
+	if (hData == nullptr) return nullptr;
+
+	char * pszText = static_cast<char*>(GlobalLock(hData));
+	if (pszText == nullptr) return nullptr;
+
+	char* result = pszText;
+
+	GlobalUnlock(hData);
+	CloseClipboard();
+
+	return result;
+}
+
+static void SetContext(PlatformWindow* pSource, PlatformWindow* pDest)
+{
+	wglMakeCurrent(pSource->dc, pDest->rc);
 }

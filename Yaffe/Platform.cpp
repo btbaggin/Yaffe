@@ -81,7 +81,7 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 				exe->platform = pApp->id;
 
 				char clean_file_name[MAX_PATH];
-				PathRemoveExtensionA(file_name);
+				RemovePathExtension(file_name);
 				CleanFileName(file_name, clean_file_name);
 				strcpy(exe->display_name, clean_file_name);
 

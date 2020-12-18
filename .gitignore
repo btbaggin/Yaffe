@@ -262,3 +262,6 @@ __pycache__/
 /build
 /Yaffe/Yaffe.db
 /Assets
+/Yaffe/Linux/Yaffe.db
+/Yaffe/Linux/Yaffe
+/Yaffe/Linux/Assets

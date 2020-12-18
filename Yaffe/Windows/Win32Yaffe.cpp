@@ -2,7 +2,6 @@
 
 /*
 TODO
-Get Yaffe placeholder boxart and banner images
 Don't hardcode emulator allocation count
 Don't hardcode Widget children count
 High prio background queue
@@ -23,6 +22,7 @@ High prio background queue
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
+#include <json.h>
 #include "../Yaffe.h"
 #include "../RestrictedMode.h"
 #include "../Memory.h"
@@ -32,27 +32,21 @@ High prio background queue
 #include "../Interface.h"
 #include "../Platform.h"
 #include "../Database.h"
-#include <json.h>
+#include "../Server.h"
 #include "TextureAtlas.h"
-
-using json = picojson::value;
-
-struct PlatformWorkQueue
-{
-	u32 volatile CompletionTarget;
-	u32 volatile CompletionCount;
-	u32 volatile NextEntryToWrite;
-	u32 volatile NextEntryToRead;
-	HANDLE Semaphore;
-
-	WorkQueueEntry entries[QUEUE_ENTRIES];
-};
+#include "../WorkQueue.h"
 
 struct PlatformWindow
 {
 	HWND handle;
 	HGLRC rc;
-	HDC dc;
+	HDC dc;struct win32_thread_info
+{
+	u32 ThreadIndex;
+	WorkQueue* queue;
+};
+
+	char path[MAX_PATH];
 };
 
 struct PlatformProcess
@@ -61,24 +55,6 @@ struct PlatformProcess
 	DWORD id;
 	DWORD thread_id;
 	char path[MAX_PATH];
-};
-
-struct PlatformInputMessage
-{
-	v2 cursor;
-	bool down;
-	union
-	{
-		MOUSE_BUTTONS button;
-		KEYS key;
-	};
-	float scroll;
-};
-
-struct win32_thread_info
-{
-	u32 ThreadIndex;
-	PlatformWorkQueue* queue;
 };
 
 YaffeState g_state = {};
@@ -96,7 +72,7 @@ Interface g_ui = {};
 #include "../ListModal.cpp"
 #include "../PlatformDetailModal.cpp"
 #include "../YaffeSettingsModal.cpp"
-#include "../Server.cpp"
+#include "Win32Server.cpp"
 #include "../Database.cpp"
 #include "../Platform.cpp"
 #include "../Interface.cpp"
@@ -298,47 +274,12 @@ static void DestroyGlWindow(PlatformWindow* pForm)
 	DestroyWindow(pForm->handle);
 }
 
-bool Win32DoNextWorkQueueEntry(PlatformWorkQueue* pQueue)
-{
-	u32 oldnext = pQueue->NextEntryToRead;
-	u32 newnext = (oldnext + 1) % QUEUE_ENTRIES;
-	if (oldnext != pQueue->NextEntryToWrite)
-	{
-		u32 index = AtomicCompareExchange((LONG volatile*)&pQueue->NextEntryToRead, newnext, oldnext);
-		if (index == oldnext)
-		{
-			WorkQueueEntry entry = pQueue->entries[index];
-			entry.callback(pQueue, entry.data);
-
-			AtomicAdd((LONG volatile*)&pQueue->CompletionCount, 1);
-		}
-	}
-	else
-	{
-		return true;
-	}
-
-	return false;
-}
-
-void Win32CompleteAllWork(PlatformWorkQueue* pQueue)
-{
-	while (pQueue->CompletionTarget != pQueue->CompletionCount)
-	{
-		Win32DoNextWorkQueueEntry(pQueue);
-	}
-
-	pQueue->CompletionCount = 0;
-	pQueue->CompletionTarget = 0;
-}
-
 DWORD WINAPI ThreadProc(LPVOID pParameter)
 {
-	win32_thread_info* thread = (win32_thread_info*)pParameter;
-
+	ThreadInfo* thread = (ThreadInfo*)pParameter;
 	while (true)
 	{
-		if (Win32DoNextWorkQueueEntry(thread->queue))
+		if (DoNextWorkQueueEntry(thread->queue))
 		{
 			WaitForSingleObjectEx(thread->queue->Semaphore, INFINITE, false);
 		}
@@ -380,9 +321,9 @@ void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 }
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-					  _In_opt_ HINSTANCE hPrevInstance,
-					  _In_ LPWSTR    lpCmdLine,
-					  _In_ int       nCmdShow)
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPWSTR    lpCmdLine,
+	_In_ int       nCmdShow)
 {
 
 	InitializeLogger();
@@ -411,12 +352,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	//Set up work queue
 	const u32 THREAD_COUNT = 4;
-	win32_thread_info threads[THREAD_COUNT];
-	PlatformWorkQueue work_queue = {};
+	ThreadInfo threads[THREAD_COUNT];
+	WorkQueue work_queue = {};
 	work_queue.Semaphore = CreateSemaphoreEx(0, 0, THREAD_COUNT, 0, 0, SEMAPHORE_ALL_ACCESS);
 	for (u32 i = 0; i < THREAD_COUNT; i++)
 	{
-		win32_thread_info* thread = threads + i;
+		ThreadInfo* thread = threads + i;
 		thread->ThreadIndex = i;
 		thread->queue = &work_queue;
 
@@ -457,9 +398,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ZeroMemory(asset_memory, asset_size);
 
 	RenderState render_state = {};
-	InitializeRenderer(&render_state);
-	g_assets = LoadAssets(asset_memory, asset_size);
-	if (!g_assets) return 1;
+	if (!InitializeRenderer(&render_state))
+	{
+		CloseLogger();
+		return 1;
+	}
+	
+	if (!LoadAssets(asset_memory, asset_size, &g_assets))
+	{
+		CloseLogger();
+		return 1;
+	}
 
 	InitializeUI(&g_state, &g_ui);
 	InitailizeDatbase(&g_state);
@@ -520,8 +469,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		RenderUI(&g_state, &render_state, g_assets);		
 		if (!g_state.overlay.showing && g_state.restrictions->modal) RenderModalWindow(&render_state, g_state.restrictions->modal, g_state.form);
 
-		EndRenderPass(size, &render_state);
-		SwapBuffers(g_state.form->platform);
+		EndRenderPass(size, &render_state, g_state.form->platform);
 
 		UpdateOverlay(&g_state.overlay, time.delta_time);
 		RenderOverlay(&g_state, &render_state);

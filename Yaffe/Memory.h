@@ -37,12 +37,14 @@ struct TemporaryMemoryHandle
 };
 #define Megabytes(size) size * 1024 * 1024
 #if _WIN32
+#define WriteBarrier() _WriteBarrier()
 #define AtomicCompareExchange(old_val, new_val, comperand) InterlockedCompareExchange(old_val, new_val, comperand)
 #define AtomicExchange(old_val, new_val) InterlockedExchange(old_val, new_val)
 #define AtomicAdd(val, add) InterlockedExchangeAdd(val, add)
 #elif __linux__
+#define WriteBarrier() asm volatile("" ::: "memory")
 #define ZeroMemory(mem, size) memset(mem, 0, size)
-#define AtomicCompareExhange(old_val, new_val, comperand) __sync_val_compare_and_swap(old_val, new_val, comperand)
+#define AtomicCompareExchange(old_val, new_val, comperand) __sync_val_compare_and_swap(old_val, comperand, new_val)
 #define AtomicExchange(old_val, new_val) __sync_lock_test_and_set(old_val, new_val)
 #define AtomicAdd(val, add) __sync_fetch_and_add(val, add)
 #else
