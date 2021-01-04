@@ -1,41 +1,7 @@
+#define MAX_PATH PATH_MAX
 static void GetFullPath(const char* pPath, char* pBuffer)
 {
     realpath(pPath, pBuffer);
-}
-
-static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional)
-{
-    if(pBase == NULL && pAdditional == NULL) {
-        strcpy(pBuffer, "");;
-    }
-    else if(pAdditional == NULL || strlen(pAdditional) == 0) {
-        strcpy(pBuffer, pBase);
-    }
-    else if(pBase == NULL || strlen(pBase) == 0) {
-        strcpy(pBuffer, pAdditional);
-    } 
-    else {
-        
-#ifdef WIN32
-        char directory_separator[] = "\\";
-#elif __linux__
-        char directory_separator[] = "/";
-#else
-        static_assert(false);
-#endif
-        const char *last_char = pBase;
-        while(*last_char != '\0')
-            last_char++;        
-
-        int append_directory_separator = 0;
-        if(strcmp(last_char, directory_separator) != 0) {
-            append_directory_separator = 1;
-        }
-        strcpy(pBuffer, pBase);
-        if(append_directory_separator) strcat(pBuffer, directory_separator);
-        
-        strcat(pBuffer, pAdditional);
-    }
 }
 
 static bool CreateDirectoryIfNotExists(const char* pDirectory)
@@ -50,9 +16,8 @@ static bool CreateDirectoryIfNotExists(const char* pDirectory)
 static bool CopyFileTo(const char* pOld, const char* pNew)
 {
     int source = open(pOld, O_RDONLY, 0);
-    int dest = open(pNew, O_WRONLY | O_CREAT /*| O_TRUNC/**/, 0644);
+    int dest = open(pNew, O_WRONLY | O_CREAT /*| O_TRUNC*/, 0644);
 
-    // struct required, rationale: function stat() exists also
     struct stat stat_source;
     fstat(source, &stat_source);
 
@@ -61,15 +26,6 @@ static bool CopyFileTo(const char* pOld, const char* pNew)
     close(source);
     close(dest);
     return true;
-}
-
-static bool IsValidRomFile(char* pFile)
-{
-    return true;
-}
-
-static void RemovePathExtension(char* pBuffer)
-{
 }
 
 static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
@@ -86,21 +42,50 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
     return files;
 }
 
-static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
+static void StartProgram(YaffeState* pState, const char* pApplication, const char* pExecutable, const char* pArgs)
 {
+	Overlay* overlay = &pState->overlay;
+    pid_t process = fork();
+    if (process < 0)
+    {
+        DisplayErrorMessage("Unable to start program", ERROR_TYPE_Warning);
+    }
+    else if (process == 0)
+    {
+        int result;
+        if(pExecutable) result = execl(pApplication, pArgs, pExecutable);
+        else result = execl(pApplication, pArgs);
+
+        if(result == -1)
+        {
+            DisplayErrorMessage("Unable to start program", ERROR_TYPE_Warning);
+            return;
+        }
+
+        overlay->process = new PlatformProcess();
+		overlay->process->id = process;
+    }
 }
 
 static void ShowOverlay(Overlay* pOverlay)
 {
+	XMapWindow(pOverlay->form->platform->display, pOverlay->form->platform->window);
 }
 
 static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 {
+    XUnmapWindow(pOverlay->form->platform->display, pOverlay->form->platform->window);
+
+    if(pTerminate)
+    {
+        kill(pOverlay->process->id, SIGKILL);
+    }
 }
 
 static bool ProcessIsRunning(PlatformProcess* pProcess)
 {
-    return true;
+    int status;
+    return waitpid(pProcess->id, &status, WNOHANG) == 0;
 }
 
 static bool QueueUserWorkItem(WorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
@@ -142,7 +127,60 @@ static void SwapBuffers(PlatformWindow* pWindow)
 }
 
 static void SendInputMessage(INPUT_ACTIONS pAction, InputMessage* pMessage)
-{
+{   
+    XKeyEvent event;
+
+    // event.display = display;
+    // event.window = win;
+    // event.root = winRoot;
+    // event.subwindow = None;
+    // event.time = CurrentTime;
+    // event.x = 1;
+    // event.y = 1;
+    // event.x_root = 1;
+    // event.y_root = 1;
+    // event.same_screen = True;
+    // event.keycode = XKeysymToKeycode(display, keycode);
+    // event.state = modifiers;
+
+    // if (press)
+    //     event.type = KeyPress;
+    // else
+    //     event.type = KeyRelease;
+
+    // return event;
+    //https://stackoverflow.com/questions/1262310/simulate-keypress-in-a-linux-c-console-application
+    switch (pAction)
+    {
+    case INPUT_ACTION_Key:
+    // keycode = XKeysymToKeycode(display, XK_Pause);
+    //XTestFakeKeyEvent(display, keycode, True, 0);
+    // XTestFakeKeyEvent(display, keycode, False, 0);
+        break;
+
+    case INPUT_ACTION_Mouse:
+        // buffer.type = INPUT_MOUSE;
+        // buffer.mi.dwFlags = MOUSEEVENTF_ABSOLUTE;
+        // if (pMessage->button == BUTTON_Left) buffer.mi.dwFlags |= (pMessage->down ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP);
+        // else if (pMessage->button == BUTTON_Right) buffer.mi.dwFlags |= (pMessage->down ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP);
+        break;
+
+    case INPUT_ACTION_Cursor:
+        // dpy = XOpenDisplay(0);
+        // root_window = XRootWindow(dpy, 0);
+        // XSelectInput(dpy, root_window, KeyReleaseMask);
+        // XWarpPointer(dpy, None, root_window, 0, 0, 0, 0, 100, 100);
+        // XFlush(dpy); // Flushes the output buffer, therefore updates the cursor's position.
+        return;
+
+    case INPUT_ACTION_Scroll:
+        // buffer.type = INPUT_MOUSE;
+        // buffer.mi.dwFlags = MOUSEEVENTF_WHEEL;
+        // buffer.mi.mouseData = (DWORD)(-pMessage->scroll * WHEEL_DELTA);
+        break;
+    }
+    // XFlush(display);
+    XSendEvent(event.display, event.window, True, KeyPressMask, (XEvent*)&event);
 }
 
 static bool GetAndSetVolume(float* pVolume, float pDelta)
@@ -151,7 +189,22 @@ static bool GetAndSetVolume(float* pVolume, float pDelta)
 }
 static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 {
-    return true;
+    if(pAction == STARTUP_INFO_Set)
+    {
+        char path[MAX_PATH];
+        GetFullPath("./Yaffe", path);
+
+        char buffer[1000];
+        sprintf(buffer, "ln -s %s /etc/init.d/", path);
+        int result = pValue ? system(buffer) : system("rm /etc/init.d/yaffe");
+        return WEXITSTATUS(result) == 0;
+    }
+    else 
+    {
+        struct stat buf;
+        int result = lstat("/etc/init.d/Yaffe", &buf);
+        return result == 0;
+    }
 }
 
 char* XPasteType(Atom atom, PlatformWindow* pWindow, Atom pUtf8) {

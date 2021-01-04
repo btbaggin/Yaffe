@@ -12,22 +12,6 @@ static inline Executable* GetSelectedExecutable()
 	return nullptr;
 }
 
-static void BuildCommandLine(char* pBuffer, Executable* pExe, const char* pEmuPath, const char* pPath, const char* pArgs)
-{
-	if (pExe->platform < 0)
-	{
-		//Application, we only have the path to the application and it's arguments
-		sprintf(pBuffer, "\"%s\" %s", pEmuPath, pArgs);
-	}
-	else
-	{
-		//Emulator, path to emulator, args to emulator, and path to rom file
-		char exe_path[MAX_PATH];
-		CombinePath(exe_path, pPath, pExe->file);
-		sprintf(pBuffer, "\"%s\" %s \"%s\"", pEmuPath, pArgs, exe_path);
-	}
-}
-
 static void CleanFileName(char* pName, char* pDest)
 {
 	//Strip any bracket/parenthesis that are commonly appended to names
@@ -54,6 +38,24 @@ static void CleanFileName(char* pName, char* pDest)
 		pDest[j] = '\0';
 	}
 }
+
+void RemovePathExtension(char* pPath)
+{
+    if (pPath == NULL) return;
+
+    char* lastExt = strrchr(pPath, '.');
+    if (lastExt != NULL) *lastExt = '\0';
+}
+
+static bool IsValidRomFile(char* pFile)
+{
+	const char *dot = strrchr(pFile, '.');
+    if(!dot || dot == pFile) return false;
+
+    if (strcmp(dot + 1, ".srm") == 0) return false;
+    return true;
+}
+
 
 static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 {

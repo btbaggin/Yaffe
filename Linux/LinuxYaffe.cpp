@@ -1,3 +1,7 @@
+/*
+	Currently required utilties: zentity, wget?
+*/
+
 #include <stdlib.h>
 #include <string.h>
 #include <X11/keysym.h>
@@ -5,20 +9,21 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
-//#include <GL/gl.h>
 #include <GL/glew.h>
 #include <GL/glx.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include "x86intrin.h"
 #include "pthread.h"
-#include "semaphore.h"
+#include <semaphore.h>
 #include <unistd.h>
 #include <sys/reboot.h>
 #include "dirent.h"
 #include <sys/sendfile.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 struct PlatformWindow
 {
@@ -49,6 +54,7 @@ Interface g_ui = {};
 
 struct PlatformProcess
 {
+	pid_t id;
 };
 
 #include "../Logger.cpp"
@@ -140,7 +146,7 @@ static bool CreateOpenGLWindow(Form* pForm)
 	XFree(fbc);
 
 	// Get a visual
-	XVisualInfo *vi = glXGetVisualFromFBConfig( display, bestFbc );
+	XVisualInfo *vi = glXGetVisualFromFBConfig(display, bestFbc);
 	pForm->platform->vis = vi;
 
 	Window root = RootWindow(display, vi->screen);
@@ -182,14 +188,6 @@ static bool CreateOpenGLWindow(Form* pForm)
 	// calling glXGetProcAddressARB
 	glXCreateContextAttribsARBProc glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
 																glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
-	// Install an X error handler so the application won't exit if GL 3.0
-	// context allocation fails.
-	//
-	// Note this error handler is global.  All display connections in all threads
-	// of a process use the same error handler, so be sure to guard against other
-	// threads issuing X commands while this code is running.
-	// ctxErrorOccurred = false;
-	// int (*oldHandler)(Display*, XErrorEvent*) = XSetErrorHandler(&ctxErrorHandler);
 
 	// Check for the GLX_ARB_create_context extension string and the function.
 	// If either is not present, use GLX 1.3 context creation method.
@@ -233,13 +231,88 @@ static bool CreateOpenGLWindow(Form* pForm)
 	// Sync to ensure any errors generated are processed.
 	XSync(display, False);
 
-	// Restore the original error handler
-	//XSetErrorHandler( oldHandler );
-
 	if (!pForm->platform->context) return false;
 
-	glXMakeCurrent( display, win, pForm->platform->context);
+	glXMakeCurrent(display, win, pForm->platform->context);
     return true;
+}
+
+static bool CreateOverlayWindow(Form* pOverlay)
+{
+	Display* display = XOpenDisplay(NULL);
+	pOverlay->platform->display = display;
+
+	static int visual_attribs[] = {
+		GLX_X_RENDERABLE    , True,
+		GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
+		GLX_RENDER_TYPE     , GLX_RGBA_BIT,
+		GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
+		GLX_RED_SIZE        , 8,
+		GLX_GREEN_SIZE      , 8,
+		GLX_BLUE_SIZE       , 8,
+		GLX_ALPHA_SIZE      , 8,
+		GLX_DEPTH_SIZE      , 24,
+		GLX_STENCIL_SIZE    , 8,
+		GLX_DOUBLEBUFFER    , True,
+		//GLX_SAMPLE_BUFFERS  , 1,
+		//GLX_SAMPLES         , 4,
+		None
+		};
+
+	int fbcount;
+	GLXFBConfig* fbc = glXChooseFBConfig(display, DefaultScreen(display), visual_attribs, &fbcount);
+	if (!fbc) return false;
+
+	// Pick the FB config/visual with the most samples per pixel
+	int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
+	for (int i = 0; i < fbcount; i++)
+	{
+		XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
+		if (vi)
+		{
+			int samp_buf, samples;
+			glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
+			glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
+			
+			if (best_fbc < 0 || samp_buf && samples > best_num_samp) best_fbc = i, best_num_samp = samples;
+			if (worst_fbc < 0 || !samp_buf || samples < worst_num_samp) worst_fbc = i, worst_num_samp = samples;
+		}
+		XFree( vi );
+	}
+
+	GLXFBConfig bestFbc = fbc[best_fbc];
+
+	XVisualInfo *vi = glXGetVisualFromFBConfig(display, bestFbc);
+	pOverlay->platform->vis = vi;
+
+	Window root = RootWindow(display, vi->screen);
+
+	XSetWindowAttributes swa;
+	swa.colormap = XCreateColormap(display, root, vi->visual, AllocNone);
+	swa.background_pixmap = None;
+	swa.border_pixel      = 0;
+	swa.background_pixel = 0;
+	//swa.event_mask        = StructureNotifyMask|ButtonPress|ButtonReleaseMask;
+	swa.override_redirect = true;
+
+	float width = XDisplayWidth(pOverlay->platform->display, 0);
+    float height = XDisplayHeight(pOverlay->platform->display, 0);
+	pOverlay->platform->window = XCreateWindow( display, root,
+								0, 0, pOverlay->width, pOverlay->height, 0, vi->depth, InputOutput, 
+								vi->visual, 
+								CWColormap|CWBorderPixel|CWBackPixel, &swa );
+
+	// Atom atoms[2] = { XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False), None };
+	// XChangeProperty(
+	// 	display, 
+	// 	pOverlay->platform->window, 
+	// 	XInternAtom(display, "_NET_WM_STATE", False),
+	// 	XA_ATOM, 32, PropModeReplace, (unsigned char *)atoms, 1
+	// );
+
+	//Atom wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
+    //XSetWMProtocols(display, pOverlay->platform->window, &wm_delete_window, 1);
+	return true;
 }
 
 static inline void timespec_diff(struct timespec *a, struct timespec *b,
@@ -266,6 +339,11 @@ void LinuxGetInput(YaffeInput* pInput, PlatformWindow* pDisplay, int pPress, int
     Window child_win, root_win;
 	XQueryPointer(pDisplay->display, pDisplay->window, &child_win, &root_win, &root_x, &root_y, &win_x, &win_y, &mask);
 	pInput->mouse_position = V2(root_x, root_y);
+
+	if(CheckForJoystick(pInput->platform, "/dev/input/js0"))
+	{
+		GetJoystickInput(pInput, pInput->platform->joystick);
+	}
 }
 
 int main(void)
@@ -290,17 +368,18 @@ int main(void)
 	PlatformWindow overlay_platform = {};
 	g_state.overlay.form = &overlay;
 	g_state.overlay.form->platform = &overlay_platform;
-	// if (!CreateOverlayWindow(&overlay, hInstance))
-	// {
-	// 	MessageBoxA(nullptr, "Unable to initialize overlay", "Error", MB_OK);
-	// 	return 1;
-	// }
+	if (!CreateOverlayWindow(&overlay))
+	{
+		YaffeLogError("Unable to initialize overlay");
+	 	return 1;
+	}
 
 	// //Set up work queue
 	const u32 THREAD_COUNT = 4;
 	ThreadInfo threads[THREAD_COUNT];
 	WorkQueue work_queue = {};
-	sem_init(&work_queue.Semaphore, 0, 0);
+	sem_init(&work_queue.Semaphore, 0, 0);    struct js_event jsEvent;
+
 	for (u32 i = 0; i < THREAD_COUNT; i++)
 	{
 		ThreadInfo* thread = threads + i;
@@ -310,7 +389,7 @@ int main(void)
 		pthread_t id;
 		if (pthread_create(&id, NULL, ThreadProc, thread) != 0)
 		{
-			//TODO error
+			YaffeLogError("Unable to start worker thread");
 		}
 	}
 	g_state.work_queue = &work_queue;
@@ -344,12 +423,17 @@ int main(void)
 		CloseLogger();
 		return 1;
 	}
-
-	if (!LoadAssets(asset_memory, asset_size, &g_assets)) 
+		
+	if (!LoadAssets(asset_memory, asset_size, &g_assets))
 	{
 		CloseLogger();
 		return 1;
 	}
+
+
+	PlatformInput input;
+	input.joystick = -1;
+	g_input.platform = &input;
 
 	InitializeUI(&g_state, &g_ui);
 	InitailizeDatbase(&g_state);
@@ -358,27 +442,6 @@ int main(void)
 	g_state.service = new PlatformService();
 	InitYaffeService(g_state.service);
 	GetAllPlatforms(&g_state);
-
-	// HINSTANCE xinput_dll;
-	// char system_path[MAX_PATH];
-	// GetSystemDirectoryA(system_path, sizeof(system_path));
-
-	// char xinput_path[MAX_PATH];
-	// PathCombineA(xinput_path, system_path, "xinput1_3.dll");
-	// if (FileExists(xinput_path))
-	// {
-	// 	xinput_dll = LoadLibraryA(xinput_path);
-	// }
-	// else
-	// {
-	// 	PathCombineA(xinput_path, system_path, "xinput1_4.dll");
-	// 	xinput_dll = LoadLibraryA(xinput_path);
-	// }
-	// assert(xinput_dll);
-
-	// //Assign it to getControllerData for easier use
-	// g_input.XInputGetState = (get_gamepad_ex)GetProcAddress(xinput_dll, (LPCSTR)100);
-	// g_input.layout = GetKeyboardLayout(0);
 
 	YaffeTime time = {};
 	g_state.restrictions = new RestrictedMode();

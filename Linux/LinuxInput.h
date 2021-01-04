@@ -1,32 +1,13 @@
 #pragma once
 
-struct XINPUT_GAMEPAD_EX
-{
-};
-
-#define XBOX_BUTTON int
 #define INPUT_SIZE 33
+#include "../YaffeInput.h"
 
-// returns 0 on success, 1167 on not connected. Might be others.
-typedef int get_gamepad_ex(int, XINPUT_GAMEPAD_EX*);
-
-
-//https://forums.tigsource.com/index.php?topic=26792.0
-struct YaffeInput
+struct PlatformInput
 {
-	char current_keyboard_state[INPUT_SIZE];
-	char previous_keyboard_state[INPUT_SIZE];
-	v2 mouse_position;
-
-	XBOX_BUTTON current_controller_buttons;
-	XBOX_BUTTON previous_controller_buttons;
-	v2 left_stick;
-	v2 right_stick;
-
-	get_gamepad_ex XInputGetState;
-
-	long last_input;
+	int joystick;
 };
+#include "Joystick.cpp"
 
 enum KEYS
 {
@@ -66,6 +47,32 @@ enum KEYS
 	KEY_Eight = XK_8,
 	KEY_Nine = XK_9,
 
+#undef KEY_A
+#undef KEY_B
+#undef KEY_C
+#undef KEY_D
+#undef KEY_E
+#undef KEY_F
+#undef KEY_G
+#undef KEY_H
+#undef KEY_I
+#undef KEY_J
+#undef KEY_K
+#undef KEY_L
+#undef KEY_M
+#undef KEY_N
+#undef KEY_O
+#undef KEY_P
+#undef KEY_Q
+#undef KEY_R
+#undef KEY_S
+#undef KEY_T
+#undef KEY_U
+#undef KEY_V
+#undef KEY_W
+#undef KEY_X
+#undef KEY_Y
+#undef KEY_Z
 	KEY_A = XK_A,
 	KEY_B = XK_B,
 	KEY_C = XK_C,
@@ -104,19 +111,6 @@ enum KEYS
 	KEY_Num8 = XK_KP_8,
 	KEY_Num9 = XK_KP_9,
 
-	KEY_F1 = XK_F1,
-	KEY_F2 = XK_F2,
-	KEY_F3 = XK_F3,
-	KEY_F4 = XK_F4,
-	KEY_F5 = XK_F5,
-	KEY_F6 = XK_F6,
-	KEY_F7 = XK_F7,
-	KEY_F8 = XK_F8,
-	KEY_F9 = XK_F9,
-	KEY_F10 = XK_F10,
-	KEY_F11 = XK_F11,
-	KEY_F12 = XK_F12,
-
 	KEY_LShift = XK_Shift_L,
 	KEY_RShift = XK_Shift_R,
 	KEY_LControl = XK_Control_L,
@@ -132,41 +126,7 @@ enum KEYS
 	KEY_LBracket = XK_braceleft,
 	KEY_Backslash = XK_backslash,
 	KEY_RBracket = XK_braceright,
-	KEY_Quote = XK_quotedbl
-};
-
-enum MOUSE_BUTTONS
-{
-	BUTTON_Left = 0x01,
-	BUTTON_Right = 0x02,
-	BUTTON_Middle = 0x04,
-};
-
-enum CONTROLLER_BUTTONS
-{
-	CONTROLLER_DPAD_UP = 0x0001,
-	CONTROLLER_DPAD_DOWN = 0x0002,
-	CONTROLLER_DPAD_LEFT = 0x0004,
-	CONTROLLER_DPAD_RIGHT = 0x0008,
-	CONTROLLER_START = 0x0010,
-	CONTROLLER_BACK = 0x0020,
-	CONTROLLER_LEFT_THUMB = 0x0040,
-	CONTROLLER_RIGHT_THUMB = 0x0080,
-	CONTROLLER_LEFT_SHOULDER = 0x0100,
-	CONTROLLER_RIGHT_SHOULDER = 0x0200,
-	CONTROLLER_GUIDE = 0x0400,
-	CONTROLLER_A = 0x1000,
-	CONTROLLER_B = 0x2000,
-	CONTROLLER_X = 0x4000,
-	CONTROLLER_Y = 0x8000,
-};
-
-enum DIRECTIONS
-{
-	DIRECTION_Up,
-	DIRECTION_Down,
-	DIRECTION_Left,
-	DIRECTION_Right,
+	KEY_Quote = XK_quotedbl,
 };
 
 inline static bool InputDown(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
@@ -192,4 +152,9 @@ inline static bool InputUp(YaffeState* pState, char pInput[INPUT_SIZE], int pKey
 		KeyCode k = XKeysymToKeycode(pState->form->platform->display, pKey);
     	return !(pInput[k >> 3] & (1 << (k & 7)));
 	}
+}
+
+static int MapKey(int key)
+{
+	return key;
 }

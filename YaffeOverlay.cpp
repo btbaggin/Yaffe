@@ -179,7 +179,7 @@ static void RenderOverlay(YaffeState* pState, RenderState* pRender)
 		char buffer[20];
 		GetTime(buffer, 20);
 		v2 position = V2(overlay->width, overlay->height) - V2(UI_MARGIN, GetFontSize(FONT_Title) + UI_MARGIN);
-		PushRightAlignedTextWithIcon(pRender, &position, BITMAP_None, 0, FONT_Title, buffer, TEXT_FOCUSED);
+		PushRightAlignedTextWithIcon(pRender, &position, BITMAP_None, FONT_Title, buffer, TEXT_FOCUSED);
 
 		EndRenderPass(size, pRender, overlay->platform);
 

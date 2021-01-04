@@ -363,16 +363,16 @@ static void PushLine(RenderState* pState, v2 pP1, v2 pP2, float pSize, v4 pColor
 	pState->vertex_count += 2;
 }
 
-static void PushRightAlignedTextWithIcon(RenderState* pState, v2* pRight, BITMAPS pIcon, float pIconSize, FONTS pFont, const char* pText, v4 pTextColor = V4(0, 0, 0, 1))
+static void PushRightAlignedTextWithIcon(RenderState* pState, v2* pRight, BITMAPS pIcon, FONTS pFont, const char* pText, v4 pTextColor = V4(0, 0, 0, 1))
 {
 	v2 text_size = MeasureString(pFont, pText);
 	pRight->X -= text_size.Width;
 
-	PushText(pState, pFont, pText, *pRight, pTextColor);
+	PushText(pState, pFont, pText, *pRight - V2(0, 2), pTextColor);
 	if (pIcon != BITMAP_None)
 	{
-		pRight->X -= pIconSize;
-		PushSizedQuad(pState, V2(pRight->X, pRight->Y + text_size.Height - pIconSize + 2), V2(pIconSize), V4(1, 1, 1, pTextColor.A), GetBitmap(g_assets, pIcon));
+		pRight->X -= text_size.Height;
+		PushSizedQuad(pState, *pRight, V2(text_size.Height), V4(1, 1, 1, pTextColor.A), GetBitmap(g_assets, pIcon));
 	}
 
 	pRight->X -= UI_MARGIN;

@@ -41,27 +41,6 @@ int insert_chars(STB_TEXTEDIT_STRING *str, int pos, STB_TEXTEDIT_CHARTYPE *newte
 	return 1; // always succeeds
 }
 
-#ifdef _WIN32
-static int MapKey(int key)
-{
-	if (IsKeyUp(KEY_Control))
-	{
-		UINT result = MapVirtualKeyA(key, MAPVK_VK_TO_VSC);
-		WCHAR buffer[2];
-		int chars = ToUnicodeEx(key, result, (const BYTE*)g_input.current_keyboard_state, buffer, 2, 0, g_input.layout);
-		if (chars == 1 && buffer[0] != '\t') return buffer[0];
-	}
-	return -1;
-}
-#elif __linux__
-static int MapKey(int key)
-{
-	//TODO
-	return 'A';
-}
-#else
-static_assert(false);
-#endif
 // define all the #defines needed 
 
 #define KEYDOWN_BIT                    0x80000000
@@ -150,9 +129,9 @@ static void RenderTextbox(RenderState* pState, Textbox* tc, v2 pPosition)
 				if(text) stb_textedit_paste(tc, &tc->state, text, (int)strlen(text));
 			}
 
-			for (int i = KEY_Backspace; i <= KEY_Quote; i++)
+			for (int i = 0; i <= ArrayCount(INPUT_KEY_MAP); i++)
 			{
-				int key = i;
+				int key = INPUT_KEY_MAP[i];
 				if (IsKeyPressedWithoutDelay((KEYS)key))
 				{
 					if (shift) key |= STB_TEXTEDIT_K_SHIFT;
@@ -288,6 +267,9 @@ static void RenderFilePathBox(RenderState* pState, FilePathBox* pBox, v2 pPositi
 		if(pos.X > 0 && pos.Y > 0 && pos < V2(pBox->width, font_size))
 		{
 			char* result = nullptr;
+#ifdef __linux
+			tinyfd_allowCursesDialogs = 1;
+#endif
 			if (pBox->files) result = tinyfd_openFileDialog("Choose file", "", 0, NULL, NULL, 0);
 			else result = tinyfd_selectFolderDialog("Choose folder", NULL);
 			

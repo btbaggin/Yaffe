@@ -105,5 +105,55 @@ inline void Tick(YaffeTime* pTime)
 	pTime->current_time = current_time;
 }
 
+static void GetTime(char* pBuffer, u32 pBufferSize, const char* pFormat = "%I:%M%p")
+{
+	time_t now = time(0);
+	struct tm* timeinfo = localtime(&now);
+	strftime(pBuffer, pBufferSize, pFormat, timeinfo);
+}
+
+static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional)
+{
+	if (pBase == NULL && pAdditional == NULL) strcpy(pBuffer, "");
+	else if (pAdditional == NULL || strlen(pAdditional) == 0) strcpy(pBuffer, pBase);
+	else if (pBase == NULL || strlen(pBase) == 0) strcpy(pBuffer, pAdditional);
+	else {
+
+		char file[MAX_PATH];
+		strcpy(file, pAdditional);
+
+#ifdef WIN32
+		char directory_separator[] = "\\";
+		u32 i = 0;
+		for (i = 0; pAdditional[i] != 0; i++)
+		{
+			switch (pAdditional[i])
+			{
+			case '\\': case '/': case ':': case '?':
+			case '\"': case '<': case '>': case '|':
+				file[i] = ' ';
+				break;
+			}
+		}
+		file[i] = '\0';
+#elif __linux__
+		char directory_separator[] = "/";
+#else
+		static_assert(false);
+#endif
+
+		const char* last_char = pBase;
+		while (*last_char != '\0') last_char++;
+
+		int append_directory_separator = 0;
+		if (strcmp(last_char, directory_separator) != 0) append_directory_separator = 1;
+
+		strcpy(pBuffer, pBase);
+		if (append_directory_separator) strcat(pBuffer, directory_separator);
+
+		strcat(pBuffer, file);
+	}
+}
+
 static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...);
 #define Verify(condition, message, type) if (!condition) { DisplayErrorMessage(message, type); return; }

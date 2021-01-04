@@ -75,8 +75,8 @@ public:
 			PushText(pState, FONT_Subtext, render_name, position + V2(0, target_size.Height), V4(TEXT_FOCUSED, alpha));
 
 			//Help
-			PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, 20, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
-			PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonA, 20, FONT_Subtext, "Run", V4(1, 1, 1, alpha));
+			PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonX, FONT_Subtext, "Info", V4(1, 1, 1, alpha));
+			PushRightAlignedTextWithIcon(pState, &menu_position, BITMAP_ButtonA, FONT_Subtext, "Run", V4(1, 1, 1, alpha));
 		}
 
 		PushSizedQuad(pState, position, target_size, b);

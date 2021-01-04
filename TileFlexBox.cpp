@@ -103,9 +103,17 @@ public:
 
 		g_state.overlay.allow_input = (exe->platform < 0);
 
-		char buffer[1000];
-		BuildCommandLine(buffer, exe, path, roms, args);
-		StartProgram(&g_state, buffer, path);
+		if(exe->platform < 0) 
+		{
+			StartProgram(&g_state, path, nullptr, args);
+		}
+		else 
+		{
+			char executable[MAX_PATH];
+			CombinePath(executable, roms, exe->file);
+			StartProgram(&g_state, path, executable, args);
+		}
+
 	}
 	void Update(YaffeState* pState, float pDeltaTime)
 	{

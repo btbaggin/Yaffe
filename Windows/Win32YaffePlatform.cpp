@@ -2,44 +2,13 @@
 #include <taskschd.h>
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "comsupp.lib")
-#define CHECK_COM_ERROR(hr, error, code) if(FAILED(hr)) { \
-	YaffeLogError(error, hr);  \
-	code \
-	CoUninitialize(); \
-	return false; }
+#define CHECK_COM_ERROR(hr, error) if(FAILED(hr)) { YaffeLogError(error, hr); goto cleanup; }
 
 static void GetFullPath(const char* pPath, char* pBuffer)
 {
 	GetFullPathNameA(pPath, MAX_PATH, pBuffer, 0);
 }
-static void CombinePath(char* pBuffer, const char* pBase, const char* pAdditional)
-{
-	char file[MAX_PATH];
-	u32 i = 0;
-	for (i = 0; pAdditional[i] != 0; i++)
-	{
-		char c = pAdditional[i];
-		switch (c)
-		{
-		case '\\':
-		case '/':
-		case ':':
-		case '?':
-		case '\"':
-		case '<':
-		case '>':
-		case '|':
-			file[i] = ' ';
-			break;
-		default:
-			file[i] = c;
-			break;
-		}
-	}
-	file[i] = '\0';
 
-	PathCombineA(pBuffer, pBase, file);
-}
 static bool CreateDirectoryIfNotExists(const char* pDirectory)
 {
 	if (!PathIsDirectoryA(pDirectory))
@@ -50,29 +19,16 @@ static bool CreateDirectoryIfNotExists(const char* pDirectory)
 
 	return true;
 }
+
 static bool CopyFileTo(const char* pOld, const char* pNew)
 {
 	return CopyFileA(pOld, pNew, false);
-}
-
-static bool IsValidRomFile(char* pFile)
-{
-	//TODO change this
-	char* extension = PathFindExtensionA(pFile);
-	if (strcmp(extension, ".srm") == 0) return false;
-	return true;
-}
-
-static void RemovePathExtension(char* pBuffer)
-{
-	PathRemoveExtensionA(pBuffer);
 }
 
 static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 {
 	char path[MAX_PATH];
 	sprintf(path, "%s\\*.*", pDirectory);
-
 
 	WIN32_FIND_DATAA file;
 	HANDLE h;
@@ -95,21 +51,33 @@ static std::vector<std::string> GetFilesInDirectory(char* pDirectory)
 	return files;
 }
 
-static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
+static void StartProgram(YaffeState* pState, const char* pApplication, const char* pExecutable, const char* pArgs)
 {
 	Overlay* overlay = &pState->overlay;
 
-	YaffeLogInfo("Starting Process %s", pCommand);
+	char buffer[1000];
+	if (!pExecutable)
+	{
+		//Application, we only have the path to the application and it's arguments
+		sprintf(buffer, "\"%s\" %s", pApplication, pArgs);
+	}
+	else
+	{
+		//Emulator, path to emulator, args to emulator, and path to rom file
+		sprintf(buffer, "\"%s\" %s \"%s\"", pApplication, pArgs, pExecutable);
+	}
+
+	YaffeLogInfo("Starting Process %s", buffer);
 
 	STARTUPINFOA si = {};
 	PROCESS_INFORMATION pi = {};
-	if (CreateProcessA(NULL, pCommand, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+	if (CreateProcessA(NULL, buffer, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 	{
 		overlay->process = new PlatformProcess();
 		overlay->process->id = pi.dwProcessId;
 		overlay->process->thread_id = pi.dwThreadId;
 		overlay->process->handle = pi.hProcess;
-		strcpy(overlay->process->path, pExe);
+		strcpy(overlay->process->path, pApplication);
 	}
 	else
 	{
@@ -118,6 +86,7 @@ static void StartProgram(YaffeState* pState, char* pCommand, char* pExe)
 	}
 	ShowCursor(pState->overlay.allow_input);
 }
+
 static void ShowOverlay(Overlay* pOverlay)
 {
 	MONITORINFO mi = { sizeof(mi) };
@@ -132,20 +101,20 @@ static void ShowOverlay(Overlay* pOverlay)
 }
 
 // retrieves the (first) process ID of the given executable (or zero if not found)
-DWORD GetProcessID(const TCHAR* pszExePathName) {
+DWORD GetProcessID(const TCHAR* pszExePathName) 
+{
 	// attempt to create a snapshot of the currently running processes
 	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (!snapshot) return 0;
 
 	PROCESSENTRY32 entry = { sizeof(PROCESSENTRY32), 0 };
-	for (BOOL bContinue = Process32First(snapshot, &entry); bContinue; bContinue = Process32Next(snapshot, &entry)) {
+	for (BOOL bContinue = Process32First(snapshot, &entry); bContinue; bContinue = Process32Next(snapshot, &entry)) 
+	{
 		HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
 		DWORD dwSize = MAX_PATH;
 		if (!QueryFullProcessImageName(hProcess, 0, entry.szExeFile, &dwSize)) continue;
 
-		//if(std::equal(a.begin(), a.end(), b.begin(), [](char a, char b) { return tolower(a) == tolower(b); });
-		if (wcscmp(entry.szExeFile, pszExePathName) == 0)
-			return entry.th32ProcessID; // FOUND
+		if (wcscmp(entry.szExeFile, pszExePathName) == 0) return entry.th32ProcessID; // FOUND
 	}
 
 	return 0; // NOT FOUND
@@ -224,10 +193,12 @@ static void CloseOverlay(Overlay* pOverlay, bool pTerminate)
 		}
 	}
 }
+
 static bool ProcessIsRunning(PlatformProcess* pProcess)
 {
 	return WaitForSingleObject(pProcess->handle, 20) != 0;
 }
+
 static bool QueueUserWorkItem(WorkQueue* pQueue, work_queue_callback* pCallback, void* pData)
 {
 	u32 newnext = (pQueue->NextEntryToWrite + 1) % QUEUE_ENTRIES;
@@ -305,42 +276,32 @@ static bool GetAndSetVolume(float* pVolume, float pDelta)
 {
 	CoInitialize(NULL);
 	IMMDeviceEnumerator *deviceEnumerator = NULL;
-	HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
-	CHECK_COM_ERROR(hr, "CoCreateInstance failed: %x", );
-
+	IAudioEndpointVolume* endpointVolume = NULL;
 	IMMDevice *defaultDevice = nullptr;
-	hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
-	CHECK_COM_ERROR(hr, "Unable to get default audio endpoint: %x", {
-		deviceEnumerator->Release();
-		});
 
-	IAudioEndpointVolume *endpointVolume = NULL;
+	HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
+	CHECK_COM_ERROR(hr, "CoCreateInstance failed: %x");
+
+	hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
+	CHECK_COM_ERROR(hr, "Unable to get default audio endpoint: %x");
+
 	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, NULL, (void**)&endpointVolume);
-	CHECK_COM_ERROR(hr, "Unable to activate default audio device: %x", {
-		defaultDevice->Release();
-		deviceEnumerator->Release();
-		});
+	CHECK_COM_ERROR(hr, "Unable to activate default audio device: %x");
 
 	hr = endpointVolume->GetMasterVolumeLevelScalar(pVolume);
-	CHECK_COM_ERROR(hr, "Unable to get volume level: %x", {
-		defaultDevice->Release();
-		deviceEnumerator->Release();
-		})
+	CHECK_COM_ERROR(hr, "Unable to get volume level: %x")
 
 	if (pDelta != 0)
 	{
 		*pVolume = std::min(1.0F, std::max(0.0F, *pVolume + pDelta));
 		hr = endpointVolume->SetMasterVolumeLevelScalar(*pVolume, NULL);
-		CHECK_COM_ERROR(hr, "Unable to set volume level: %x", {
-			defaultDevice->Release();
-			deviceEnumerator->Release();
-			endpointVolume->Release();
-			});
+		CHECK_COM_ERROR(hr, "Unable to set volume level: %x"); 
 	}
 
-	defaultDevice->Release();
-	deviceEnumerator->Release();
-	endpointVolume->Release();
+cleanup:
+	if (defaultDevice) defaultDevice->Release();
+	if (deviceEnumerator) deviceEnumerator->Release();
+	if (endpointVolume) endpointVolume->Release();
 	CoUninitialize();
 	return true;
 }
@@ -357,31 +318,27 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 	GetFullPath(".\\Yaffe.exe", path);
 
 	//  Create an instance of the Task Service. 
-	ITaskService *pService = nullptr;
+	ITaskService* pService = nullptr;
+	ITaskFolder* pRootFolder = nullptr;
+	IRegisteredTask* task = nullptr;
+	IRegisteredTask* pRegisteredTask = nullptr;
+	ITaskDefinition* pTask = nullptr;
 	hr = CoCreateInstance(CLSID_TaskScheduler, nullptr, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
-	CHECK_COM_ERROR(hr, "Failed to create an instance of ITaskService: %x", {
-			pService->Release();
-		});
+	CHECK_COM_ERROR(hr, "Failed to create an instance of ITaskService: %x");
 
 	//  Connect to the task service.
 	hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
-	CHECK_COM_ERROR(hr, "ITaskService::Connect failed: %x", {
-		pService->Release();
-		});
+	CHECK_COM_ERROR(hr, "ITaskService::Connect failed: %x");
 
-	ITaskFolder *pRootFolder = nullptr;
 	hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
-	CHECK_COM_ERROR(hr, "Cannot get Root Folder pointer: %x", {
-		pService->Release();
-		});
+	CHECK_COM_ERROR(hr, "Cannot get Root Folder pointer: %x");
 
 	//  If the same task exists, remove it.
-	IRegisteredTask* task = nullptr;
 	pRootFolder->GetTask(_bstr_t(task_name), &task);
 	if (pAction == STARTUP_INFO_Get)
 	{
-		pService->Release();
-		pRootFolder->Release();
+		if (pService) pService->Release();
+		if (pRootFolder) pRootFolder->Release();
 		CoUninitialize();
 		return task != nullptr;
 	}
@@ -390,10 +347,7 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 		if (!pValue)
 		{
 			hr = pRootFolder->DeleteTask(_bstr_t(task_name), 0);
-			CHECK_COM_ERROR(hr, "Failed to delete task: %x", {
-				pService->Release();
-				pRootFolder->Release();
-				});
+			if (FAILED(hr)) YaffeLogError("Failed to delete task: %x", hr);
 
 			pService->Release();
 			pRootFolder->Release();
@@ -403,111 +357,73 @@ static bool RunAtStartUp(STARTUP_INFOS pAction, bool pValue)
 		else if(!task)
 		{
 			//  Create the task builder object to create the task.
-			ITaskDefinition *pTask = nullptr;
 			hr = pService->NewTask(0, &pTask);
 			pService->Release();  // COM clean up.  Pointer is no longer used.
 
-			CHECK_COM_ERROR(hr, "Failed to create a task definition: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Failed to create a task definition: %x");
 
 			IPrincipal* prin = nullptr;
 			pTask->get_Principal(&prin);
 			hr = prin->put_RunLevel(TASK_RUNLEVEL_HIGHEST);
 			prin->Release();
-			CHECK_COM_ERROR(hr, "Unable to set admin privileges: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Unable to set admin privileges: %x");
 
 			//  Create the settings for the task
 			ITaskSettings *pSettings = nullptr;
 			hr = pTask->get_Settings(&pSettings);
-			CHECK_COM_ERROR(hr, "Cannot get settings pointer: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot get settings pointer: %x");
 
 			//  Set setting values for the task. 
 			hr = pSettings->put_StartWhenAvailable(VARIANT_TRUE);
 			pSettings->Release();
-			CHECK_COM_ERROR(hr, "Cannot put setting info: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot put setting info: %x");
 
 			//  Add the logon trigger to the task.
 			ITriggerCollection *pTriggerCollection = nullptr;
 			hr = pTask->get_Triggers(&pTriggerCollection);
-			CHECK_COM_ERROR(hr, "Cannot get trigger collection: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot get trigger collection: %x");
 
 			ITrigger *pTrigger = nullptr;
 			hr = pTriggerCollection->Create(TASK_TRIGGER_LOGON, &pTrigger);
 			pTriggerCollection->Release();
-			CHECK_COM_ERROR(hr, "Cannot create the trigger: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot create the trigger: %x");
 
 			//  Add an Action to the task.
 			IActionCollection *pActionCollection = nullptr;
 			hr = pTask->get_Actions(&pActionCollection);
-			CHECK_COM_ERROR(hr, "Cannot get Task collection pointer: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot get Task collection pointer: %x");
 
 			IAction *action = nullptr;
 			hr = pActionCollection->Create(TASK_ACTION_EXEC, &action);
 			pActionCollection->Release();
-			CHECK_COM_ERROR(hr, "Cannot create the action: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot create the action: %x");
 
 			IExecAction *pExecAction = nullptr;
 			hr = action->QueryInterface(IID_IExecAction, (void**)&pExecAction);
 			action->Release();
-			CHECK_COM_ERROR(hr, "QueryInterface call failed for IExecAction: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "QueryInterface call failed for IExecAction: %x");
 
 			hr = pExecAction->put_Path(_bstr_t(path));
-			CHECK_COM_ERROR(hr, "Cannot set path of executable: %x", {
-				pTask->Release();
-				pExecAction->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot set path of executable: %x");
 
 			hr = pExecAction->put_WorkingDirectory(_bstr_t(working_path));
 			pExecAction->Release();
-			CHECK_COM_ERROR(hr, "Cannot set working directory of executable: %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Cannot set working directory of executable: %x");
 
 			//  Save the task in the root folder.
-			IRegisteredTask *pRegisteredTask = nullptr;
 			hr = pRootFolder->RegisterTaskDefinition(_bstr_t(task_name), pTask, TASK_CREATE_OR_UPDATE, _variant_t(L"Builtin\\Administrators"), 
 													 _variant_t(), TASK_LOGON_GROUP, _variant_t(L""), &pRegisteredTask);
-			CHECK_COM_ERROR(hr, "Error saving the Task : %x", {
-				pTask->Release();
-				pRootFolder->Release();
-				});
+			CHECK_COM_ERROR(hr, "Error saving the Task : %x");
 
 			// Clean up
-			pRootFolder->Release();
-			pTask->Release();
-			pRegisteredTask->Release();
-			CoUninitialize();
-			return true;
+
 		}
 
+	cleanup:
+		if (pRootFolder) pRootFolder->Release();
+		if (pTask) pTask->Release();
+		if (pRegisteredTask) pRegisteredTask->Release();
+		CoUninitialize();
 		return true;
 	}
 }

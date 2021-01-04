@@ -300,7 +300,7 @@ void Win32GetInput(YaffeInput* pInput, HWND pHandle)
 	pInput->mouse_position = V2((float)point.x, (float)point.y);
 
 	XINPUT_GAMEPAD_EX state = {};
-	DWORD result = g_input.XInputGetState(0, &state);
+	DWORD result = g_input.platform->XInputGetState(0, &state);
 	if (result == ERROR_SUCCESS)
 	{
 		pInput->current_controller_buttons = state.wButtons;
@@ -435,9 +435,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 	assert(xinput_dll);
 
-	//Assign it to getControllerData for easier use
-	g_input.XInputGetState = (get_gamepad_ex)GetProcAddress(xinput_dll, (LPCSTR)100);
-	g_input.layout = GetKeyboardLayout(0);
+	PlatformInput input;
+	input.XInputGetState = (get_gamepad_ex)GetProcAddress(xinput_dll, (LPCSTR)100);
+	input.layout = GetKeyboardLayout(0);
+	g_input.platform = &input;
 
 	YaffeTime time = {};
 	g_state.restrictions = new RestrictedMode();

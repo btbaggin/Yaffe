@@ -4,9 +4,7 @@ struct PlatformService
 	std::mutex mutex;
 };
 
-
 #include <stdio.h>
-#ifdef _WIN32
 #include <tchar.h>
 #include <TlHelp32.h>
 bool IsProcessRunning(const TCHAR* pExe) 
@@ -29,11 +27,9 @@ bool IsProcessRunning(const TCHAR* pExe)
 	CloseHandle(snapshot);
 	return false;
 }
-#endif
 
 static void InitYaffeService(PlatformService* pService)
 {
-	#ifdef _WIN32
 	if (!IsProcessRunning(L"YaffeService.exe"))
 	{
 		STARTUPINFOA si = {};
@@ -42,7 +38,6 @@ static void InitYaffeService(PlatformService* pService)
 		PROCESS_INFORMATION pi = {};
 		CreateProcessA("YaffeService.exe", NULL, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
 	}
-	#endif
 }
 
 static bool OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
@@ -109,7 +104,6 @@ static void ShutdownYaffeService(PlatformService* pService)
 	CloseHandle(pService->handle);
 }
 
-#ifdef _WIN32
 #pragma comment(lib, "urlmon.lib")
 #include <urlmon.h>
 static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
@@ -136,7 +130,3 @@ static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
 	stream->Release();
 	CloseHandle(file);
 }
-#else
-static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
-{}
-#endif

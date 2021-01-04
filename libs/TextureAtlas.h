@@ -41,14 +41,11 @@ static void ta_WriteAtlasImage(ImageInfo* pInfo, int pX, int pY, FILE* pFile)
 	fwrite(&pY, sizeof(int), 1, pFile);
 }
 
-static TextureAtlas ta_ReadTextureAtlas(const char* pPath)
+static TextureAtlas ta_ReadTextureAtlas(char* pPath)
 {
 	TextureAtlas atlas = {};
 
-	char path[MAX_PATH];
-	GetFullPathNameA(pPath, MAX_PATH, path, 0);
-
-	FILE* file = fopen(path, "r");
+	FILE* file = fopen(pPath, "r");
 	if (!file) return atlas;
 
 	int atlas_width, atlas_height;

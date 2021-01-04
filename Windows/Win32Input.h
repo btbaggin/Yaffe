@@ -12,29 +12,16 @@ typedef struct
 	SHORT                               sThumbRY;
 } XINPUT_GAMEPAD_EX;
 
-#define XBOX_BUTTON DWORD
 #define INPUT_SIZE 256
+#include "../YaffeInput.h"
+
 // returns 0 on success, 1167 on not connected. Might be others.
 typedef int(__stdcall* get_gamepad_ex)(int, XINPUT_GAMEPAD_EX*);
 
-
-//https://forums.tigsource.com/index.php?topic=26792.0
-struct YaffeInput
+struct PlatformInput
 {
-	char current_keyboard_state[INPUT_SIZE];
-	char previous_keyboard_state[INPUT_SIZE];
-	v2 mouse_position;
-
-	XBOX_BUTTON current_controller_buttons;
-	XBOX_BUTTON previous_controller_buttons;
-	v2 left_stick;
-	v2 right_stick;
-
 	get_gamepad_ex XInputGetState;
-	//TODO
 	HKL layout;
-
-	long last_input;
 };
 
 enum KEYS
@@ -113,19 +100,6 @@ enum KEYS
 	KEY_Num8 = 0x68,
 	KEY_Num9 = 0x69,
 
-	KEY_F1 = 0x70,
-	KEY_F2 = 0x71,
-	KEY_F3 = 0x72,
-	KEY_F4 = 0x73,
-	KEY_F5 = 0x74,
-	KEY_F6 = 0x75,
-	KEY_F7 = 0x76,
-	KEY_F8 = 0x77,
-	KEY_F9 = 0x78,
-	KEY_F10 = 0x79,
-	KEY_F11 = 0x7A,
-	KEY_F12 = 0x7B,
-
 	KEY_NumLock = 0x90,
 	KEY_ScrollLock = 0x91,
 	KEY_LShift = 0xA0,
@@ -146,42 +120,6 @@ enum KEYS
 	KEY_Quote = 0xDE
 };
 
-enum MOUSE_BUTTONS
-{
-	BUTTON_Left = 0x01,
-	BUTTON_Right = 0x02,
-	BUTTON_Middle = 0x04,
-	BUTTON_X1 = 0x05,
-	BUTTON_X2 = 0x06
-};
-
-enum CONTROLLER_BUTTONS
-{
-	CONTROLLER_DPAD_UP = 0x0001,
-	CONTROLLER_DPAD_DOWN = 0x0002,
-	CONTROLLER_DPAD_LEFT = 0x0004,
-	CONTROLLER_DPAD_RIGHT = 0x0008,
-	CONTROLLER_START = 0x0010,
-	CONTROLLER_BACK = 0x0020,
-	CONTROLLER_LEFT_THUMB = 0x0040,
-	CONTROLLER_RIGHT_THUMB = 0x0080,
-	CONTROLLER_LEFT_SHOULDER = 0x0100,
-	CONTROLLER_RIGHT_SHOULDER = 0x0200,
-	CONTROLLER_GUIDE = 0x0400,
-	CONTROLLER_A = 0x1000,
-	CONTROLLER_B = 0x2000,
-	CONTROLLER_X = 0x4000,
-	CONTROLLER_Y = 0x8000,
-};
-
-enum DIRECTIONS
-{
-	DIRECTION_Up,
-	DIRECTION_Down,
-	DIRECTION_Left,
-	DIRECTION_Right,
-};
-
 inline static bool InputDown(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
 {
 	return (pInput[pKey] & 0x80) != 0;
@@ -189,4 +127,17 @@ inline static bool InputDown(YaffeState* pState, char pInput[INPUT_SIZE], int pK
 inline static bool InputUp(YaffeState* pState, char pInput[INPUT_SIZE], int pKey)
 {
 	return (pInput[pKey] & 0x80) == 0;
+}
+inline static bool IsKeyUp(KEYS pKey);
+extern YaffeInput g_input;
+static int MapKey(int key)
+{
+	if (IsKeyUp(KEY_Control))
+	{
+		UINT result = MapVirtualKeyA(key, MAPVK_VK_TO_VSC);
+		WCHAR buffer[2];
+		int chars = ToUnicodeEx(key, result, (const BYTE*)g_input.current_keyboard_state, buffer, 2, 0, g_input.platform->layout);
+		if (chars == 1 && buffer[0] != '\t') return buffer[0];
+	}
+	return -1;
 }

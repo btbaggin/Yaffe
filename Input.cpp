@@ -9,8 +9,84 @@ const float XINPUT_INPUT_DEADZONE = 7849.0F;
 #define IsRightPressed() (IsKeyPressed(KEY_Right) || IsLeftStickPushed(DIRECTION_Right) || IsControllerPressed(CONTROLLER_DPAD_RIGHT))
 #define IsEnterPressed() (IsKeyPressed(KEY_Enter) || IsControllerPressed(CONTROLLER_A))
 #define IsEscPressed() (IsKeyPressed(KEY_Escape) || IsControllerPressed(CONTROLLER_B))
-#define IsFilterPressed() (IsKeyPressed(KEY_F1) || IsControllerPressed(CONTROLLER_Y))
+#define IsFilterPressed() (IsKeyPressed(KEY_F) || IsControllerPressed(CONTROLLER_Y))
 #define IsInfoPressed() (IsKeyPressed(KEY_I) || IsControllerPressed(CONTROLLER_X))
+
+const int INPUT_KEY_MAP[] = {
+	KEY_Backspace,
+	KEY_Tab,
+	KEY_Enter,
+	KEY_Shift,
+	KEY_Control,
+	KEY_Alt,
+	KEY_CapsLock,
+	KEY_Escape,
+	KEY_Space,
+	KEY_PageUp,
+	KEY_PageDown,
+	KEY_End,
+	KEY_Home,
+	KEY_Left,
+	KEY_Up,
+	KEY_Right,
+	KEY_Down,
+	KEY_Delete,
+
+	KEY_Zero,
+	KEY_One,
+	KEY_Two,
+	KEY_Three,
+	KEY_Four,
+	KEY_Five,
+	KEY_Six,
+	KEY_Seven,
+	KEY_Eight,
+	KEY_Nine,
+
+	KEY_A,
+	KEY_B,
+	KEY_C,
+	KEY_D,
+	KEY_E,
+	KEY_F,
+	KEY_G,
+	KEY_H,
+	KEY_I,
+	KEY_J,
+	KEY_K,
+	KEY_L,
+	KEY_M,
+	KEY_N,
+	KEY_O,
+	KEY_P,
+	KEY_Q,
+	KEY_R,
+	KEY_S,
+	KEY_T,
+	KEY_U,
+	KEY_V,
+	KEY_W,
+	KEY_X,
+	KEY_Y,
+	KEY_Z,
+
+	KEY_LShift,
+	KEY_RShift,
+	KEY_LControl,
+	KEY_RControl,
+
+	KEY_Semicolon,
+	KEY_Plus,
+	KEY_Comma,
+	KEY_Minus,
+	KEY_Period,
+	KEY_Slash,
+	KEY_Tilde,
+	KEY_LBracket,
+	KEY_Backslash,
+	KEY_RBracket,
+	KEY_Quote
+};
 
 struct InputMessage
 {
@@ -28,15 +104,18 @@ struct InputMessage
 inline static bool IsKeyPressed(KEYS pKey)
 {
 	if (g_input.last_input + GLOBAL_INPUT_DELAY > clock()) return false;
-	CHECK_KEY_INPUT(InputDown(&g_state, g_input.current_keyboard_state, pKey) && InputUp(&g_state, g_input.previous_keyboard_state, pKey));
+	CHECK_KEY_INPUT(InputDown(&g_state, g_input.current_keyboard_state, pKey) && 
+					InputUp(&g_state, g_input.previous_keyboard_state, pKey));
 }
 inline static bool IsKeyPressedWithoutDelay(KEYS pKey)
 {
-	return InputDown(&g_state, g_input.current_keyboard_state, pKey) && InputUp(&g_state, g_input.previous_keyboard_state, pKey);
+	return InputDown(&g_state, g_input.current_keyboard_state, pKey) && 
+		   InputUp(&g_state, g_input.previous_keyboard_state, pKey);
 }
 inline static bool IsButtonPressed(MOUSE_BUTTONS pButton)
 {
-	CHECK_KEY_INPUT(InputDown(&g_state, g_input.current_keyboard_state, pButton) && InputUp(&g_state, g_input.previous_keyboard_state, pButton));
+	CHECK_KEY_INPUT(InputDown(&g_state, g_input.current_keyboard_state, pButton) && 
+					InputUp(&g_state, g_input.previous_keyboard_state, pButton));
 }
 inline static bool IsControllerPressed(CONTROLLER_BUTTONS pController)
 {
@@ -55,9 +134,9 @@ inline static u32 GetPressedButton()
 
 inline static u32 GetPressedKey()
 {
-	for (u32 i = KEY_Zero; i <= KEY_Z; i++)
+	for (u32 i = 0; i < ArrayCount(INPUT_KEY_MAP); i++)
 	{
-		if (IsKeyPressedWithoutDelay((KEYS)i)) return i;
+		if (IsKeyPressedWithoutDelay((KEYS)INPUT_KEY_MAP[i])) return i;
 	}
 	return 0;
 }

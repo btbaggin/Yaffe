@@ -277,7 +277,6 @@
     <ClInclude Include="Linux\LinuxInput.h" />
     <ClInclude Include="RestrictedMode.h" />
     <ClInclude Include="Platform.h" />
-    <ClInclude Include="Input.h" />
     <ClInclude Include="Interface.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Windows\Win32Input.h">

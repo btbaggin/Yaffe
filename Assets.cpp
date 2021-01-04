@@ -78,7 +78,9 @@ static void LoadTexturePack(void* pData)
 	{
 		SendTextureToGraphicsCard(work->bitmap);
 
-		TextureAtlas atlas = ta_ReadTextureAtlas(work->atlas->config);
+		char config[MAX_PATH];
+		GetFullPath(work->atlas->config, config);
+		TextureAtlas atlas = ta_ReadTextureAtlas(config);
 		for (u32 i = 0; i < atlas.count; i++)
 		{
 			PackedTextureEntry t = work->atlas->textures[i];
@@ -437,20 +439,23 @@ void FreeAsset(AssetSlot* pSlot)
 {
 	if (pSlot->state == ASSET_STATE_Loaded)
 	{
-		Free(pSlot->data);
-		switch (pSlot->type)
+		if(pSlot->data)
 		{
-			case ASSET_TYPE_Bitmap:
-			case ASSET_TYPE_TexturePack:
-				glDeleteTextures(1, &pSlot->bitmap->texture);
-				break;
+			switch (pSlot->type)
+			{
+				case ASSET_TYPE_Bitmap:
+				case ASSET_TYPE_TexturePack:
+					glDeleteTextures(1, &pSlot->bitmap->texture);
+					break;
 
-			case ASSET_TYPE_Font:
-				glDeleteTextures(1, &pSlot->font->texture);
-				break;
+				case ASSET_TYPE_Font:
+					glDeleteTextures(1, &pSlot->font->texture);
+					break;
 
-			default:
-				assert(false);
+				default:
+					assert(false);
+			}
+			Free(pSlot->data);
 		}
 		pSlot->last_requested = 0;
 		AtomicExchange(&pSlot->state, ASSET_STATE_Unloaded);

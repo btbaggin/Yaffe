@@ -60,13 +60,6 @@ static bool operator>(v2 l, v2 r)
 	return l.X > r.X && l.Y > r.Y;
 }
 
-static void GetTime(char* pBuffer, u32 pBufferSize, const char* pFormat = "%I:%M%p")
-{
-	time_t now = time(0);
-	struct tm* timeinfo = localtime(&now);
-	strftime(pBuffer, pBufferSize, pFormat, timeinfo);
-}
-
 #define ArrayCount(a) sizeof(a) / sizeof(a[0])
 #define HasFlag(flag, value) (flag & value) != 0
 

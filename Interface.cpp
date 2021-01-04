@@ -69,7 +69,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pW
 	const float TITLEBAR_SIZE = 32.0F;
 	const float ICON_SIZE = 32.0F;
 	const float ICON_SIZE_WITH_MARGIN = ICON_SIZE + UI_MARGIN * 2;
-	const float BUTTON_SIZE = 24.0F;
+	float BUTTON_SIZE = GetFontSize(FONT_Subtext);// 24.0F;
 
 	v2 size = V2(UI_MARGIN * 4, UI_MARGIN * 2 + TITLEBAR_SIZE) + pModal->content->size;
 	if (pModal->icon != BITMAP_None)
@@ -106,7 +106,7 @@ static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pW
 	v2 right = window_position + size - V2(BUTTON_SIZE);
 	if (pModal->button)
 	{
-		PushRightAlignedTextWithIcon(pState, &right, BITMAP_ButtonA, BUTTON_SIZE, FONT_Subtext, pModal->button, TEXT_FOCUSED);
+		PushRightAlignedTextWithIcon(pState, &right, BITMAP_ButtonA,FONT_Subtext, pModal->button, TEXT_FOCUSED);
 	}
 }
 
@@ -198,9 +198,9 @@ static void DisplayApplicationErrors(YaffeState* pState)
 
 static void DisplayQuitMessage(YaffeState* pState)
 {
-	if (WindowIsForeground(pState) &&
-		pState->modals.count == 0 &&
-		(IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)))
+	if (pState->modals.count == 0 &&
+		(IsKeyPressed(KEY_Q) || IsControllerPressed(CONTROLLER_START)) &&
+		WindowIsForeground(pState))
 	{
 		//Only allow quitting when current window is focused
 		std::vector<std::string> options;
