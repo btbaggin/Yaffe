@@ -56,12 +56,13 @@ static void DisplayErrorMessage(const char* pError, ERROR_TYPE pType, ...)
 
 	}
 }
-static void CloseModalWindow(ModalWindow* pModal, MODAL_RESULTS pResult, YaffeState* pState)
+inline static void CloseModalWindow(ModalWindow** pModal, MODAL_RESULTS pResult, YaffeState* pState)
 {
-	if (pModal->on_close) pModal->on_close(pState, pResult, pModal->content);
-	delete pModal->content;
-	delete pModal;
-	pModal = nullptr;
+	ModalWindow* modal = *pModal;
+	if (modal->on_close) modal->on_close(pState, pResult, modal->content);
+	delete modal->content;
+	delete modal;
+	*pModal = nullptr;
 }
 
 static void RenderModalWindow(RenderState* pState, ModalWindow* pModal, Form* pWindow)
@@ -239,7 +240,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 	if (pState->restrictions->modal)
 	{
 		MODAL_RESULTS result = pState->restrictions->modal->content->Update(pDeltaTime);
-		if(result != MODAL_RESULT_None) CloseModalWindow(pState->restrictions->modal, result, pState);
+		if (result != MODAL_RESULT_None) CloseModalWindow(&pState->restrictions->modal, result, pState);
 		return;
 	}
 
@@ -254,7 +255,7 @@ static void UpdateUI(YaffeState* pState, float pDeltaTime)
 		if (result != MODAL_RESULT_None)
 		{
 			AtomicAdd(&pState->modals.count, -1);
-			CloseModalWindow(modal, result, pState);
+			CloseModalWindow(&modal, result, pState);
 		} 
 		return;
 	}
