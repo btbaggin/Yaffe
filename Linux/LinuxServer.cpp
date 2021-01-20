@@ -1,9 +1,3 @@
-struct PlatformService
-{
-	int handle;
-	std::mutex mutex;
-};
-
 int IsProcessRunning(std::string procName)
 {
     int pid = -1;
@@ -47,7 +41,7 @@ int IsProcessRunning(std::string procName)
     return pid;
 }
 
-static void InitYaffeService(PlatformService* pService)
+static void InitYaffeService()
 {
 	if (IsProcessRunning("YaffeService") == -1)
 	{
@@ -72,51 +66,63 @@ static bool OpenNamedPipe(int* pHandle, const char* pPath, int pAccess)
 	return *pHandle != -1;
 }
 
-static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage, json* pResponse)
+static const char* PIPE_NAME = "./tmp/yaffe";
+static bool SendServiceMessage(YaffeState* pState, YaffeMessage* pMessage, json* pResponse)
 {
 	const u32 size = Megabytes(2);
 	char* buf = new char[size];
 	ZeroMemory(buf, size);
 
-	static const char* path = "./tmp/yaffe";
 	char message[4048];
 	CreateServiceMessage(pMessage, message);
 	YaffeLogInfo("Sending service message %s", message);
 
 	{
-		std::lock_guard<std::mutex> guard(pService->mutex);
+		std::lock_guard<std::mutex> guard(pState->net_mutex);
 		int write_handle;
-		if (!OpenNamedPipe(&write_handle, path, O_WRONLY | O_NONBLOCK)) return false;
+		if (!OpenNamedPipe(&write_handle, PIPE_NAME, O_WRONLY | O_NONBLOCK)) return false;
 
-		write(pService->handle, message, strlen(message));
+		write(write_handle, message, strlen(message));
 		close(write_handle);
 	}
 	
 
-	std::lock_guard<std::mutex> guard(pService->mutex);
+	std::lock_guard<std::mutex> guard(pState->net_mutex);
 	int read_handle;
-	if (!OpenNamedPipe(&read_handle, path, O_RDONLY | O_NONBLOCK)) return false;
+	if (!OpenNamedPipe(&read_handle, PIPE_NAME, O_RDONLY | O_NONBLOCK)) return false;
 
-	if (read(pService->handle, buf, size))
+	bool success = false;
+	if (read(read_handle, buf, size))
 	{
 		YaffeLogInfo("Received service reply");
 		picojson::parse(*pResponse, buf);
-		close(read_handle);
-		free(buf);
-		return true;
+		success = true;
+		goto cleanup;
 	}
 
 	close(read_handle);
 	free(buf);
-	return false;
+	return success;
 }
 
-static void ShutdownYaffeService(PlatformService* pService)
+static void ShutdownYaffeService()
 {
-	close(pService->handle);
+	char message[4048];
+	YaffeMessage m;
+	m.type = MESSAGE_TYPE_Quit;
+	CreateServiceMessage(&m, message);
+
+	{
+		int write_handle;
+		if (!OpenNamedPipe(&write_handle, PIPE_NAME, O_WRONLY | O_NONBLOCK)) return false;
+
+		write(write_handle, message, strlen(message));
+		close(write_handle);
+	}
 }
 
 static void DownloadImage(const char* pUrl, AssetSlot* pSlot)
 {
+	//http://beej.us/guide/bgnet/html/
 	//TODO shell out to wget?
 }

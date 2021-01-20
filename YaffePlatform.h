@@ -1,5 +1,4 @@
 #pragma once
-struct PlatformService;
 struct WorkQueue;
 struct PlatformWindow;
 struct PlatformProcess;
@@ -41,9 +40,6 @@ static void SwapBuffers(PlatformWindow* pWindow);
 static void ShowOverlay(Overlay* pOverlay);
 static void CloseOverlay(Overlay* pOverlay, bool pTerminate);
 static bool ProcessIsRunning(PlatformProcess* pProcess);
-
-static void InitYaffeService(PlatformService* pService);
-static void ShutdownYaffeService(PlatformService* pService);
 
 static bool Shutdown();
 static bool WindowIsForeground(YaffeState* pState);

@@ -110,7 +110,7 @@ static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	YaffeMessage args;
 	args.type = MESSAGE_TYPE_Platform;
 	args.name = work->name;
-	if (SendServiceMessage(g_state.service, &args, &response))
+	if (SendServiceMessage(&g_state, &args, &response))
 	{
 		u32 count = (u32)response.get("count").get<double>();
 		YaffeLogInfo("Recieved platform message response with %d items", count);
@@ -335,7 +335,7 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	args.type = MESSAGE_TYPE_Game;
 	args.name = work->name.c_str();
 	args.platform = work->platform;
-	if (SendServiceMessage(g_state.service, &args, &response))
+	if (SendServiceMessage(&g_state, &args, &response))
 	{
 		u32 count = (u32)response.get("count").get<double>();
 		YaffeLogInfo("Recieved game message response with %d items", count);

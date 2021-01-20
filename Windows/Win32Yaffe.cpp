@@ -414,8 +414,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	InitailizeDatbase(&g_state);
 
 	g_state.has_connection = InternetGetConnectedState(0, 0);
-	g_state.service = new PlatformService();
-	InitYaffeService(g_state.service);
+	InitYaffeService();
 	GetAllPlatforms(&g_state);
 
 	HINSTANCE xinput_dll;
@@ -488,7 +487,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
 	}
 
-	ShutdownYaffeService(g_state.service);
+	ShutdownYaffeService();
 	FreeAllAssets(g_assets);
 	DisposeRenderState(&render_state);
 	DestroyGlWindow(g_state.form->platform);

@@ -92,10 +92,10 @@ struct YaffeState
 	bool is_running;
 	bool has_connection;
 
-	PlatformService* service;
 	RestrictedMode* restrictions;
 
 	std::mutex db_mutex;
+	std::mutex net_mutex;
 };
 
 inline void Tick(YaffeTime* pTime)

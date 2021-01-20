@@ -439,8 +439,7 @@ int main(void)
 	InitailizeDatbase(&g_state);
 
 	// g_state.has_connection = InternetGetConnectedState(0, 0);
-	g_state.service = new PlatformService();
-	InitYaffeService(g_state.service);
+	InitYaffeService();
 	GetAllPlatforms(&g_state);
 
 	YaffeTime time = {};
@@ -526,7 +525,7 @@ int main(void)
 		// }
 	}
 
-	ShutdownYaffeService(g_state.service);
+	ShutdownYaffeService();
 	FreeAllAssets(g_assets);
 	DisposeRenderState(&render_state);
 	sem_destroy(&work_queue.Semaphore);
