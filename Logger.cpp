@@ -6,7 +6,7 @@
 #define DEBUG_LEVEL DEBUG_LEVEL_All
 
 #if DEBUG_LEVEL > DEBUG_LEVEL_Error
-#define YaffeLogInfo Log //(message, ...) Log(message, ##__VA_ARGS__)
+#define YaffeLogInfo Log
 #else
 #define LogInfo(message, ...)
 #endif

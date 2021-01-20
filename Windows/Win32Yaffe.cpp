@@ -24,6 +24,7 @@ High prio background queue
 
 #include <json.h>
 #include "../Yaffe.h"
+#include "../Logger.cpp"
 #include "../RestrictedMode.h"
 #include "../Memory.h"
 #include "../Assets.h"
@@ -62,7 +63,6 @@ YaffeInput g_input = {};
 Assets* g_assets;
 Interface g_ui = {};
 
-#include "../Logger.cpp"
 #include "../Memory.cpp"
 #include "../Assets.cpp"
 #include "../Input.cpp"

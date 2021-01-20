@@ -37,21 +37,20 @@ static void InitYaffeService(PlatformService* pService)
 		si.wShowWindow = SW_MINIMIZE;
 		PROCESS_INFORMATION pi = {};
 		CreateProcessA("YaffeService.exe", NULL, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+		YaffeLogInfo("Starting YaffeService.exe");
 	}
 }
 
 static bool OpenNamedPipe(HANDLE* pHandle, const char* pPath, DWORD pAccess)
 {
-	for (u32 i = 0; i < 3; i++)
+	*pHandle = INVALID_HANDLE_VALUE;
+	for (u32 i = 0; i < 3 && *pHandle == INVALID_HANDLE_VALUE; i++)
 	{
-		if (WaitNamedPipeA(pPath, 2000))
-		{
-			*pHandle = CreateFileA(pPath, pAccess, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-			if (*pHandle != INVALID_HANDLE_VALUE) return true;
-		}
+		*pHandle = CreateFileA(pPath, pAccess, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+		if (*pHandle == INVALID_HANDLE_VALUE) Sleep(1000);
 	}
 
-	return false;
+	return *pHandle != INVALID_HANDLE_VALUE;
 }
 
 static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage, json* pResponse)
@@ -65,11 +64,15 @@ static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage
 	{
 		char message[4048];
 		CreateServiceMessage(pMessage, message);
-		YaffeLogInfo("Sending service message %s", message);
 
 		std::lock_guard<std::mutex> guard(pService->mutex);
-		if (!OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE)) return false;
+		if (!OpenNamedPipe(&pService->handle, "\\\\.\\pipe\\yaffe", GENERIC_READ | GENERIC_WRITE))
+		{
+			YaffeLogError("Unable to open named pipe: %d", GetLastError());
+			return false;
+		}
 
+		YaffeLogInfo("Sending service message %s", message);
 		WriteFile(pService->handle, message, (DWORD)strlen(message), 0, NULL);
 	}
 
@@ -78,7 +81,7 @@ static bool SendServiceMessage(PlatformService* pService, YaffeMessage* pMessage
 		std::lock_guard<std::mutex> guard(pService->mutex);
 		if (ReadFile(pService->handle, buf, size, 0, NULL))
 		{
-			YaffeLogInfo("Received service reply");
+			YaffeLogInfo("Received service reply: %s", buf);
 			picojson::parse(*pResponse, buf);
 			free(buf);
 			return true;

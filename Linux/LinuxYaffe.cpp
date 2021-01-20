@@ -35,6 +35,7 @@ struct PlatformWindow
 
 #include "json.h"
 #include "../Yaffe.h"
+#include "../Logger.cpp"
 #include "LinuxInput.h"
 #include "../RestrictedMode.h"
 #include "../Memory.h"
@@ -57,7 +58,6 @@ struct PlatformProcess
 	pid_t id;
 };
 
-#include "../Logger.cpp"
 #include "../Memory.cpp"
 #include "../Assets.cpp"
 #include "../Input.cpp"

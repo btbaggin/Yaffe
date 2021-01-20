@@ -45,7 +45,12 @@ struct DatabaseConnection
 	sqlite3* con;
 	DatabaseConnection()
 	{
-		Verify(sqlite3_open("Yaffe.db", &con) == SQLITE_OK, "Unable to connect to games database", ERROR_TYPE_Error);
+		if (sqlite3_open("Yaffe.db", &con) != SQLITE_OK)
+		{
+			YaffeLogError("Unable to connect to database: %s", sqlite3_errmsg(con));
+			DisplayErrorMessage("Connection to database failed. See logs for details", ERROR_TYPE_Error);
+		}
+
 	}
 	~DatabaseConnection()
 	{
@@ -61,7 +66,11 @@ struct SqlStatement
 	SqlStatement(DatabaseConnection* pCon, const char* pQuery)
 	{
 		int prep = sqlite3_prepare_v2(pCon->con, pQuery, -1, &stmt, 0);
-		Verify(prep == SQLITE_OK, "Unable to prepare statement", ERROR_TYPE_Error);
+		if (prep != SQLITE_OK)
+		{
+			YaffeLogError("Unable to prepare statement: %d %s", prep, sqlite3_errmsg(pCon->con));
+			DisplayErrorMessage("Connection to database failed. See logs for details", ERROR_TYPE_Error);
+		}
 		parm_index = 1;
 	}
 	~SqlStatement()

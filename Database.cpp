@@ -113,6 +113,8 @@ static WORK_QUEUE_CALLBACK(RetrievePossiblePlatforms)
 	if (SendServiceMessage(g_state.service, &args, &response))
 	{
 		u32 count = (u32)response.get("count").get<double>();
+		YaffeLogInfo("Recieved platform message response with %d items", count);
+
 		bool exact = response.get("exact").get<bool>();
 		picojson::array games = response.get("platforms").get<picojson::array>();
 		std::vector<PlatformInfo> items;
@@ -336,6 +338,8 @@ WORK_QUEUE_CALLBACK(RetrievePossibleGames)
 	if (SendServiceMessage(g_state.service, &args, &response))
 	{
 		u32 count = (u32)response.get("count").get<double>();
+		YaffeLogInfo("Recieved game message response with %d items", count);
+
 		bool exact = response.get("exact").get<bool>();
 		jarray games = response.get("games").get<picojson::array>();
 		std::vector<GameInfo> items;
@@ -386,6 +390,7 @@ static void GetGameInfo(Platform* pApp, Executable* pExe, const char* pName)
 	}
 	else
 	{
+		YaffeLogInfo("Game not found in DB id: %d, name: %s", pApp->id, pExe->file);
 		pExe->invalid = true;
 
 		//Taking a pointer to the exe here could cause an invalid reference when we try to write to it in WriteGameToDB

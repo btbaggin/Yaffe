@@ -52,7 +52,7 @@ static bool IsValidRomFile(char* pFile)
 	const char *dot = strrchr(pFile, '.');
     if(!dot || dot == pFile) return false;
 
-    if (strcmp(dot + 1, ".srm") == 0) return false;
+    if (strcmp(dot + 1, "srm") == 0) return false;
     return true;
 }
 
@@ -69,7 +69,7 @@ static void RefreshExecutables(YaffeState* pState, Platform* pApp)
 			std::vector<std::string> files = GetFilesInDirectory(pApp->path);
 			if (pApp->files.count == files.size()) return;
 
-			YaffeLogInfo("Found %d platform items", (u32)files.size());
+			YaffeLogInfo("Found %d items for platform %s", (u32)files.size(), pApp->name);
 
 			pApp->files.Initialize((u32)files.size());
 
