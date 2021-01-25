@@ -28,7 +28,7 @@ static void Log(const char* pMessage, ...)
 	va_list args;
 	va_start(args, pMessage);
 
-	char buffer[1000];
+	char buffer[4000];
 	vsprintf(buffer, pMessage, args);
 
 	char time[100];

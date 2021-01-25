@@ -82,7 +82,7 @@ struct SqlStatement
 static void GetPlatformInfo(s32 pApplication, char* pPath, char* pArgs, char* pRoms);
 
 const char* qs_GetPlatform = "SELECT Platform, Path, Args, Roms FROM Platforms WHERE ID = @ID";
-const char* qs_GetAllPlatforms = "SELECT ID, Platform, Roms FROM Platforms";
+const char* qs_GetAllPlatforms = "SELECT ID, Platform, Roms FROM Platforms ORDER BY Platform";
 const char* qs_AddPlatform = "INSERT INTO Platforms ( ID, Platform, Path, Args, Roms ) VALUES ( @PlatformId, @Platform, @Path, @Args, @Roms )";
 const char* qs_UpdatePlatform = "UPDATE Platforms SET Path = @Path, Args = @Args, Roms = @Roms WHERE ID = @ID";
 
